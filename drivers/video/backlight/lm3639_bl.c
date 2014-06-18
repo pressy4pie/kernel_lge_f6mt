@@ -45,57 +45,6 @@
 #define BL_ON	1
 #define BL_OFF	0
 
-//                                                                   
-/* Flash control for L9II */
-/*                                */
-
-/*	 Flash Current
-	0000 : 46.875 mA		1000 : 421.875 mA
-	0001 : 93.75 mA 		1001 : 468.25 mA
-	0010 : 140.625 mA 	1010 : 515.625 mA
-	0011 : 187.5 mA  		1011 : 562.5 mA
-	0100 : 234.375 mA	1100 : 609.375 mA
-	0101 : 281.25 mA		1101 : 659.25 mA
-	0110 : 328.125 mA	1110 : 703.125 mA
-	0111 : 375 mA		1111 : 750 mA
-
-	Torch Current
-	000 : 28.125 mA		100 : 140.625 mA
-	001 : 56.25 mA		101 : 168.75 mA
-	010 : 84.375 mA		110 : 196.875 mA
-	011 : 112.5 mA		111 : 225mA
-
-	Frequency [7]
-	0 : 2 Mhz (default)
-	1 : 4 Mhz
-
-	Current Limit [6:5]
-	00 : 1.7 A			10 : 2.5 A (default)
-	01 : 1.9 A			11 : 3.1 A
-
-	Time out [4:0]
-	00000 : 32 ms
-	01111 : 512 ms (default)
-	11111 : 1024 ms
-*/
-
-#define LM3639_POWER_OFF        0
-#define LM3639_POWER_ON         1
-#define REG_ENABLE				0x0A
-#define REG_IO_CTRL				0x09
-#define REG_FL_CONF_1			0x06
-#define REG_FL_CONF_2			0x07
-
-static int lm3639_onoff_state = LM3639_POWER_OFF;
-
-enum led_status {
-	LM3639_LED_OFF,
-	LM3639_LED_LOW,
-	LM3639_LED_HIGH,
-	LM3639_LED_MAX
-};
-//                                                                   
-
 static struct i2c_client *lm3639_i2c_client;
 //                                                  
 #if 0//def CONFIG_HAS_EARLYSUSPEND
@@ -104,15 +53,15 @@ static struct early_suspend early_suspend;
 //                                                  
 
 struct backlight_platform_data {
-	void (*platform_init)(void);
-	int gpio;
-	unsigned int mode;
-	int max_current;
-	int init_on_boot;
-	int min_brightness;
-	int max_brightness;
-	int default_brightness;
-	int factory_brightness;
+   void (*platform_init)(void);
+   int gpio;
+   unsigned int mode;
+   int max_current;
+   int init_on_boot;
+   int min_brightness;
+   int max_brightness;
+   int default_brightness;
+   int factory_brightness;
 };
 
 struct lm3639_device {
@@ -145,12 +94,12 @@ static int lm3639_read_reg(struct i2c_client *client, unsigned char reg, unsigne
 {
 	int err;
 	struct i2c_msg msg[] = {
-		{
-			client->addr, 0, 1, &reg
-		},
-		{
-			client->addr, I2C_M_RD, 1, data
-		},
+                        {
+		client->addr, 0, 1, &reg
+                        },
+                        {
+		client->addr, I2C_M_RD, 1, data
+                        },
 	};
 
 	err = i2c_transfer(client->adapter, msg, 2);
@@ -185,17 +134,17 @@ static int lm3639_write_reg(struct i2c_client *client, unsigned char reg, unsign
 static int cal_value;
 
 static char mapped_value[] = {
-	10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
-	10, 10, 10, 11, 11, 11, 11, 12, 12, 12,
-	13, 13, 13, 14, 14, 15, 15, 16, 16, 17,
-	17, 18, 19, 19, 20, 21, 21, 22, 23, 24,
-	24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
-	34, 35, 36, 38, 39, 40, 41, 43, 44, 45,
-	47, 48, 49, 51, 52, 54, 55, 57, 59, 60,
-	62, 64, 65, 67, 69, 71, 73, 74, 76, 78,
-	80, 82, 84, 86, 89, 91, 93, 95, 97, 100,
-	102, 104, 106, 109, 111, 114, 116, 119, 121, 124,
-	127
+                10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+                10, 10, 10, 11, 11, 11, 11, 12, 12, 12,
+                13, 13, 13, 14, 14, 15, 15, 16, 16, 17,
+                17, 18, 19, 19, 20, 21, 21, 22, 23, 24,
+                24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+                34, 35, 36, 38, 39, 40, 41, 43, 44, 45,
+                47, 48, 49, 51, 52, 54, 55, 57, 59, 60,
+                62, 64, 65, 67, 69, 71, 73, 74, 76, 78,
+                80, 82, 84, 86, 89, 91, 93, 95, 97, 100,
+                102, 104, 106, 109, 111, 114, 116, 119, 121, 124,
+                127
 };
 
 static void lm3639_set_main_current_level(struct i2c_client *client, int level)
@@ -203,94 +152,69 @@ static void lm3639_set_main_current_level(struct i2c_client *client, int level)
 	struct lm3639_device *dev;
 	enum lge_boot_mode_type bootmode = lge_get_boot_mode();
 	unsigned int bright_per = 0;
-	//                                                    
-	unsigned char bl_ctrl;
-	//                                                    
 
 
 	dev = (struct lm3639_device *)i2c_get_clientdata(client);
 
-	switch(bootmode) {
-		case LGE_BOOT_MODE_FACTORY:
-		case LGE_BOOT_MODE_NORMAL:
-			break;
-		case LGE_BOOT_MODE_FACTORY2:
-			level = dev->default_brightness;
-			break;
-		case LGE_BOOT_MODE_PIFBOOT:
-			level = dev->factory_brightness;
-			break;
-		default:
-			break;
-	}
+	if(bootmode == LGE_BOOT_MODE_FACTORY2 || bootmode == LGE_BOOT_MODE_PIFBOOT)
+		level = dev->factory_brightness;
+
 //                                                                                             
 	if (level == -1)
 		level = cur_main_lcd_level; //dev->default_brightness;
-	//                                                                                             
+//                                                                                             
 
 	cur_main_lcd_level = level;
 	dev->bl_dev->props.brightness = cur_main_lcd_level;
 
 	mutex_lock(&main_lm3639_dev->bl_mutex);
 	if (level != 0) {
-		//                                           
-		//Gamma 2.2 Table adapted
-		//                        bright_per = (level - (unsigned int)20) *(unsigned int)100 / (unsigned int)235;
-		if( (level -20) > 0) {
-			bright_per = (level - (unsigned int)20) *(unsigned int)100 / (unsigned int)235;
-		} else {
-			bright_per = 0;
-		}
-		//                                           
-		cal_value = mapped_value[bright_per];
+//                                           
+                        //Gamma 2.2 Table adapted
+//                        bright_per = (level - (unsigned int)20) *(unsigned int)100 / (unsigned int)235;
+                        if( (level -20) > 0) {
+                                bright_per = (level - (unsigned int)20) *(unsigned int)100 / (unsigned int)235;
+                        } else {
+                                bright_per = 0;
+                        }
+//                                           
+                        cal_value = mapped_value[bright_per];
 
-		if (backlight_status == BL_OFF) {
-			//                                                          
-			lm3639_write_reg(main_lm3639_dev->client, 0x02, 0x54);
-			//                                                          
-			//                                                                                    
-			lm3639_write_reg(main_lm3639_dev->client, 0x03, 0x01);
-			//                                                                                    
-			lm3639_write_reg(main_lm3639_dev->client, 0x05, cal_value);
-			//                                                    
-			//                                lm3639_write_reg(main_lm3639_dev->client, 0x0A, 0x11);
-			bl_ctrl = 0;
-			lm3639_read_reg(main_lm3639_dev->client, 0x0A, &bl_ctrl);
-			bl_ctrl |= 0x11;
-			lm3639_write_reg(main_lm3639_dev->client, 0x0A, bl_ctrl);
-			//                                                    
-		}
-		lm3639_write_reg(main_lm3639_dev->client, 0x05, cal_value);
+                        if (backlight_status == BL_OFF) {
+//                                                          
+                                lm3639_write_reg(main_lm3639_dev->client, 0x02, 0x54);
+//                                                          
+//                                                                                    
+                                lm3639_write_reg(main_lm3639_dev->client, 0x03, 0x01);
+//                                                                                    
+                                lm3639_write_reg(main_lm3639_dev->client, 0x05, cal_value);
+                                lm3639_write_reg(main_lm3639_dev->client, 0x0A, 0x11);
+                        }
+                        lm3639_write_reg(main_lm3639_dev->client, 0x05, cal_value);
 
 	} else {
 		lm3639_write_reg(main_lm3639_dev->client, 0x05, 0x00);
-		//                                                    
-		//		lm3639_write_reg(main_lm3639_dev->client, 0x0A, 0x00);
-		bl_ctrl = 0;
-		lm3639_read_reg(main_lm3639_dev->client, 0x0A, &bl_ctrl);
-		bl_ctrl &= 0xE6;
-		lm3639_write_reg(main_lm3639_dev->client, 0x0A, bl_ctrl);
-		//                                                    
+		lm3639_write_reg(main_lm3639_dev->client, 0x0A, 0x00);
 	}
 	mutex_unlock(&main_lm3639_dev->bl_mutex);
 }
 
 void lm3639_backlight_on(int level)
 {
-	int gpio = main_lm3639_dev->gpio;
+        int gpio = main_lm3639_dev->gpio;
 
-	if (backlight_status == BL_OFF) {
-		gpio_direction_output(gpio, 1);
-		//                                                     
-		mdelay(10);
-		//                                                     
+        if (backlight_status == BL_OFF) {
+                gpio_direction_output(gpio, 1);
+//                                                     
+                mdelay(10);
+//                                                     
 
-	}
+        }
 
-	lm3639_set_main_current_level(main_lm3639_dev->client, level);
-	backlight_status = BL_ON;
+        lm3639_set_main_current_level(main_lm3639_dev->client, level);
+        backlight_status = BL_ON;
 
-	return;
+        return;
 }
 
 void lm3639_backlight_off(void)
@@ -300,20 +224,16 @@ void lm3639_backlight_off(void)
 	if (backlight_status == BL_OFF)
 		return;
 
-	//                                                  
-	//	saved_main_lcd_level = cur_main_lcd_level;
-	//                                                  
+//                                                  
+//	saved_main_lcd_level = cur_main_lcd_level;
+//                                                  
 	lm3639_set_main_current_level(main_lm3639_dev->client, 0);
 	backlight_status = BL_OFF;
 
-	//                                                    
-	if(lm3639_onoff_state != LM3639_POWER_ON) {
-		gpio_direction_output(gpio, 0);
-	}
-	//                                                    
-	//                                                  
-	//	msleep(6);
-	//                                                  
+	gpio_direction_output(gpio, 0);
+//                                                  
+//	msleep(6);
+//                                                  
 
 	return;
 }
@@ -349,10 +269,10 @@ static int bl_set_intensity(struct backlight_device *bd)
 
 static int bl_get_intensity(struct backlight_device *bd)
 {
-	unsigned char val = 0;
+    unsigned char val = 0;
 
-	val &= 0x1f;
-	return (int)val;
+    val &= 0x1f;
+    return (int)val;
 }
 
 //                                                  
@@ -387,17 +307,17 @@ static ssize_t lcd_backlight_store_level(struct device *dev, struct device_attri
 
 static int lm3639_bl_resume(struct i2c_client *client)
 {
-	lm3639_backlight_on(saved_main_lcd_level);
-	return 0;
+    lm3639_backlight_on(saved_main_lcd_level);
+    return 0;
 }
 
 static int lm3639_bl_suspend(struct i2c_client *client, pm_message_t state)
 {
-	printk(KERN_INFO"%s: new state: %d\n", __func__, state.event);
+    printk(KERN_INFO"%s: new state: %d\n", __func__, state.event);
 
-	lm3639_lcd_backlight_set_level(saved_main_lcd_level);
+    lm3639_lcd_backlight_set_level(saved_main_lcd_level);
 
-	return 0;
+    return 0;
 }
 
 static ssize_t lcd_backlight_show_on_off(struct device *dev, struct device_attribute *attr, char *buf)
@@ -424,9 +344,9 @@ static ssize_t lcd_backlight_store_on_off(struct device *dev, struct device_attr
 	printk(KERN_ERR "%d", on_off);
 
 	if (on_off == 1) {
-		lm3639_bl_resume(client);
+                        lm3639_bl_resume(client);
 	} else if (on_off == 0)
-		lm3639_bl_suspend(client, PMSG_SUSPEND);
+                        lm3639_bl_suspend(client, PMSG_SUSPEND);
 
 	return count;
 
@@ -468,35 +388,83 @@ static struct backlight_ops lm3639_bl_ops = {
 #if 0//def CONFIG_HAS_EARLYSUSPEND
 static void lm3639_early_suspend(struct early_suspend *h)
 {
-	int err = 0;
-	unsigned char data;
-	int gpio = main_lm3639_dev->gpio;
+        int err = 0;
+        unsigned char data;
+        int gpio = main_lm3639_dev->gpio;
 
-	data = 0x00; //backlight2 brightness 0
-	err = lm3639_write_reg(main_lm3639_dev->client, 0x05, data);
+        data = 0x00; //backlight2 brightness 0
+        err = lm3639_write_reg(main_lm3639_dev->client, 0x05, data);
 
-	data = 0x00; //backlight disable
-	err = lm3639_write_reg(main_lm3639_dev->client, 0x0A, data);
+        data = 0x00; //backlight disable
+        err = lm3639_write_reg(main_lm3639_dev->client, 0x0A, data);
 
-	gpio_direction_output(gpio, 0);
+        gpio_direction_output(gpio, 0);
 }
 static void lm3639_late_resume(struct early_suspend *h)
 {
-	int err = 0;
-	unsigned char data1;
-	int gpio = main_lm3639_dev->gpio;
+        int err = 0;
+        unsigned char data1;
+        int gpio = main_lm3639_dev->gpio;
 
-	gpio_direction_output(gpio, 1); //0 -> 1
-	mdelay(50);
+        gpio_direction_output(gpio, 1); //0 -> 1
+        mdelay(50);
 
-	err = lm3639_write_reg(main_lm3639_dev->client, 0x05, cur_main_lcd_level);
+        err = lm3639_write_reg(main_lm3639_dev->client, 0x05, cur_main_lcd_level);
 
-	data1 =0x11;//backlight enable 0x19 -> 0x11
-	err = lm3639_write_reg(main_lm3639_dev->client, 0x0A, data1);
+        data1 =0x11;//backlight enable 0x19 -> 0x11
+        err = lm3639_write_reg(main_lm3639_dev->client, 0x0A, data1);
 }
 #endif
 //                                                  
 
+/* Flash control for L9II */
+/*                                */
+
+/*	 Flash Current
+	 0000 : 46.875 mA		1000 : 421.875 mA
+	 0001 : 93.75 mA 		1001 : 468.25 mA
+	 0010 : 140.625 mA 	1010 : 515.625 mA
+	 0011 : 187.5 mA  		1011 : 562.5 mA
+	 0100 : 234.375 mA	1100 : 609.375 mA
+	 0101 : 281.25 mA		1101 : 659.25 mA
+	 0110 : 328.125 mA	1110 : 703.125 mA
+	 0111 : 375 mA		1111 : 750 mA
+
+	 Torch Current
+	 000 : 28.125 mA		100 : 140.625 mA
+	 001 : 56.25 mA		101 : 168.75 mA
+	 010 : 84.375 mA		110 : 196.875 mA
+	 011 : 112.5 mA		111 : 225mA
+
+	 Frequency [7]
+	 0 : 2 Mhz (default)
+	 1 : 4 Mhz
+
+	 Current Limit [6:5]
+	 00 : 1.7 A			10 : 2.5 A (default)
+	 01 : 1.9 A			11 : 3.1 A
+
+	 Time out [4:0]
+	 00000 : 32 ms
+	 01111 : 512 ms (default)
+	 11111 : 1024 ms
+*/
+
+#define LM3639_POWER_OFF        0
+#define LM3639_POWER_ON         1
+#define REG_ENABLE				0x0A
+#define REG_IO_CTRL				0x09
+#define REG_FL_CONF_1			0x06
+#define REG_FL_CONF_2			0x07
+
+static int lm3639_onoff_state = LM3639_POWER_OFF;
+
+enum led_status {
+	LM3639_LED_OFF,
+	LM3639_LED_LOW,
+	LM3639_LED_HIGH,
+	LM3639_LED_MAX
+};
 
 unsigned char strobe_ctrl;
 unsigned char flash_ctrl;
@@ -505,45 +473,45 @@ unsigned char flash_ctrl;
 
 void lm3639_enable_torch_mode(enum led_status state)
 {
-	int err = 0;
+		int err = 0;
 
-	unsigned char data1;
-	unsigned char torch_curr = 0;
-	unsigned char strobe_curr = 0;
+        unsigned char data1;
+        unsigned char torch_curr = 0;
+        unsigned char strobe_curr = 0;
 
-	unsigned char data2;
-	unsigned char fled_sw_freq = 0x00; //default 2Mhz
-	unsigned char fled_curr_limit = 0x00; //1.7A
-	unsigned char strobe_timeout = 0x0F; //1024ms
+        unsigned char data2;
+        unsigned char fled_sw_freq = 0x00; //default 2Mhz
+        unsigned char fled_curr_limit = 0x00; //1.7A
+        unsigned char strobe_timeout = 0x0F; //1024ms
 
-	pr_err("%s: state = %d\n", __func__, state);
+        pr_err("%s: state = %d\n", __func__, state);
 
-	if (state == LM3639_LED_LOW) {
-		torch_curr = 0x30; // 112.5 mA
-		strobe_curr = 0x01; // 93.75 mA
-	} else {
-		torch_curr = 0x00;
-		strobe_curr = 0x00;
-	}
-	/* Configuration of frequency, current limit and timeout */
-	data2 =  fled_sw_freq | fled_curr_limit | strobe_timeout;
-	err = lm3639_write_reg(main_lm3639_dev->client, REG_FL_CONF_2, data2);
+        if (state == LM3639_LED_LOW) {
+                torch_curr = 0x30; // 112.5 mA
+                strobe_curr = 0x01; // 93.75 mA
+        } else {
+                torch_curr = 0x00;
+                strobe_curr = 0x00;
+        }
+		/* Configuration of frequency, current limit and timeout */
+		data2 =  fled_sw_freq | fled_curr_limit | strobe_timeout;
+        err = lm3639_write_reg(main_lm3639_dev->client, REG_FL_CONF_2, data2);
 
-	/* Configuration of current */
-	data1 = torch_curr | strobe_curr;
-	err = lm3639_write_reg(main_lm3639_dev->client, REG_FL_CONF_1, data1);
+		/* Configuration of current */
+		data1 = torch_curr | strobe_curr;
+        err = lm3639_write_reg(main_lm3639_dev->client, REG_FL_CONF_1, data1);
 
-	/* Control of I/O register */
-	strobe_ctrl=0;
-	err = lm3639_read_reg(main_lm3639_dev->client, REG_IO_CTRL, &strobe_ctrl);
-	strobe_ctrl &= 0xED; /* 1110 1101 */
-	err = lm3639_write_reg(main_lm3639_dev->client, REG_IO_CTRL, strobe_ctrl);
+		/* Control of I/O register */
+        strobe_ctrl=0;
+        err = lm3639_read_reg(main_lm3639_dev->client, REG_IO_CTRL, &strobe_ctrl);
+        strobe_ctrl &= 0xED; /* 1110 1101 */
+        err = lm3639_write_reg(main_lm3639_dev->client, REG_IO_CTRL, strobe_ctrl);
 
-	/* Enable */
-	flash_ctrl=0;
-	err = lm3639_read_reg(main_lm3639_dev->client, REG_ENABLE, &flash_ctrl);
-	flash_ctrl |= 0x42; /* 0100 0010 */
-	err = lm3639_write_reg(main_lm3639_dev->client, REG_ENABLE, flash_ctrl);
+		/* Enable */
+        flash_ctrl=0;
+        err = lm3639_read_reg(main_lm3639_dev->client, REG_ENABLE, &flash_ctrl);
+        flash_ctrl |= 0x42; /* 0100 0010 */
+        err = lm3639_write_reg(main_lm3639_dev->client, REG_ENABLE, flash_ctrl);
 
 }
 
@@ -551,85 +519,85 @@ void lm3639_enable_torch_mode(enum led_status state)
 
 void lm3639_enable_flash_mode(enum led_status state)
 {
-	int err = 0;
+        int err = 0;
 
-	unsigned char data1;
-	unsigned char torch_curr = 0;
-	unsigned char strobe_curr = 0;
+        unsigned char data1;
+        unsigned char torch_curr = 0;
+        unsigned char strobe_curr = 0;
 
-	unsigned char data2;
-	unsigned char fled_sw_freq = 0x00; //default 2Mhz
-	unsigned char fled_curr_limit = 0x10; //2.5A
-	unsigned char strobe_timeout = 0x0F; //1024ms
+        unsigned char data2;
+        unsigned char fled_sw_freq = 0x00; //default 2Mhz
+        unsigned char fled_curr_limit = 0x10; //2.5A
+        unsigned char strobe_timeout = 0x0F; //1024ms
 
-	pr_err("%s: state = %d\n", __func__, state);
+        pr_err("%s: state = %d\n", __func__, state);
 
-	if (state == LM3639_LED_LOW) {
-		torch_curr = 0x10; // 56.25 mA
-		strobe_curr = 0x01; // 93.75 mA
-	} else {
-		torch_curr = 0x70; // 225mA
-		strobe_curr = 0x0F; // 750 mA
-	}
+        if (state == LM3639_LED_LOW) {
+                torch_curr = 0x10; // 56.25 mA
+                strobe_curr = 0x01; // 93.75 mA
+        } else {
+                torch_curr = 0x70; // 225mA
+                strobe_curr = 0x0F; // 750 mA
+        }
 
-	/* Configuration of frequency, current limit and timeout */
-	data2 =  fled_sw_freq | fled_curr_limit | strobe_timeout;
-	err = lm3639_write_reg(main_lm3639_dev->client, REG_FL_CONF_2, data2);
+		/* Configuration of frequency, current limit and timeout */
+		data2 =  fled_sw_freq | fled_curr_limit | strobe_timeout;
+        err = lm3639_write_reg(main_lm3639_dev->client, REG_FL_CONF_2, data2);
 
-	/* Configuration of current */
-	data1 = torch_curr | strobe_curr;
-	err = lm3639_write_reg(main_lm3639_dev->client, REG_FL_CONF_1, data1);
+		/* Configuration of current */
+		data1 = torch_curr | strobe_curr;
+        err = lm3639_write_reg(main_lm3639_dev->client, REG_FL_CONF_1, data1);
 
-	/* Control of I/O register */
-	strobe_ctrl=0;
-	err = lm3639_read_reg(main_lm3639_dev->client, REG_IO_CTRL, &strobe_ctrl);
-	strobe_ctrl &= 0xED; /* 1110 1101 */
-	err = lm3639_write_reg(main_lm3639_dev->client, REG_IO_CTRL, strobe_ctrl);
+		/* Control of I/O register */
+        strobe_ctrl=0;
+        err = lm3639_read_reg(main_lm3639_dev->client, REG_IO_CTRL, &strobe_ctrl);
+        strobe_ctrl &= 0xED; /* 1110 1101 */
+        err = lm3639_write_reg(main_lm3639_dev->client, REG_IO_CTRL, strobe_ctrl);
 
-	/* Enable */
-	flash_ctrl=0;
-	err = lm3639_read_reg(main_lm3639_dev->client, REG_ENABLE, &flash_ctrl);
-	flash_ctrl |= 0x66; /* 0110 0110*/
-	err = lm3639_write_reg(main_lm3639_dev->client, REG_ENABLE, flash_ctrl);
+		/* Enable */
+        flash_ctrl=0;
+        err = lm3639_read_reg(main_lm3639_dev->client, REG_ENABLE, &flash_ctrl);
+        flash_ctrl |= 0x66; /* 0110 0110*/
+        err = lm3639_write_reg(main_lm3639_dev->client, REG_ENABLE, flash_ctrl);
 
 }
 
 void lm3639_config_gpio_on(void)
 {
-	pr_err("%s: Start\n", __func__);
+        pr_err("%s: Start\n", __func__);
 }
 
 void lm3639_config_gpio_off(void)
 {
-	pr_err("%s: Start\n", __func__);
+        pr_err("%s: Start\n", __func__);
 }
 
 void lm3639_led_enable(void)
 {
-	pr_err("%s: Start\n", __func__);
+        pr_err("%s: Start\n", __func__);
 
-	lm3639_onoff_state = LM3639_POWER_ON;
+        lm3639_onoff_state = LM3639_POWER_ON;
 }
 
 void lm3639_led_disable(void)
 {
-	int err = 0;
+        int err = 0;
 
-	pr_err("%s: Start\n", __func__);
+        pr_err("%s: Start\n", __func__);
 
-	flash_ctrl = 0;
-	strobe_ctrl = 0;
+        flash_ctrl = 0;
+        strobe_ctrl = 0;
 
-	err = lm3639_read_reg(main_lm3639_dev->client, REG_IO_CTRL, &strobe_ctrl);
-	strobe_ctrl &= 0xCF;
-	err = lm3639_write_reg(main_lm3639_dev->client, REG_IO_CTRL, strobe_ctrl);
+        err = lm3639_read_reg(main_lm3639_dev->client, REG_IO_CTRL, &strobe_ctrl);
+        strobe_ctrl &= 0xCF;
+        err = lm3639_write_reg(main_lm3639_dev->client, REG_IO_CTRL, strobe_ctrl);
 
 
-	err = lm3639_read_reg(main_lm3639_dev->client, REG_ENABLE, &flash_ctrl);
-	flash_ctrl &= 0x99;
-	err = lm3639_write_reg(main_lm3639_dev->client, REG_ENABLE, flash_ctrl);
+        err = lm3639_read_reg(main_lm3639_dev->client, REG_ENABLE, &flash_ctrl);
+        flash_ctrl &= 0x99;
+        err = lm3639_write_reg(main_lm3639_dev->client, REG_ENABLE, flash_ctrl);
 
-	lm3639_onoff_state = LM3639_POWER_OFF;
+        lm3639_onoff_state = LM3639_POWER_OFF;
 }
 
 int lm3639_flash_set_led_state(int led_state)
@@ -640,34 +608,34 @@ int lm3639_flash_set_led_state(int led_state)
 	pr_err("%s: led_state = %d\n", __func__, led_state);
 
 	switch (led_state) {
-		case MSM_CAMERA_LED_OFF:
-			lm3639_led_disable();
-			break;
-		case MSM_CAMERA_LED_LOW:
-			lm3639_led_enable();
-			lm3639_enable_torch_mode(LM3639_LED_LOW);
-			break;
-		case MSM_CAMERA_LED_HIGH:
-			lm3639_led_enable();
-			batt_temp = pm8921_batt_temperature();
-			if(batt_temp > -100) {
-				pr_err("%s: Working on LED_HIGH Flash mode (Battery temperature = %d)\n", __func__, batt_temp);
-				lm3639_enable_flash_mode(LM3639_LED_HIGH);
-			} else {
-				pr_err("%s: Working on LED_LOW Flash mode (Battery temperature = %d)\n", __func__, batt_temp);
-				lm3639_enable_flash_mode(LM3639_LED_LOW);
-			}
-			break;
-		case MSM_CAMERA_LED_INIT:
-			lm3639_config_gpio_on();
-			break;
-		case MSM_CAMERA_LED_RELEASE:
-			lm3639_led_disable();
-			//lm3639_config_gpio_off();
-			break;
-		default:
-			rc = -EFAULT;
-			break;
+	case MSM_CAMERA_LED_OFF:
+		lm3639_led_disable();
+		break;
+	case MSM_CAMERA_LED_LOW:
+		lm3639_led_enable();
+		lm3639_enable_torch_mode(LM3639_LED_LOW);
+		break;
+	case MSM_CAMERA_LED_HIGH:
+		lm3639_led_enable();
+		batt_temp = pm8921_batt_temperature();
+		if(batt_temp > -100) {
+			pr_err("%s: Working on LED_HIGH Flash mode (Battery temperature = %d)\n", __func__, batt_temp);
+			lm3639_enable_flash_mode(LM3639_LED_HIGH);
+		} else {
+			pr_err("%s: Working on LED_LOW Flash mode (Battery temperature = %d)\n", __func__, batt_temp);
+			lm3639_enable_flash_mode(LM3639_LED_LOW);
+		}
+		break;
+	case MSM_CAMERA_LED_INIT:
+		lm3639_config_gpio_on();
+		break;
+	case MSM_CAMERA_LED_RELEASE:
+		lm3639_led_disable();
+		//lm3639_config_gpio_off();
+		break;
+	default:
+		rc = -EFAULT;
+		break;
 	}
 
 	return rc;
@@ -676,30 +644,30 @@ EXPORT_SYMBOL(lm3639_flash_set_led_state);
 
 /* torch */
 static void lm3639_torch_led_set(struct led_classdev *led_cdev,
-		enum led_brightness value)
+					enum led_brightness value)
 {
-	pr_err("%s: led_cdev->brightness[%d]\n", __func__, value);
+        pr_err("%s: led_cdev->brightness[%d]\n", __func__, value);
 
-	led_cdev->brightness = value;
+        led_cdev->brightness = value;
 
-	if(value)
-		lm3639_enable_torch_mode(LM3639_LED_LOW);
-	else
-		lm3639_led_disable();
+        if(value)
+                lm3639_enable_torch_mode(LM3639_LED_LOW);
+        else
+                lm3639_led_disable();
 }
 
 /* flash */
 static void lm3639_flash_led_set(struct led_classdev *led_cdev,
-		enum led_brightness value)
+					enum led_brightness value)
 {
-	pr_err("%s: led_cdev->brightness[%d]\n", __func__, value);
+        pr_err("%s: led_cdev->brightness[%d]\n", __func__, value);
 
-	led_cdev->brightness = value;
+        led_cdev->brightness = value;
 
-	if(value)
-		lm3639_enable_flash_mode(LM3639_LED_LOW);
-	else
-		lm3639_led_disable();
+        if(value)
+                lm3639_enable_flash_mode(LM3639_LED_LOW);
+        else
+                lm3639_led_disable();
 }
 
 static int lm3639_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *id)
@@ -750,20 +718,20 @@ static int lm3639_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *
 	i2c_set_clientdata(i2c_dev, dev);
 
 	if(pdata->factory_brightness <= 0)
-		dev->factory_brightness = DEFAULT_FTM_BRIGHTNESS;
+	        dev->factory_brightness = DEFAULT_FTM_BRIGHTNESS;
 	else
-		dev->factory_brightness = pdata->factory_brightness;
+	        dev->factory_brightness = pdata->factory_brightness;
 
 
 	mutex_init(&dev->bl_mutex);
 
-	//                                                  
+//                                                  
 #if 0
 	err = device_create_file(&i2c_dev->dev, &dev_attr_lm3639_level);
 	err = device_create_file(&i2c_dev->dev, &dev_attr_lm3639_backlight_on_off);
 	err = device_create_file(&i2c_dev->dev, &dev_attr_lm3639_exp_min_value);
 #endif
-	//                                                  
+//                                                  
 
 	/* flash */
 	dev->cdev_flash.name = I2C_FLASH_NAME;
@@ -779,14 +747,14 @@ static int lm3639_probe(struct i2c_client *i2c_dev, const struct i2c_device_id *
 
 	mutex_init(&dev->bl_mutex);
 
-	//                                                  
+//                                                  
 #if 0 //def CONFIG_HAS_EARLYSUSPEND
 	early_suspend.suspend = lm3639_early_suspend;
 	early_suspend.resume = lm3639_late_resume;
 
 	register_early_suspend(&early_suspend);
 #endif
-	//                                                  
+//                                                  
 
 	return 0;
 
@@ -800,13 +768,13 @@ static int lm3639_remove(struct i2c_client *i2c_dev)
 	led_classdev_unregister(&dev->cdev_torch);
 	led_classdev_unregister(&dev->cdev_flash);
 
-	//                                                  
+//                                                  
 #if 0
 	device_remove_file(&i2c_dev->dev, &dev_attr_lm3639_level);
 	device_remove_file(&i2c_dev->dev, &dev_attr_lm3639_backlight_on_off);
 	device_remove_file(&i2c_dev->dev, &dev_attr_lm3639_exp_min_value);
 #endif
-	//                                                  
+//                                                  
 
 	backlight_device_unregister(dev->bl_dev);
 

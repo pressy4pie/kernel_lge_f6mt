@@ -49,7 +49,7 @@
 #include "mdp.h"
 #include "mdp4.h"
 #include <mach/board_lge.h>
-#include <../../char/diag/mtsk_tty.h>
+#include "../../char/diag/mtsk_tty.h"
 
 /*           
                                  
@@ -1218,20 +1218,21 @@ static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma)
 	u32 len = PAGE_ALIGN((start & ~PAGE_MASK) + info->fix.smem_len);
 	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	
+
 	if (!start)
 		return -EINVAL;
+
 	if ((vma->vm_end <= vma->vm_start) ||
-		(off >= len) ||
-		((vma->vm_end - vma->vm_start) > (len - off)))
+	    (off >= len) ||
+	    ((vma->vm_end - vma->vm_start) > (len - off)))
 		return -EINVAL;
-	
+
 	/* Set VM flags. */
-	start &= PAGE_MASK;	
+	start &= PAGE_MASK;
 	off += start;
 	if (off < start)
 		return -EINVAL;
-	
+
 	vma->vm_pgoff = off >> PAGE_SHIFT;
 	/* This is an IO map - tell maydump to skip this VMA */
 	vma->vm_flags |= VM_IO | VM_RESERVED;
