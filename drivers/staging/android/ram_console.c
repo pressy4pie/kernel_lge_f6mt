@@ -16,13 +16,17 @@
 #include <linux/console.h>
 #include <linux/init.h>
 #include <linux/module.h>
+/* LGE_CHANGE */
+//#include <linux/persistent_ram.h>
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
-#include <linux/platform_data/ram_console.h>
 
+/* LGE_CHANGE */
+//#include "ram_console.h"
+#include <linux/platform_data/ram_console.h>
 #ifdef CONFIG_ANDROID_RAM_CONSOLE_ERROR_CORRECTION
 #include <linux/rslib.h>
 #endif
@@ -376,9 +380,7 @@ static struct platform_driver ram_console_driver = {
 
 static int __init ram_console_module_init(void)
 {
-	int err;
-	err = platform_driver_register(&ram_console_driver);
-	return err;
+	return platform_driver_register(&ram_console_driver);
 }
 #endif
 

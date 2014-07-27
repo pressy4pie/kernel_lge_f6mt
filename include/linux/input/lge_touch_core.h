@@ -19,7 +19,7 @@
 #define LGE_TOUCH_CORE_H
 
 //#define MT_PROTOCOL_A
-//                            
+//#define LGE_TOUCH_TIME_DEBUG
 
 #define MAX_FINGER	5
 #define MAX_BUTTON	4
@@ -150,6 +150,10 @@ struct section_info
 
 struct ghost_finger_ctrl {
 	volatile u8	 stage;
+#ifdef CONFIG_LGE_WORKAROUND_SYNAPTICS
+	int	incoming_call;
+	int keyguard;
+#endif // CONFIG_LGE_WORKAROUND_SYNAPTICS
 	int probe;
 	int count;
 	int min_count;
@@ -287,6 +291,13 @@ enum{
 	KEYGUARD_RESERVED,
 	KEYGUARD_ENABLE,
 };
+
+#ifdef CONFIG_LGE_WORKAROUND_SYNAPTICS
+enum{
+	INCOMIMG_CALL_RESERVED,
+	INCOMIMG_CALL_TOUCH,
+};
+#endif // CONFIG_LGE_WORKAROUND_SYNAPTICS
 
 enum{
 	GHOST_STAGE_CLEAR=0,

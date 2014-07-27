@@ -10,9 +10,9 @@
  * GNU General Public License for more details.
  *
  */
-
+ 
 #include "msm_sensor.h"
-/*                                                    */
+/*LGE_CHANGE, temp code, 11-16, kwangsik83.kim@lge.com*/
 #include <mach/board_lge.h>
 #define SENSOR_NAME "hi707"
 
@@ -23,9 +23,9 @@
 #define SENSOR_PREVIEW_WIDTH 640
 #define SENSOR_PREVIEW_HEIGHT 480
 
-#define AWB_LOCK_ON 1	/*                                                                           */
+#define AWB_LOCK_ON 1	/*LGE_CHANGE_S, add awb_lock for soc type, 2013-01-02, kwangsik83.kim@lge.com*/
 #define AWB_LOCK_OFF 0
-#define AEC_LOCK_ON 1/*                                                                           */
+#define AEC_LOCK_ON 1/*LGE_CHANGE_S, add aec_lock for soc type, 2013-01-02, kwangsik83.kim@lge.com*/
 #define AEC_LOCK_OFF 0
 
 DEFINE_MUTEX(hi707_mut);
@@ -36,14 +36,14 @@ static int PREV_EXPOSURE = -1;
 static int PREV_WB = -1;
 static int PREV_FPS = -1;
 static int PREV_NIGHT_MODE = -1;
-static int PREV_SOC_AEC_LOCK = -1;	/*                                                                               */
-static int PREV_SOC_AWB_LOCK = -1;  /*                                                                               */
+static int PREV_SOC_AEC_LOCK = -1;	/*LGE_CHANGE_S, to prevent duplicated setting, 2013-01-07, kwangsik83.kim@lge.com*/
+static int PREV_SOC_AWB_LOCK = -1;  /*LGE_CHANGE_S, to prevent duplicated setting, 2013-01-07, kwangsik83.kim@lge.com*/
 
 extern int32_t msm_sensor_enable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf);
 extern int32_t msm_sensor_disable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf);
 
 
-#if 0 //                           
+#if 0 //def CONFIG_MACH_LGE_FX3_ATT
 extern void subpm_set_gpio(int onoff, int type);
 extern int32_t msm_sensor_enable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf);
 extern int32_t msm_sensor_disable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf);
@@ -63,25 +63,25 @@ static struct msm_camera_i2c_reg_conf hi707_start_settings[] = {
 	{0x03, 0x00},
 	{0x01, 0x70},
 	{0x09, 0x00},	
-	/*                                                              */
+	/* LGE_CHANGE_S, 2013-05-09, AE reset off, dongeob.choi@lge.com */
 	{0x03, 0x20},
-	{0x18, 0x30},
-	/*                                                              */
+	{0x18, 0x30},	
+	/* LGE_CHANGE_E, 2013-05-09, AE reset off, dongeob.choi@lge.com */
 };
 
-/*                                                                                                      */
+/*LGE_CHANGE_S, seprate start_stream becase of hi707 frame end issue, 2013-02-27, kwangsik83.kim@lge.com*/
 static struct msm_camera_i2c_reg_conf hi707_entrance_start_settings[] = {
 	{0x03, 0x48},
 	{0x16, 0xc8},
 	{0x03, 0x00},
 	{0x01, 0x70},
 	{0x09, 0x00},
-	/*                                                              */
+	/* LGE_CHANGE_S, 2013-05-09, AE reset off, dongeob.choi@lge.com */
 	{0x03, 0x20},
-	{0x18, 0x30},
-	/*                                                              */
+	{0x18, 0x30},	
+	/* LGE_CHANGE_E, 2013-05-09, AE reset off, dongeob.choi@lge.com */
 };
-/*                                                                                                      */
+/*LGE_CHANGE_E, seprate start_stream becase of hi707 frame end issue, 2013-02-27, kwangsik83.kim@lge.com*/
 
 
 
@@ -116,7 +116,7 @@ static struct msm_camera_i2c_reg_conf hi707_recommend_settings[] = {
 	{0x03, 0x00}, 
 	{0x08, 0x0f}, //Parallel NO Output_PAD Out									   
 	{0x10, 0x00},	//VDOCTL1 [5:4]subsample:1,1/2,1/4, [0]preview_en
-#if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) //180 degree rotation
+#if defined(CONFIG_HI707_ROT_180) //180 degree rotation
 	{0x11, 0x93},	//VDOCTL2 , 90 : FFR off, 94 : FFR on
 #else
 	{0x11, 0x90},	//VDOCTL2 , 90 : FFR off, 94 : FFR on
@@ -321,7 +321,7 @@ static struct msm_camera_i2c_reg_conf hi707_recommend_settings[] = {
 	///////////////////////////// Page 13				
 	{0x03, 0x13}, //Page 13 - Sharpness
 	{0x10, 0x01},	
-	{0x11, 0x8f}, //89->8f},	/*to enhance NR of edge*/
+	{0x11, 0x8f}, //89},		//130516, Test, dongeob.choi@lge.com
 	{0x12, 0x14},	
 	{0x13, 0x19},	
 	{0x14, 0x08},	//Test Setting
@@ -404,40 +404,50 @@ static struct msm_camera_i2c_reg_conf hi707_recommend_settings[] = {
 	{0x3e, 0xfa}, //ff		
 	//////////////////////////// 17page		   
 	{0x03, 0x17},
-	{0xc0, 0x01},    
+	{0xc0, 0x01},     
 	{0xc4, 0x4b}, //3c},
-  {0xc5, 0x3e}, //32},
-
+  	{0xc5, 0x3e}, //32},
 	///////////////////////////// Page 20	- Auto Exposure 
 	{0x03, 0x20},
 	{0x10, 0x0c},	//AECTL
 	{0x11, 0x04},
-	{0x18, 0x30},
+	{0x18, 0x31}, // 130521, Flicker Test
 	{0x20, 0x01},	//FrameCTL
 	{0x28, 0x27},	//FineCTL
 	{0x29, 0xa1},
 	{0x2a, 0xf0},
 	{0x2b, 0x34},
-			   
+	{0x2c, 0x2b},	 // 130521, Flicker Test	   
 	{0x39, 0x22},
 	{0x3a, 0xde},
 	{0x3b, 0x23},
 	{0x3c, 0xde},
-	
-	{0x60, 0x71}, //70}, //0x71}, //AE weight																	 
-	{0x61, 0x00}, //00}, //0x11}, 																					   
-	{0x62, 0x71}, //70}, //0x71}, 																		 
-	{0x63, 0x00}, //00}, //0x11},    
 
-	{0x68, 0x30}, //41}, //AE_CEN
-	{0x69, 0x6a}, //81},
-	{0x6A, 0x27}, //38},
-	{0x6B, 0xbb}, //b8},
 
-	{0x70, 0x34}, //Y Targe 32
+				 // 130521, Flicker Test
+	{0x60, 0x71}, //0x71}, //AE weight																	 
+	{0x61, 0x00}, //0x11}, 																					   
+	{0x62, 0x71}, //0x71}, 																		 
+	{0x63, 0x00}, //0x11},  
+	 
+#if defined(CONFIG_HI707_ROT_180) 
+				// 130521, Flicker Test
+	{0x68, 0x36}, //30}, //AE_CEN
+	{0x69, 0x70}, //6a},
+	{0x6A, 0x35}, //27},
+	{0x6B, 0xc9}, //bb},
+#else  
+				// 130521, Flicker Test
+	{0x68, 0x30}, //30}, //AE_CEN
+	{0x69, 0x6a}, //6a},
+	{0x6A, 0x27}, //27},
+	{0x6B, 0xbb}, //bb},
+#endif
+
+	{0x70, 0x36}, //34}, 20130524  //Y Targe 32 
 	{0x76, 0x88}, //22}, // Unlock bnd1
 	{0x77, 0xfe}, //02}, // Unlock bnd2
-	{0x78, 0x22}, //12}, // Yth 1
+	{0x78, 0x23}, //22}, 20130524  //12}, // Yth 1
 	{0x79, 0x26}, //Yth 2
 	{0x7a, 0x23}, //Yth 3
 	{0x7c, 0x1c}, //Yth 2 
@@ -569,7 +579,7 @@ static struct msm_camera_i2c_reg_conf hi707_recommend_settings[] = {
 	{0x10, 0x05},                //05},        
 						 																	   
 	{0x03, 0x20},
-	{0x10, 0xcc}, //8c}, //120hz first 
+	{0x10, 0xec}, //cc}, //120hz first 20130524
 	{0x03, 0x22}, //Page 22 AWB
 	{0x10, 0xfb},
 	
@@ -1031,8 +1041,8 @@ static struct msm_camera_i2c_reg_conf hi707_night_mode[][21] = {
 		{0x92, 0xa8}, //98}, //BLC_AG_TH_ON
 		{0x93, 0xa0}, //90}, //BLC_AG_TH_OFF
 		{0x03, 0x20},
-		{0x10, 0xcc},
-		{0x18, 0x30}, //AE Reset OFF
+		{0x10, 0xec}, //cc},20130524
+		{0x18, 0x30}, //AE Reset OFF // 
 	
 	}, 
 	/*NIGHT MODE ON 5~30 fps*/
@@ -1056,8 +1066,8 @@ static struct msm_camera_i2c_reg_conf hi707_night_mode[][21] = {
 		{0x92, 0xa8}, //98}, //BLC_AG_TH_ON
 		{0x93, 0xa0}, //90}, //BLC_AG_TH_OFF
 		{0x03, 0x20}, 
-		{0x10, 0xcc},
-		{0x18, 0x30}, //AE Reset OFF
+		{0x10, 0xec}, //cc}, 20130524
+		{0x18, 0x30}, //AE Reset OFF // 
 	},	
 };
 
@@ -1080,7 +1090,7 @@ static struct msm_camera_i2c_enum_conf_array hi707_night_mode_enum_confs = {
 	.data_type = MSM_CAMERA_I2C_BYTE_DATA,
 };
 
-/*                                                                   */
+/* LGE_CHANGE_S : 2012-09-26 sungmin.cho@lge.com vt camera fps range */
 static struct msm_camera_i2c_reg_conf hi707_fps_range[][45] = {
 	{		
 		/*HI707_FPS_1500_1500 28 */  
@@ -1090,7 +1100,7 @@ static struct msm_camera_i2c_reg_conf hi707_fps_range[][45] = {
 		{0x10, 0x0c},	
 		{0x18, 0x38},
 		{0x03, 0x00},
-#if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) //180 degree rotation
+#if defined(CONFIG_HI707_ROT_180) //180 degree rotation
              {0x11, 0x97}, //90}, // Fixed On
 #else
 		{0x11, 0x94}, //90}, // Fixed On
@@ -1116,7 +1126,7 @@ static struct msm_camera_i2c_reg_conf hi707_fps_range[][45] = {
 		{0x92, 0x86}, 
 		{0x93, 0xa0}, 		
 		{0x03, 0x20},
-		{0x10, 0xcc},	
+		{0x10, 0xec}, //cc}, 20130524	
 		{0x18, 0x30},		
 	}, 
 	{		
@@ -1127,7 +1137,7 @@ static struct msm_camera_i2c_reg_conf hi707_fps_range[][45] = {
 		{0x10, 0x0c},	
 		{0x18, 0x38},
 		{0x03, 0x00},
-#if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS)  //180 degree rotation
+#if defined(CONFIG_HI707_ROT_180)  //180 degree rotation
 	{0x11, 0x93},	//VDOCTL2 , 90 : FFR off, 94 : FFR on
 #else
 	{0x11, 0x90},	//VDOCTL2 , 90 : FFR off, 94 : FFR on
@@ -1150,7 +1160,7 @@ static struct msm_camera_i2c_reg_conf hi707_fps_range[][45] = {
 		{0xa1, 0x49}, 
 		{0xa2, 0xf0},
 		{0x03, 0x20},
-		{0x10, 0xcc},	
+		{0x10, 0xec}, //cc}, 20130524
 		{0x18, 0x30},		  		 	
 		{0x03, 0x00}, //dummy
 		{0x03, 0x00}, //dummy
@@ -1164,7 +1174,7 @@ static struct msm_camera_i2c_reg_conf hi707_fps_range[][45] = {
 		{0x10, 0x0c},	
 		{0x18, 0x38},
 		{0x03, 0x00},
-#if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS)  //180 degree rotation
+#if defined(CONFIG_HI707_ROT_180) //180 degree rotation
 		{0x11, 0x97}, //Fixed Off
 #else
 		{0x11, 0x94}, //Fixed Off
@@ -1190,7 +1200,7 @@ static struct msm_camera_i2c_reg_conf hi707_fps_range[][45] = {
 		{0x92, 0xc3}, 
 		{0x93, 0xb4}, 
 		{0x03, 0x20},
-		{0x10, 0xcc},	
+		{0x10, 0xec}, //cc}, 20130524
 		{0x18, 0x30},		  		 	
 	},
 };
@@ -1215,7 +1225,7 @@ static struct msm_camera_i2c_enum_conf_array hi707_fps_range_enum_confs = {
 	.num_conf = ARRAY_SIZE(hi707_fps_range_confs[0]),
 	.data_type = MSM_CAMERA_I2C_BYTE_DATA,
 };
-/*                                                                   */
+/* LGE_CHANGE_E : 2012-09-26 sungmin.cho@lge.com vt camera fps range */
 
 
 int hi707_effect_msm_sensor_s_ctrl_by_enum(struct msm_sensor_ctrl_t *s_ctrl,
@@ -1449,7 +1459,7 @@ int32_t hi707_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	int32_t rc = 0;
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	CDBG("%s: %d\n", __func__, __LINE__);
-	pr_err("%s: E: %s\n", __func__, data->sensor_name); /*                                                              */
+	pr_err("%s: E: %s\n", __func__, data->sensor_name); /* LGE_CHANGE, For debugging, 2012-07-03, sunkyoo.hwang@lge.com */
 	s_ctrl->reg_ptr = kzalloc(sizeof(struct regulator *)
 			* data->sensor_platform_info->num_vreg, GFP_KERNEL);
 	if (!s_ctrl->reg_ptr) {
@@ -1505,7 +1515,7 @@ int32_t hi707_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		goto enable_clk_failed;
 	}
 	
-	pr_err("[clk : %ld]\n", s_ctrl->clk_rate);	/*                                                               */
+	pr_err("[clk : %ld]\n", s_ctrl->clk_rate);	/* LGE_CHANGE, For debugging, 2012-09-18, kwangsik83.kim@lge.com */
 	
 
 	//[XSHUTDOWN]
@@ -1517,7 +1527,7 @@ int32_t hi707_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		data->sensor_platform_info->i2c_conf->use_i2c_mux)
 		msm_sensor_enable_i2c_mux(data->sensor_platform_info->i2c_conf);
 	
-	pr_err("%s: X\n", __func__); /*                                                              */
+	pr_err("%s: X\n", __func__); /* LGE_CHANGE, For debugging, 2012-07-03, sunkyoo.hwang@lge.com */
 
 	return rc;
 
@@ -1552,7 +1562,7 @@ int32_t hi707_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	
 	CDBG("%s\n", __func__);
-	pr_err("%s: E: %s\n", __func__, data->sensor_name); /*                                                              */
+	pr_err("%s: E: %s\n", __func__, data->sensor_name); /* LGE_CHANGE, For debugging, 2012-07-03, sunkyoo.hwang@lge.com */
 
 	//[i2c]
 	if (data->sensor_platform_info->i2c_conf &&
@@ -1564,7 +1574,7 @@ int32_t hi707_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	if (data->sensor_platform_info->ext_power_ctrl != NULL)
 		data->sensor_platform_info->ext_power_ctrl(0);
 	
-	msleep(15); /*                                                               */
+	msleep(15); /* LGE_CHANGE, For debugging, 2012-09-18, kwangsik83.kim@lge.com */
 	
 	msm_cam_clk_enable(&s_ctrl->sensor_i2c_client->client->dev,
 		cam_clk_info, s_ctrl->cam_clk, ARRAY_SIZE(cam_clk_info), 0);
@@ -1589,17 +1599,17 @@ int32_t hi707_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	msm_camera_request_gpio_table(data, 0);
 	kfree(s_ctrl->reg_ptr);
 
-	/*                                                                                                      */
+	/*LGE_CHANGE_E, seprate start_stream becase of hi707 frame end issue, 2013-02-27, kwangsik83.kim@lge.com*/
 	s_ctrl->hi707Initcheck = 1;
 	pr_err("%s %d\n", __func__, s_ctrl->hi707Initcheck);
 	
-	pr_err("%s: X\n", __func__); /*                                                              */
+	pr_err("%s: X\n", __func__); /* LGE_CHANGE, For debugging, 2012-07-03, sunkyoo.hwang@lge.com */
 
 	return 0;
 }
 
 
-/*                                                                   */
+/* LGE_CHANGE_S : 2012-10-09 sungmin.cho@lge.com vt camera touch aec */
 #define AEC_ROI_DX (192) // (128)
 #define AEC_ROI_DY (192) // (128) // (96)
 /*
@@ -1650,6 +1660,12 @@ static int8_t hi707_set_aec_roi(struct msm_sensor_ctrl_t *s_ctrl, int32_t aec_ro
 		}
 	}
 	else {	
+
+#ifdef CONFIG_HI707_ROT_180
+		coordinate_x = SENSOR_PREVIEW_WIDTH - coordinate_x; 
+		coordinate_y = SENSOR_PREVIEW_HEIGHT -coordinate_y;
+#endif
+
 		x_start = ((coordinate_x - (AEC_ROI_DX/2) > 0)? coordinate_x - (AEC_ROI_DX/2) : 0)/4;
 		x_end = ((coordinate_x + (AEC_ROI_DX/2) < SENSOR_PREVIEW_WIDTH)? coordinate_x + (AEC_ROI_DX/2) : SENSOR_PREVIEW_WIDTH)/4;
 
@@ -1679,10 +1695,79 @@ static int8_t hi707_set_aec_roi(struct msm_sensor_ctrl_t *s_ctrl, int32_t aec_ro
 	}
 	return rc;
 }
-/*                                                                   */
+/* LGE_CHANGE_E : 2012-10-09 sungmin.cho@lge.com vt camera touch aec */
+
+/* LGE_CHANGE_S : 2013-05-27 soojong.jin@lge.com Modified EXIF data from V7 */
+int8_t hi707_get_snapshot_data(struct msm_sensor_ctrl_t *s_ctrl, struct snapshot_soc_data_cfg *snapshot_data) {
+	int rc = 0;
+	u16 analogGain = 0;
+	u32 exposureTime = 0;
+	u32 isoSpeed = 0;
+	u16 Exposure1 = 0;
+	u16 Exposure2 = 0;
+	u16 Exposure3 = 0;
+	u32 ExposureTotal = 0;
+	
+	//ISO Speed
+	rc = msm_camera_i2c_write(s_ctrl->sensor_i2c_client, 0x03, 0x20, MSM_CAMERA_I2C_BYTE_DATA);	
+	rc = msm_camera_i2c_read(s_ctrl->sensor_i2c_client, 0xb0, &analogGain, MSM_CAMERA_I2C_BYTE_DATA);	
+
+	if (rc < 0) {
+		pr_err("%s: error to get analog & digital gain \n", __func__);
+		return rc;
+	}
+	//Exposure Time
+	rc = msm_camera_i2c_write(s_ctrl->sensor_i2c_client, 0x03, 0x20, MSM_CAMERA_I2C_BYTE_DATA);
+	rc = msm_camera_i2c_read(s_ctrl->sensor_i2c_client, 0x80, &Exposure1, MSM_CAMERA_I2C_BYTE_DATA);
+	rc = msm_camera_i2c_read(s_ctrl->sensor_i2c_client, 0x81, &Exposure2, MSM_CAMERA_I2C_BYTE_DATA);
+	rc = msm_camera_i2c_read(s_ctrl->sensor_i2c_client, 0x82, &Exposure3, MSM_CAMERA_I2C_BYTE_DATA);
+
+	
+	if (rc < 0) {
+		pr_err("%s: error to get exposure time \n", __func__);
+		return rc;
+	}
+
+	if( analogGain <= 0x28 ){
+		//printk("[CHECK]%s : iso speed - analogGain = 0x%x/n",  __func__, analogGain);
+		analogGain = 0x28;  		//analogGain cannot move down than 0x28
+	}
+	//ISO speed
+	if (analogGain > 0)
+		isoSpeed = ((analogGain / 32) * 100);
+	else
+	      isoSpeed = 100;
+#if 0
+	//Exposure Time
+	ExposureTotal = ((Exposure1<<16) * 524288)|((Exposure2<<8) * 2048)|((Exposure3<<2) * 8);
+
+	if (ExposureTotal <= 0) {
+		exposureTime = 600000;
+	}else {
+		exposureTime = ExposureTotal;
+	}
+#else
+	ExposureTotal = ((Exposure1<<16))|((Exposure2<<8))|((Exposure3<<0));
+	if (ExposureTotal > 0)
+		ExposureTotal = ExposureTotal * 8 * 83 / 1000000;
+	else
+		ExposureTotal = 30;
+
+	exposureTime = ExposureTotal;
+#endif
+
+
+	snapshot_data->iso_speed = isoSpeed;
+	snapshot_data->exposure_time = exposureTime;
+	printk("[CHECK]Camera Snapshot Data iso_speed = %d, exposure_time = %d \n", snapshot_data->iso_speed, snapshot_data->exposure_time); 
+
+	return 0;
+	
+}
+/* LGE_CHANGE_E : 2013-05-27 soojong.jin@lge.com Modified EXIF data from V7 */
 
 #if 1
-/*                                                                           */
+/*LGE_CHANGE_S, add awb_lock for soc type, 2013-01-02, kwangsik83.kim@lge.com*/
 static int8_t hi707_set_awb_lock(struct msm_sensor_ctrl_t *s_ctrl, int32_t soc_awb_lock)
 {
 	int32_t rc = 0;
@@ -1712,10 +1797,10 @@ static int8_t hi707_set_awb_lock(struct msm_sensor_ctrl_t *s_ctrl, int32_t soc_a
 	
 	return rc;
 }
-/*                                                                           */
+/*LGE_CHANGE_E, add awb_lock for soc type, 2013-01-02, kwangsik83.kim@lge.com*/
 
 
-/*                                                                           */
+/*LGE_CHANGE_S, add aec_lock for soc type, 2013-01-02, kwangsik83.kim@lge.com*/
 static int8_t hi707_set_aec_lock(struct msm_sensor_ctrl_t *s_ctrl, int32_t soc_aec_lock)
 {
 	int32_t rc = 0;
@@ -1745,7 +1830,7 @@ static int8_t hi707_set_aec_lock(struct msm_sensor_ctrl_t *s_ctrl, int32_t soc_a
 	
 	return rc;
 }
-/*                                                                           */
+/*LGE_CHANGE_E, add aec_lock for soc type, 2013-01-02, kwangsik83.kim@lge.com*/
 #endif
 
 static struct msm_sensor_fn_t hi707_func_tbl = {
@@ -1765,16 +1850,17 @@ static struct msm_sensor_fn_t hi707_func_tbl = {
 	.sensor_get_csi_params = msm_sensor_get_csi_params,
 	.sensor_match_id = hi707_sensor_match_id,
 	.sensor_set_aec_roi = hi707_set_aec_roi,
-    .sensor_set_soc_awb_lock = hi707_set_awb_lock,	/*                                                                         */
-    .sensor_set_soc_aec_lock = hi707_set_aec_lock,	/*                                                                         */
+	.sensor_get_soc_snapshotdata = hi707_get_snapshot_data,	/* LGE_CHANGE_E : 2013-05-27 soojong.jin@lge.com Modified EXIF data from V7 */
+    .sensor_set_soc_awb_lock = hi707_set_awb_lock,	/*LGE_CHANGE, add awb_lock for soc type, 2013-01-02, kwangsik83.kim@lge.com*/
+    .sensor_set_soc_aec_lock = hi707_set_aec_lock,	/*LGE_CHANGE, add aec_lock for soc type, 2013-01-02, kwangsik83.kim@lge.com*/
 };
 
 static struct msm_sensor_reg_t hi707_regs = {
 	.default_data_type = MSM_CAMERA_I2C_BYTE_DATA,
 	.start_stream_conf = hi707_start_settings,
 	.start_stream_conf_size = ARRAY_SIZE(hi707_start_settings),
-	.entrance_start_stream_conf = hi707_entrance_start_settings,					/*                                                                                                      */
-	.entrance_start_stream_conf_size = ARRAY_SIZE(hi707_entrance_start_settings),   /*                                                                                                      */
+	.entrance_start_stream_conf = hi707_entrance_start_settings,					/*LGE_CHANGE_E, seprate start_stream becase of hi707 frame end issue, 2013-02-27, kwangsik83.kim@lge.com*/
+	.entrance_start_stream_conf_size = ARRAY_SIZE(hi707_entrance_start_settings),   /*LGE_CHANGE_E, seprate start_stream becase of hi707 frame end issue, 2013-02-27, kwangsik83.kim@lge.com*/
 	.stop_stream_conf = hi707_stop_settings,
 	.stop_stream_conf_size = ARRAY_SIZE(hi707_stop_settings),
 	.init_settings = &hi707_init_conf[0],
@@ -1786,7 +1872,7 @@ static struct msm_sensor_reg_t hi707_regs = {
 };
 
 static struct msm_sensor_ctrl_t hi707_s_ctrl = {
-	.hi707Initcheck = 1,		/*                                                                                                      */
+	.hi707Initcheck = 1,		/*LGE_CHANGE_E, seprate start_stream becase of hi707 frame end issue, 2013-02-27, kwangsik83.kim@lge.com*/
 	.msm_sensor_reg = &hi707_regs,
 	.msm_sensor_v4l2_ctrl_info = hi707_v4l2_ctrl_info,
 	.num_v4l2_ctrl = ARRAY_SIZE(hi707_v4l2_ctrl_info),

@@ -43,31 +43,31 @@
 #define TS_GPIO_I2C_SDA				16
 #define TS_GPIO_I2C_SCL				17
 #define TS_GPIO_IRQ					11
-//                                                 
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+//LGE_CHANGE_S [hoseong.han@lge.com] Touch for L9II
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
 #define TS_GPIO_RESET				10
 #define TS_GPIO_LDO_EN				1
 #else
 #define TS_GPIO_RESET				52
 #endif
-//                                                 
+//LGE_CHANGE_E [hoseong.han@lge.com] Touch for L9II
 
-//                                                 
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+//LGE_CHANGE_S [hoseong.han@lge.com] Touch for L9II
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
 #define TS_X_MAX             		720
 #define TS_Y_MAX             		1280
 #else
 #define TS_X_MAX             		480
 #define TS_Y_MAX             		800
 #endif
-//                                                 
+//LGE_CHANGE_E [hoseong.han@lge.com] Touch for L9II
 
 #define TOUCH_FW_VERSION       		0x01
 
 #define MELFAS_TS_I2C_SLAVE_ADDR 	0x48
 #define LGE_TOUCH_SYNATICS_I2C_SLAVE_ADDR 	0x20
 
-//                                                                  
+// LGE_CHANGE_S [younglae.kim@lge.com] 2013-01-22, re-arrange keymap
 #define GPIO_VOLUME_UP		PM8038_GPIO_PM_TO_SYS(2)
 #define GPIO_VOLUME_DOWN	PM8038_GPIO_PM_TO_SYS(3)
 #define GPIO_QUICK_MEMO		PM8038_GPIO_PM_TO_SYS(1)
@@ -95,7 +95,7 @@ static struct gpio_keys_button keys_8930[] = {
 		.type = EV_KEY,
 		.desc = "quick_memo",
 		.gpio = GPIO_QUICK_MEMO,
-//		.wakeup = 1,
+		.wakeup = 1,
 		.active_low = 1,
 		.debounce_interval = 15,
 	},
@@ -113,14 +113,15 @@ static struct platform_device gpio_keys_8930 = {
 		.platform_data  = &gpio_keys_8930_pdata,
 	},
 };
-//                                               
-//                                                                             
+// LGE_CHANGE_E [younglae.kim@lge.com] 2012-01-22
+// LGE_CHANHE_S [hoseong.han@lge.com] 2013-03-20, MAX1187x Touch for L9II Rev.A
 #ifdef CONFIG_TOUCHSCREEN_MAX1187X
 #include <linux/input/max1187x.h>
 
 // start hosoeng.han
 // static int max1187x_power(int on)
 extern unsigned int system_rev;
+static bool touch_req = false;
 int max1187x_power(int on)
 // end hoseong.han
 {
@@ -144,7 +145,12 @@ int max1187x_power(int on)
 
 	if (system_rev > HW_REV_A)
 	{
-		gpio_request(TS_GPIO_LDO_EN, "touch_ldo");
+                if(!touch_req)
+                {
+                        gpio_request(TS_GPIO_LDO_EN, "touch_ldo");
+                        gpio_direction_output(TS_GPIO_LDO_EN, 1);
+                        touch_req = true;
+                }
 	}
 	else
 	{
@@ -167,26 +173,28 @@ int max1187x_power(int on)
 		gpio_direction_input(TS_GPIO_IRQ);
 		gpio_direction_output(TS_GPIO_I2C_SDA, 1);
 		gpio_direction_output(TS_GPIO_I2C_SCL, 1);
-		gpio_set_value(TS_GPIO_RESET, 1);
 
                 if (system_rev > HW_REV_A)
                         gpio_set_value(TS_GPIO_LDO_EN, 1);
                 else
                         rc = regulator_enable(vreg_touch_1p8);
 		rc = regulator_enable(vreg_touch_3v);
+		msleep(5);
+		gpio_set_value(TS_GPIO_RESET, 1);
 	} else {
 		rc = gpio_tlmm_config(GPIO_CFG(TS_GPIO_IRQ, 0, GPIO_CFG_OUTPUT,
 			GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		gpio_direction_output(TS_GPIO_IRQ, 0);
 		gpio_direction_output(TS_GPIO_I2C_SDA, 0);
 
+		gpio_set_value(TS_GPIO_RESET, 0);
+		msleep(5);
                 if (system_rev > HW_REV_A)
                         gpio_set_value(TS_GPIO_LDO_EN, 0);
                 else
                         rc = regulator_disable(vreg_touch_1p8);
 		rc = regulator_disable(vreg_touch_3v);
 
-		gpio_set_value(TS_GPIO_RESET, 0);
 	}
 
 	gpio_free(TS_GPIO_IRQ);
@@ -201,7 +209,7 @@ struct max1187x_pdata max1187x_platdata = {
 	.num_fw_mappings = 3,// Hanz_touch 2013-04-15 2,
 	.fw_mapping[0] = {
 		.config_id = 0x0CFD,
-		.chip_id = 0x00,  //                                                                  
+		.chip_id = 0x00,  // LGE_CHANGE [hoseong.han@lge.com] 2013-04-15, first fimeware wirte
 		.filename = "max11871.bin",
 		.filesize = 0x8000, //  0xC000,
 		.file_codesize = 0x8000 // 0xC000
@@ -221,21 +229,30 @@ struct max1187x_pdata max1187x_platdata = {
 		.file_codesize = 0x8000 // 0xC000
 	},
 	.defaults_allow = 1,
-	.default_chip_config = 0x0CFD,
+	.default_config_id = 0x0CFD,
 	.default_chip_id = 0x57,
 	//.i2c_words = MAX_WORDS_REPORT,
 	.i2c_words = 128,
 	.coordinate_settings = MAX1187X_SWAP_XY,
 	.panel_margin_xl = 0,
-	.lcd_x = 719,// 720,
+	.lcd_x = 718,// 720,
 	.panel_margin_xh = 0,
 	.panel_margin_yl = 0,
 	.lcd_y = 1279,// 1280,
 	.panel_margin_yh = 0,
-	.num_rows = 32,
+	.num_sensor_x = 32,
+	.num_sensor_y = 18,
+	.button_code0 = KEY_BACK,
+	.button_code1 = KEY_HOME,
+	.button_code2 = KEY_MENU,
+	.button_code3 = KEY_RESERVED,
+	.linux_touch_protocol = 1,
+	.max1187x_report_mode = 1,
+	.enable_touch_wakeup = 0,
+	.enable_pressure_shaping = 1,
+	.enable_fast_calculation = 1,
+	.enable_fw_download = 1,
 // start hoseong.han
-	.num_cols = 18,
-	.button_code = {KEY_BACK, KEY_HOME, KEY_MENU, KEY_RESERVED},
 	.power_func = &max1187x_power,
 // end hoseong.han
 };
@@ -248,7 +265,7 @@ static struct i2c_board_info max1187x_ts_info[] = {
 	}
 };
 #else // Hanz_touch 2013-03-20
-/*                    */
+/*	LGE_UPDATE_TOUCH_S */
 extern unsigned int system_rev;
 static bool touch_req = false;
 int vdd_set_on_off(int on)
@@ -389,32 +406,32 @@ static struct i2c_board_info msm_i2c_synaptics_ts_info[] = {
                .irq = MSM_GPIO_TO_INT(TS_GPIO_IRQ),
        },
 };
-/*                    */
+/*	LGE_UPDATE_TOUCH_E */
 #endif 
-//                                              
+// LGE_CHANHE_E [hoseong.han@lge.com] 2013-03-20
 
 void __init lge_add_input_devices(void)
 {
-//                                                         
+// LGE_CHANHE [hoseong.han@lge.com] 2013-04-16 	int rc = 0;
 
 	gpio_tlmm_config(GPIO_CFG(TS_GPIO_IRQ, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_tlmm_config(GPIO_CFG(TS_GPIO_I2C_SDA, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_tlmm_config(GPIO_CFG(TS_GPIO_I2C_SCL, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 
 	gpio_tlmm_config(GPIO_CFG(TS_GPIO_RESET, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-#ifdef CONFIG_MACH_LGE_L9II_OPEN_EU
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
 	if (system_rev > HW_REV_A)
 		gpio_tlmm_config(GPIO_CFG(TS_GPIO_LDO_EN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 #endif
-//                                                                                                             
+// LGE_CHANHE [hoseong.han@lge.com] 2013-04-16 	rc = gpio_request(MSM_8930_TS_MAKER_ID, "TOUCH_PANEL_MAKERID");
 		
-//                                                                  
-//                                                                                             
+// LGE_CHANHE [hoseong.han@lge.com] 2013-04-16	if (unlikely(rc < 0))
+// LGE_CHANHE [hoseong.han@lge.com] 2013-04-16 		pr_err("%s not able to get gpio\n", __func__);
 		
 	/*	maker_id set 0 - normal , maker_id set 1 - dummy pattern */
-//                                                                                         
+// LGE_CHANHE [hoseong.han@lge.com] 2013-04-16 	gpio_direction_input(MSM_8930_TS_MAKER_ID);
 
-//                                                                             
+// LGE_CHANHE_S [hoseong.han@lge.com] 2013-03-20, MAX1187x Touch for L9II Rev.A
 #ifdef CONFIG_TOUCHSCREEN_MAX1187X	
 	i2c_register_board_info(MSM_8930_GSBI3_QUP_I2C_BUS_ID,
 		(&max1187x_ts_info[0]), 1);
@@ -424,7 +441,7 @@ void __init lge_add_input_devices(void)
 	i2c_register_board_info(MSM_8930_GSBI3_QUP_I2C_BUS_ID,
 		(&msm_i2c_synaptics_ts_info[0]), 1);
 #endif
-//                                              
+// LGE_CHANHE_E [hoseong.han@lge.com] 2013-03-20
 
     platform_device_register(&gpio_keys_8930);
 

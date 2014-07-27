@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,7 +98,7 @@ static int pm8xxx_spk_read(u16 addr)
 static int pm8xxx_spk_write(u16 addr, u8 val)
 {
 	int rc = 0;
-/*            */
+/* LGE_CHANGE */
 //	pr_debug("pm8xxx_spk_write = addr:%04x, val:%02x\n", addr, value);
 
 	mutex_lock(&the_spk_chip->spk_mutex);
@@ -122,14 +122,14 @@ int pm8xxx_spk_mute(bool mute)
 	val = pm8xxx_spk_read(PM8XXX_SPK_CTL1_REG_OFF);
 	if (val < 0)
 		return val;
-	/*                                           
-                                 
- */
+	/* LGE_CHANGE_S, woohyun.seok, fix spk mute  
+	     org code. val |= mute << 2;
+	*/
 	if(!mute)
 		val |= (1 << 2);
 	else
 		val &= ~(1 << 2);
-	/*              */
+	/* LGE_CHANGE_E */
 	ret = pm8xxx_spk_write(PM8XXX_SPK_CTL1_REG_OFF, val);
     printk("SPK Mute is Called - MUTE:%d\n",mute);
 	return ret;
@@ -208,9 +208,9 @@ static int __devinit pm8xxx_spk_probe(struct platform_device *pdev)
 	const struct pm8xxx_spk_platform_data *pdata = pdev->dev.platform_data;
 	int ret = 0;
 	u8 value = 0;
-	/*                                           */
+	/*LGE_STSRT, 2012-11-05 woohyun.seok@lge.com */
 	int read_value = 0;
-	/*                                         */
+	/*LGE_END, 2012-11-05 woohyun.seok@lge.com */
 
 	if (!pdata) {
 		pr_err("missing platform data\n");
@@ -271,9 +271,9 @@ static int __devinit pm8xxx_spk_probe(struct platform_device *pdev)
 	pm8xxx_spk_write(PM8XXX_SPK_CTL4_REG_OFF, value);
 
 
-	/*                                          
-                                                            
-                                                               */
+	/*LGE_STSRT, 2012-11-05 woohyun.seok@lge.com
+	PMIC AMP reg is modified because of unstable SPK playback. 
+	but, maybe 0x254 register is not applied at kernel side by QCT*/
 	value = 0xc8;
 	pm8xxx_spk_write(PM8XXX_SPK_CTL2_REG_OFF, value);	// 0x254
 	read_value = pm8xxx_spk_read(PM8XXX_SPK_CTL2_REG_OFF);
@@ -288,7 +288,7 @@ static int __devinit pm8xxx_spk_probe(struct platform_device *pdev)
 	pm8xxx_spk_write(PM8XXX_SPK_CTL4_REG_OFF, value);	// 0x256
 	read_value = pm8xxx_spk_read(PM8XXX_SPK_CTL4_REG_OFF);
 	pr_debug("Setting SPK_CTL4_REG(0x256) = %02x\n", read_value);
-	/*                                         */
+	/*LGE_END, 2012-11-05 woohyun.seok@lge.com */
 	
 	return pm8xxx_spk_config();
 err_handle:

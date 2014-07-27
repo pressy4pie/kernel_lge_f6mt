@@ -23,36 +23,30 @@
 #define MAX1187X_TOUCH  MAX1187X_NAME "_touchscreen_0"
 #define MAX1187X_KEY    MAX1187X_NAME "_key_0"
 
-#define MAX_WORDS_COMMAND  9  /* command address space 0x00-0x09 minus header
+#define CMD_LEN_PACKET_MAX  9  /* command address space 0x00-0x09 minus header
 				=> 9 command words maximum */
-#define MAX_WORDS_REPORT   245  /* address space 0x00-0xFF minus 0x00-0x09 for
-				commands minus header, maximum 1 report packet*/
-#define MAX_WORDS_COMMAND_ALL  (15 * MAX_WORDS_COMMAND)  /* maximum 15 packets
+#define CMD_LEN_MAX  (15 * CMD_LEN_PACKET_MAX)  /* maximum 15 packets
 				9 payload words each */
+#define RPT_LEN_PACKET_MAX   245  /* address space 0x00-0xFF minus 0x00-0x09 for
+				commands minus header, maximum 1 report packet*/
+#define RPT_LEN_MAX   1000  /* Maximum report size */
 
 #define MAX1187X_NUM_FW_MAPPINGS_MAX    5
 #define MAX1187X_TOUCH_COUNT_MAX        10
-#define MAX1187X_TOUCH_REPORT_RAW       0x0800
-#define MAX1187X_TOUCH_REPORT_BASIC     0x0801
-#define MAX1187X_TOUCH_REPORT_EXTENDED  0x0802
-/* #define MAX1187X_PROTOCOL_A */
-#define MAXIM_TOUCH_REPORT_MODE 1 /* 1=basic, 2=extended */
-#define MAX_REPORT_READERS		5
-#define FW_DOWNLOAD_FEATURE
-/* #define CONFIG_DOWNLOAD_FEATURE */
-/* #define MAX11871 */
-#define DEBUG_STRING_LEN_MAX 60
-#define MAX_FW_RETRIES 5
+#define MAX1187X_REPORT_TOUCH_RAW       0x0800
+#define MAX1187X_REPORT_TOUCH_BASIC     0x0801
+#define MAX1187X_REPORT_TOUCH_EXTENDED  0x0802
+#define MAX1187X_REPORT_POWER_MODE		0x0121
+#define PRESSURE_MAX                    32768
+#define PRESSURE_MAX_SQRT               181
+#define MAX_REPORT_READERS              5
+#define DEBUG_STRING_LEN_MAX            60
+#define MAX_FW_RETRIES                  5
 
 #define MAX1187X_PI 205887 /* pi multiplied by 2^16 */
-//start hoseong.han
-#if MAXIM_TOUCH_REPORT_MODE == 2
-//end hoseong.han
 /* tanlist - array containing tan(i)*(2^16-1) for i=[0,45], i in degrees */
-//start hoseong.han
-//u16 tanlist[] = {0, 1144, 2289, 3435, 4583, 5734,
-static u16 tanlist[] = {0, 1144, 2289, 3435, 4583, 5734,
-//end hoseong.han
+#if 0
+u16 tanlist[] = {0, 1144, 2289, 3435, 4583, 5734,
 			6888, 8047, 9210, 10380, 11556, 12739,
 			13930, 15130, 16340, 17560, 18792, 20036,
 			21294, 22566, 23853, 25157, 26478, 27818,
@@ -60,9 +54,7 @@ static u16 tanlist[] = {0, 1144, 2289, 3435, 4583, 5734,
 			37837, 39377, 40951, 42559, 44204, 45888,
 			47614, 49384, 51202, 53069, 54990, 56969,
 			59008, 61112, 63286, 65535};
-//start hoseong.han
 #endif
-//end hoseong.han
 
 struct max1187x_touch_report_header {
 	u16 header;
@@ -80,24 +72,26 @@ struct max1187x_touch_report_header {
 
 struct max1187x_touch_report_basic {
 	u16 finger_id:4;
-	u16 reserved0:12;
-	u16 x:12;
+	u16 reserved0:4;
+	u16 tool_type:4;
 	u16 reserved1:4;
-	u16 y:12;
+	u16 x:12;
 	u16 reserved2:4;
-	u16 reserved3:8;
-	u16 z:8;
+	u16 y:12;
+	u16 reserved3:4;
+	u16 z;
 };
 
 struct max1187x_touch_report_extended {
 	u16 finger_id:4;
-	u16 reserved0:12;
-	u16 x:12;
+	u16 reserved0:4;
+	u16 tool_type:4;
 	u16 reserved1:4;
-	u16 y:12;
+	u16 x:12;
 	u16 reserved2:4;
-	u16 reserved3:8;
-	u16 z:8;
+	u16 y:12;
+	u16 reserved3:4;
+	u16 z;
 	s16 xspeed;
 	s16 yspeed;
 	s8 xpixel;
@@ -123,7 +117,7 @@ struct max1187x_pdata {
 	u32			num_fw_mappings;
 	struct max1187x_fw_mapping  fw_mapping[MAX1187X_NUM_FW_MAPPINGS_MAX];
 	u32			defaults_allow;
-	u32			default_chip_config;
+	u32			default_config_id;
 	u32			default_chip_id;
 	u32			i2c_words;
 	#define MAX1187X_REVERSE_X  0x0001
@@ -136,11 +130,23 @@ struct max1187x_pdata {
 	u32			panel_margin_yl;
 	u32			lcd_y;
 	u32			panel_margin_yh;
-	u32			num_rows;
-	u32			num_cols;
-//                                                            
+	u32			num_sensor_x;
+	u32			num_sensor_y;
+	u32			button_code0;
+	u32			button_code1;
+	u32			button_code2;
+	u32			button_code3;
+	/* Protocol A (0) or B (1) */
+	u32			linux_touch_protocol;
+	/* Simple (1) or Extended (2) */
+	u32			max1187x_report_mode;
+	u32			enable_touch_wakeup;
+	u32			enable_pressure_shaping;
+	u32			enable_fast_calculation;
+	u32			enable_fw_download;
+// LGE_CHANGE_S [hoseong.han@lge.com] 2013-04-15, button patch
 	u16			button_code[4];
-//                                               
+// LGE_CHANGE_E [hoseong.han@lge.com] 2013-04-15 
 //start hoseong.han
 	int			(*power_func)(int on);
 //end hoseong.han

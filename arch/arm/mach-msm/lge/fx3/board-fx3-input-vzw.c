@@ -41,8 +41,15 @@
 #define TS_GPIO_IRQ					11
 #define TS_GPIO_RESET				52
 
+#ifdef TS_X_MAX
+#undef TS_X_MAX
+#endif
 #define TS_X_MAX             		480
+
+#ifdef TS_Y_MAX
+#undef TS_Y_MAX
 #define TS_Y_MAX             		800
+#endif
 
 #define LGE_TOUCH_SYNATICS_I2C_SLAVE_ADDR 	0x20
 
@@ -219,7 +226,7 @@ static void pp2106_init_gpio(void) {
 }
 #endif
 
-/*                    */
+/*	LGE_UPDATE_TOUCH_S */
 extern unsigned int system_rev;
 static bool touch_req = false;
 int vdd_set_on_off(int on)
@@ -311,7 +318,7 @@ static struct i2c_board_info msm_i2c_synaptics_ts_info[] = {
                .irq = MSM_GPIO_TO_INT(TS_GPIO_IRQ),
        },
 };
-/*                    */
+/*	LGE_UPDATE_TOUCH_E */
 void __init lge_add_input_devices(void)
 {
 	int rc = 0;
@@ -344,13 +351,13 @@ void __init lge_add_input_devices(void)
 	} else {
 		platform_device_register(&pp2106_keypad_device);
 	}
-#else /*                            */
+#else /* !CONFIG_MACH_LGE_FX3Q_TMUS */
 	if (system_rev >= HW_REV_C) {
 		platform_device_register(&pp2106_keypad_device_revC);
 	} else {
 		platform_device_register(&pp2106_keypad_device);
 	}
-#endif /*                           */
+#endif /* CONFIG_MACH_LGE_FX3Q_TMUS */
 #endif
 
 #if defined(CONFIG_HALLIC_S5712ACDL1)

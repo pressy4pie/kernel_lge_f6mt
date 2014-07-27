@@ -40,9 +40,9 @@
 
 #define MELFAS_TS_I2C_SLAVE_ADDR 	0x48
 
-/*                                                
-                                                
-                                                
+/*  keyamp for high board rev(it won't be changed)
+ *  - [home, up, down, quickmemo] : [1, 2, 3, 5]
+ *	RevA, RevB only... by choonghyun.jeon@lge.com
  */
 #define GPIO_HOMEPAGE		PM8038_GPIO_PM_TO_SYS(1)
 #define GPIO_VOLUME_UP		PM8038_GPIO_PM_TO_SYS(3)
@@ -104,10 +104,10 @@ static struct platform_device gpio_keys_8930 = {
 		.platform_data  = &gpio_keys_8930_pdata,
 	},
 };
-//                                               
+// LGE_CHANGE_E [younglae.kim@lge.com] 2012-10-23
 
 
-/*                                                                    */
+/* LGE_CHANGE_S[mystery184.kim@lge.com] 2013-01-29 F6 mms134 bring-up */
 bool dummy_touch = false;
 static bool touch_req = false;
 int vdd_set_on_off(int on)
@@ -208,6 +208,6 @@ void __init lge_add_input_devices(void)
 //   else if(system_rev > HW_REV_A)
 //        platform_device_register(&gpio_keys_8930_temp);
 }
-/*                                                                    */
+/* LGE_CHANGE_E[mystery184.kim@lge.com] 2013-01-29 F6 mms134 bring-up */
 
 #endif // CONFIG_TOUCHSCREEN_MELFAS_MMS134

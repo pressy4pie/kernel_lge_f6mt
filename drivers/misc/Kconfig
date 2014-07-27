@@ -603,6 +603,20 @@ config PMIC8XXX_VIBRATOR
 	  on the PM8XXX chips. The vibrator is controlled using the
 	  timed output class.
 
+config ANDROID_VIBRATOR
+	bool "Android vibrator support"
+	depends on ANDROID_TIMED_OUTPUT
+	default n
+	help
+	  This option enalbes device driver support for Android Vibrator driver.
+	  Some functions should be given by platform data for enable PWM, Motor IC, etc.
+
+config TOUCHSENSE_VIBRATOR
+	bool "Immersion Touchsense vibrator support"
+	help
+	  This option enables device driver support for Immersion Touchsense
+	  vibrator.
+
 # LGE_CHANGE
 config LGE_PMIC8XXX_VIBRATOR_VOL
 	bool "Control the strength of Qualcomm Vibrator"
@@ -663,8 +677,14 @@ config ANDROID_SW_IRRC
 	bool "Android irrc support"
 	default n
 	help
-	  This option enalbes device driver support for Android SW IRRC
+	  This option enables device driver support for Android SW IRRC
 	  Some functions should be given by platform data for enable PWM, Motor IC, etc.
+
+config LGE_IRRC
+	bool "LGE IRRC support"
+	default n
+	help
+	  This option enables device driver support for Android HW IRRC
 
 config PMIC8XXX_NFC
 	tristate "Qualcomm PM8XXX support for Near Field Communication"
@@ -744,4 +764,6 @@ source "drivers/misc/ti-st/Kconfig"
 source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
 source "drivers/misc/altera-stapl/Kconfig"
+source "drivers/misc/slimport_anx7808/Kconfig"
+
 endmenu

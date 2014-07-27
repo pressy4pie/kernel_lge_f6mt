@@ -1718,7 +1718,7 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 	memcpy(&policy->cpuinfo, &data->cpuinfo,
 				sizeof(struct cpufreq_cpuinfo));
 
-/*                                                                  */
+/* LGE_UPDATE_S, 2013-01-25, dan.park@lge.com, QCT SR case#01076411 */
 #ifdef CONFIG_MACH_LGE
 	if (policy->min > data->max)
 		policy->min = data->max;
@@ -1730,7 +1730,7 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 		goto error_out;
 	}
 #endif
-/*                                                                  */
+/* LGE_UPDATE_E, 2013-01-25, dan.park@lge.com, QCT SR case#01076411 */
 
 	/* verify the cpu speed can be set within this limit */
 	ret = cpufreq_driver->verify(policy);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,7 +37,7 @@ static const struct pm8xxx_adc_map_pt adcmap_btm_threshold[] = {
 	{300,   677},
 	{400,   569},
 	{500,   485},
-	{600,   383},
+	{600,   390},
 	{700,    350},
 	{800,    336}
 };

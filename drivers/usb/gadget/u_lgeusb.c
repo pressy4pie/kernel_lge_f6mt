@@ -33,7 +33,7 @@
 
 static struct mutex lgeusb_lock;
 
-#ifdef CONFIG_USB_G_LGE_ANDROID_AUTORUN
+#ifdef CONFIG_USB_LGE_ANDROID_AUTORUN
 static u16 user_mode;
 #endif
 
@@ -207,7 +207,7 @@ static ssize_t lge_cable_adc_show(struct device *dev,
 /* /sys/devices/platform/lge_android_usb/lge_cable_adc */
 static DEVICE_ATTR(lge_cable_adc, S_IRUGO | S_IWUSR, lge_cable_adc_show, NULL);
 
-#ifdef CONFIG_USB_G_LGE_ANDROID_AUTORUN
+#ifdef CONFIG_USB_LGE_ANDROID_AUTORUN
 /* To set/get USB user mode to/from user space for autorun
  * /sys/devices/platform/lge_android_usb/lge_usb_mode
  */
@@ -258,7 +258,7 @@ static struct device_attribute *lge_android_usb_attributes[] = {
 	&dev_attr_sw_version,
 	&dev_attr_sub_version,
 	&dev_attr_phone_id,
-#ifdef CONFIG_USB_G_LGE_ANDROID_AUTORUN
+#ifdef CONFIG_USB_LGE_ANDROID_AUTORUN
 	&dev_attr_autorun_user_mode,
 #endif
     &dev_attr_lge_cable_adc,

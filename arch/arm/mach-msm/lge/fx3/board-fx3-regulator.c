@@ -74,20 +74,20 @@ VREG_CONSUMERS(L9) = {
 //	REGULATOR_SUPPLY("cam_vana",		"4-001a"),
 //	REGULATOR_SUPPLY("cam_vana",		"4-006c"),
 //	REGULATOR_SUPPLY("cam_vana",		"4-0048"),
-/*                                                                 */
+/* LGE_CHANGE_S L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
 #if defined (CONFIG_IMX111)
 	REGULATOR_SUPPLY("cam_vana",		"4-000d"),
 #else
-	REGULATOR_SUPPLY("cam_vana",		"4-0040"),	/*                                                                                 */
-	REGULATOR_SUPPLY("cam_vana",		"4-0020"),	/*                                                                                    */
+	REGULATOR_SUPPLY("cam_vana",		"4-0040"),	/* LGE_CHANGED, board bringup main-cam for ATT, 2012-11-16, kwangsik83.kim@lge.com */
+	REGULATOR_SUPPLY("cam_vana",		"4-0020"),	/* LGE_CHANGED, board bringup main-cam for sprint, 2012-09-19, kwangsik83.kim@lge.com */
 #endif
 
 #if defined (CONFIG_IMX119)
-	REGULATOR_SUPPLY("cam_vana",        "4-006e"), /*                                                               */
+	REGULATOR_SUPPLY("cam_vana",        "4-006e"), /* LGE_CHANGED F6 Camera porting, 2013.02.07 hyunuk.park@lge.com */
 #else	
-	REGULATOR_SUPPLY("cam_vana",		"4-0060"),	/*                                                                                  */
+	REGULATOR_SUPPLY("cam_vana",		"4-0060"),	/* LGE_CHANGED, board bringup vt-cam for sprint, 2012-09-19, kwangsik83.kim@lge.com */
 #endif	
-/*                                                                 */
+/* LGE_CHANGE_E L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
 
 //	REGULATOR_SUPPLY("cam_vaf",		"4-001a"),
 //	REGULATOR_SUPPLY("cam_vaf",		"4-006c"),
@@ -120,16 +120,16 @@ VREG_CONSUMERS(L11) = {
 };
 VREG_CONSUMERS(L12) = {
 	REGULATOR_SUPPLY("8038_l12",		NULL),
-/*                                                                 */
+/* LGE_CHANGE_S L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
 #if defined (CONFIG_IMX111)
-#if !defined(CONFIG_F6_CAM8M)
+#if !defined(CONFIG_F6_CAM8M) || defined(CONFIG_F6_CAM8M_HW10)
 	REGULATOR_SUPPLY("cam_vdig",        "4-000d"),
 #endif
 #endif
 #if defined (CONFIG_IMX119)
-	REGULATOR_SUPPLY("cam_vdig",        "4-006e"),	 /*                                                               */
+	REGULATOR_SUPPLY("cam_vdig",        "4-006e"),	 /* LGE_CHANGED F6 Camera porting, 2013.02.07 hyunuk.park@lge.com */
 #endif
-/*                                                                 */
+/* LGE_CHANGE_E L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
 //	REGULATOR_SUPPLY("cam_vdig",		"4-001a"),
 //	REGULATOR_SUPPLY("cam_vdig",		"4-006c"),
 //	REGULATOR_SUPPLY("cam_vdig",		"4-0048"),
@@ -149,18 +149,18 @@ VREG_CONSUMERS(L16) = {
 	REGULATOR_SUPPLY("core_vdd",		"pil_qdsp6v4.2"),
 };
 VREG_CONSUMERS(L17) = {
-/*                                                                 */
+/* LGE_CHANGE_S L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
 #if defined(CONFIG_IMX111)
-#if defined(CONFIG_F6_CAM8M)
+#if defined(CONFIG_F6_CAM8M) && !defined(CONFIG_F6_CAM8M_HW10)
 	REGULATOR_SUPPLY("cam_vdig",			"4-000d"),
 #else
 	REGULATOR_SUPPLY("cam_vaf",				"4-000d"),
 #endif
 #endif	
-/*                                                                 */
-	REGULATOR_SUPPLY("cam_vdig",            "4-0040"),	/*                                                                                 */
-	REGULATOR_SUPPLY("cam_vdig",            "4-0060"),	/*                                                                                  */
-	REGULATOR_SUPPLY("cam_vdig",            "4-0020"),	/*                                                                                    */
+/* LGE_CHANGE_E L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
+	REGULATOR_SUPPLY("cam_vdig",            "4-0040"),	/* LGE_CHANGED, board bringup main-cam for att, 2012-11-16, kwangsik83.kim@lge.com */
+	REGULATOR_SUPPLY("cam_vdig",            "4-0060"),	/* LGE_CHANGED, board bringup vt-cam for sprint, 2012-09-19, kwangsik83.kim@lge.com */
+	REGULATOR_SUPPLY("cam_vdig",            "4-0020"),	/* LGE_CHANGED, board bringup main-cam for sprint, 2012-09-19, kwangsik83.kim@lge.com */
 	REGULATOR_SUPPLY("8038_l17",		NULL),
 };
 VREG_CONSUMERS(L18) = {
@@ -253,19 +253,19 @@ VREG_CONSUMERS(LVS2) = {
 	REGULATOR_SUPPLY("vcc_i2c",		"0-0048"),
 	REGULATOR_SUPPLY("vddio",		"12-0018"),
 	REGULATOR_SUPPLY("vlogic",		"12-0068"),
-/*                                                                 */
+/* LGE_CHANGE_S L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
 #if defined (CONFIG_IMX111)
 	REGULATOR_SUPPLY("cam_vio",             "4-000d"),
 #else
-	REGULATOR_SUPPLY("cam_vio",             "4-0040"),	/*                                                                                 */
-	REGULATOR_SUPPLY("cam_vio",             "4-0020"),	/*                                                                                    */
+	REGULATOR_SUPPLY("cam_vio",             "4-0040"),	/* LGE_CHANGED, board bringup main-cam for ATT, 2012-11-16, kwangsik83.kim@lge.com */
+	REGULATOR_SUPPLY("cam_vio",             "4-0020"),	/* LGE_CHANGED, board bringup main-cam for sprint, 2012-09-19, kwangsik83.kim@lge.com */
 #endif
 #if defined (CONFIG_IMX119)
-	REGULATOR_SUPPLY("cam_vio",             "4-006e"), /*                                                               */
+	REGULATOR_SUPPLY("cam_vio",             "4-006e"), /* LGE_CHANGED F6 Camera porting, 2013.02.07 hyunuk.park@lge.com */
 #else	
-	REGULATOR_SUPPLY("cam_vio",             "4-0060"),	/*                                                                                  */
+	REGULATOR_SUPPLY("cam_vio",             "4-0060"),	/* LGE_CHANGED, board bringup vt-cam for sprint, 2012-09-19, kwangsik83.kim@lge.com */
 #endif
-/*                                                                 */
+/* LGE_CHANGE_S L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
 };
 
 #ifdef CONFIG_USB_OTG
@@ -563,14 +563,14 @@ msm8930_rpm_regulator_init_data[] __devinitdata = {
 	/*	ID a_on pd ss min_uV   max_uV  supply sys_uA  freq  fm  ss_fm */
 	RPM_SMPS(S1, 0, 1, 1,  500000, 1150000, NULL, 100000, 4p80, AUTO, LPM),
 	RPM_SMPS(S2, 1, 1, 1, 1400000, 1400000, NULL, 100000, 1p60, AUTO, LPM),
-//                                                                                                                                                        
+//[LGE_CHANGE_S]austin.kim@lge.com, 12/21/2012, QCT patch for modem crash; [PATCH] msm: board-8930: Use AUTO mode in PM8038 SMPS 3 sleep set configuration
 //From; https://www.codeaurora.org/gitweb/quic/la/?p=kernel/msm.git;a=patch;h=36410baa623d1fb236c64972dda26c6f8404b6da
 #if 1
 	RPM_SMPS(S3, 0, 1, 1, 1150000, 1150000, NULL, 100000, 3p20, AUTO, AUTO),
 #else // before
 	RPM_SMPS(S3, 0, 1, 1, 1150000, 1150000, NULL, 100000, 3p20, AUTO, AUTO), /* LA.1.7232 Migration */
 #endif
-//                                                                                                                                                        
+//[LGE_CHANGE_E]austin.kim@lge.com, 12/21/2012, QCT patch for modem crash; [PATCH] msm: board-8930: Use AUTO mode in PM8038 SMPS 3 sleep set configuration
 	RPM_SMPS(S4, 1, 1, 1, 1950000, 2200000, NULL, 100000, 1p60, AUTO, LPM),
 
 	/*	ID     a_on pd ss min_uV   max_uV  supply  sys_uA init_ip */
@@ -585,10 +585,10 @@ msm8930_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L8,	 0, 1, 0, 2800000, 3000000, NULL,      0, 0),
 #elif defined ( CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT )
 	RPM_LDO(L8,	 0, 1, 0, 2800000, 3000000, NULL,      0, 0),
-//                                                                            
-#elif defined ( CONFIG_MACH_LGE_L9II_OPEN_EU )
+// LGE_CHANGE_S [hoseong.han@lge.com] 2013-04-10,  L9II RevA schematic change.
+#elif defined ( CONFIG_MACH_LGE_L9II_COMMON )
 	RPM_LDO(L8,	 0, 1, 0, 3000000, 3000000, NULL,      0, 0),
-//                                               
+// LGE_CHANGE_E [hoseong.han@lge.com] 2013-04-10 
 #else
 	RPM_LDO(L8,	 0, 1, 0, 2800000, 2800000, NULL,      0, 0),
 #endif
@@ -603,19 +603,19 @@ msm8930_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L10,	 0, 1, 0, 2700000, 2900000, NULL,      0, 0),
 #endif
 	RPM_LDO(L11,	 1, 1, 0, 1800000, 1800000, "8038_s4", 10000, 10000),
-	RPM_LDO(L12,	 0, 1, 0, 1200000, 1200000, "8038_s2", 0, 0), /*                                                               */
+	RPM_LDO(L12,	 0, 1, 0, 1200000, 1200000, "8038_s2", 0, 0), /* LGE_CHANGED F6 Camera porting, 2013.02.07 hyunuk.park@lge.com */
 	RPM_LDO(L13,	 0, 0, 0, 2220000, 2220000, NULL,      0, 0),
 	RPM_LDO(L14,	 0, 1, 0, 1800000, 1800000, NULL,      0, 0),
 	RPM_LDO(L15,	 0, 1, 0, 1800000, 2950000, NULL,      0, 0),
-//                                                                                         
-#ifdef CONFIG_MACH_LGE_L9II_OPEN_EU	
-	RPM_LDO(L17,	 0, 1, 0, 1500000, 2800000, NULL,      0, 0), /*                                                */
+//[LGE_CHANGE_S] 2013.02.27, daewon1004.kim@lge.com, l9ii chang the camera voltage to 2.8v.
+#if defined ( CONFIG_MACH_LGE_L9II_COMMON )
+	RPM_LDO(L17,	 0, 1, 0, 1500000, 2800000, NULL,      0, 0), /* change voltage MAX 2.8v daewon1004.kim@lge.com */
 #elif defined(CONFIG_F6_CAM8M)
 	RPM_LDO(L17,	 0, 1, 0, 1200000, 1200000, NULL,      0, 0),
 #else
-	RPM_LDO(L17,	 0, 1, 0, 1500000, 1800000, NULL,      0, 0), /*                                                                                 */
+	RPM_LDO(L17,	 0, 1, 0, 1500000, 1800000, NULL,      0, 0), /* LGE_CHANGE, change voltage range 1.8v -> 1.5v, 2012-11-15 donghyun.kwon@lge.com */
 #endif	
-//                                                                                         
+//[LGE_CHANGE_E] 2013.02.27, daewon1004.kim@lge.com, l9ii chang the camera voltage to 2.8v.
 	RPM_LDO(L18,	 0, 1, 0, 2850000, 2850000, NULL,      0, 0),
 #ifdef CONFIG_MACH_MSM8930_FX3
 	RPM_LDO(L20,	 1, 1, 0, 1200000, 1200000, "8038_s2", 10000, 10000),

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -297,15 +297,7 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 		}
 
 		gpio_direction_output(wcd9xxx->reset_gpio, 0);
-//                                                                
-#ifdef CONFIG_MACH_LGE_L9II_OPEN_EU		
-	msleep(1000);
-#else
-//                                                                
-	msleep(20);
-//                                                                 
-#endif		
-//                                                                
+		msleep(20);
 		gpio_direction_output(wcd9xxx->reset_gpio, 1);
 		msleep(20);
 	}

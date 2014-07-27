@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,14 +21,13 @@
 #include "msm_csiphy.h"
 #include "msm.h"
 #include "msm_csiphy_hwreg.h"
-/*            */
-#define DBG_CSIPHY 1
+#define DBG_CSIPHY 0
 
 #define V4L2_IDENT_CSIPHY                        50003
 #define CSIPHY_VERSION_V3                        0x10
 
 
-/*                                                                                     */
+/*LGE_CHANGE_S, to count csiphy irq and disable it, 2013-05-02, kwangsik83.kim@lge.com */
 /*8x30, csi2.0*/
 
 #ifdef DBG_CSIPHY
@@ -44,7 +43,7 @@ static uint8_t csiphyErrStatus[8][8] =
 	{0x13, 0},	/*Voltage_irq*/
 };
 #endif
-/*                                                                                     */
+/*LGE_CHANGE_E, to count csiphy irq and disable it, 2013-05-02, kwangsik83.kim@lge.com */
 
 int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 	struct msm_camera_csiphy_params *csiphy_params)
@@ -55,19 +54,19 @@ int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 	uint8_t lane_cnt = 0;
 	uint16_t lane_mask = 0;
 	void __iomem *csiphybase;
-	int i = 0;	/*                                                                                   */
+	int i = 0;	/*LGE_CHANGE, to count csiphy irq and disable it, 2013-05-02, kwangsik83.kim@lge.com */
 	
-/*                                                                                                            */
+/*LGE_CHANGE_S, qct_patch for fixing abnormal signal in tclk_trail section, 2013-03-14, kwangsik83.kim@lge.com*/
 #ifdef CONFIG_HI543	
 	uint16_t irq2 = 0;
 #endif
-/*                                                                                                            */
+/*LGE_CHANGE_E, qct_patch for fixing abnormal signal in tclk_trail section, 2013-03-14, kwangsik83.kim@lge.com*/
 
 
-/*                                                                                     */
+/*LGE_CHANGE_S, to count csiphy irq and disable it, 2013-05-02, kwangsik83.kim@lge.com */
 	for(i=0; i<8; i++)
 		memset(&csiphyErrStatus[i][1], 0, sizeof(uint8_t));
-/*                                                                                     */
+/*LGE_CHANGE_E, to count csiphy irq and disable it, 2013-05-02, kwangsik83.kim@lge.com */
 
 
 	csiphybase = csiphy_dev->base;
@@ -84,8 +83,8 @@ int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 			__func__, csiphy_params->lane_cnt);
 		return rc;
 	}
-	
-	/*                                                         */
+
+	/*LGE_CHANGE, open logs, 2013-01-28, kwangsik83.kim@lge.com*/
 	pr_err("%s csiphy_params, mask = %x, cnt = %d, settle cnt = %x\n",
 		__func__,
 		csiphy_params->lane_mask,
@@ -133,7 +132,7 @@ int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		lane_mask >>= 1;
 	}
 
-/*                                                                                                            */
+/*LGE_CHANGE_S, qct_patch for fixing abnormal signal in tclk_trail section, 2013-03-14, kwangsik83.kim@lge.com*/
 #ifdef CONFIG_HI543
 	if(csiphy_dev->pdev->id == 0){//only for main cam(hi543)
 		irq2 = msm_camera_io_r(csiphy_dev->base + MIPI_CSIPHY_LNCK_CFG4_ADDR); 
@@ -144,7 +143,7 @@ int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		irq2 = 0;
 	}
 #endif
-/*                                                                                                            */
+/*LGE_CHANGE_E, qct_patch for fixing abnormal signal in tclk_trail section, 2013-03-14, kwangsik83.kim@lge.com*/
 
 	msleep(20);
 	return rc;
@@ -155,7 +154,8 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 	uint32_t irq;
 	int i;
 	struct csiphy_device *csiphy_dev = data;
-
+	if(!csiphy_dev || !csiphy_dev->base)
+		return IRQ_HANDLED;
 	for (i = 0; i < 8; i++) {
 		irq = msm_camera_io_r(
 			csiphy_dev->base +
@@ -165,7 +165,7 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 			MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR + 0x4*i);
 		pr_err("%s MIPI_CSIPHY%d_INTERRUPT_STATUS%d = 0x%x\n",
 			 __func__, csiphy_dev->pdev->id, i, irq);
-/*                                                                                     */
+/*LGE_CHANGE_S, to count csiphy irq and disable it, 2013-05-02, kwangsik83.kim@lge.com */
 #ifdef DBG_CSIPHY
 		if(irq & csiphyErrStatus[i][0]){
 			csiphyErrStatus[i][1] += 1;
@@ -181,7 +181,7 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 			csiphyErrStatus[i][1] = 0;
 		}
 #endif
-/*                                                                                     */
+/*LGE_CHANGE_E, to count csiphy irq and disable it, 2013-05-02, kwangsik83.kim@lge.com */
 
 		
 		msm_camera_io_w(0x1, csiphy_dev->base +
@@ -192,7 +192,6 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 			csiphy_dev->base +
 			MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR + 0x4*i);
 	}
-
 	return IRQ_HANDLED;
 }
 
@@ -227,7 +226,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 {
 	int rc = 0;
 
-	pr_err("%s \n", __func__); /*                                                        */
+	pr_err("%s \n", __func__); /*LGE_CHANGE, add log, 2013-05-02, kwangsik83.kim@lge.com */
 	
 	if (csiphy_dev == NULL) {
 		pr_err("%s: csiphy_dev NULL\n", __func__);
@@ -371,10 +370,6 @@ static long msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 		pr_err("%s: %d failed\n", __func__, __LINE__);
 		return -EFAULT;
 	}
-
-	/*                                                         */
-	pr_err("%s cfgtype = %d\n", __func__, cdata.cfgtype);
-	
 	switch (cdata.cfgtype) {
 	case CSIPHY_INIT:
 		rc = msm_csiphy_init(csiphy_dev);
@@ -507,7 +502,7 @@ static int __devinit csiphy_probe(struct platform_device *pdev)
 csiphy_no_resource:
 	mutex_destroy(&new_csiphy_dev->mutex);
 	kfree(new_csiphy_dev);
-	return 0;
+	return rc;
 }
 
 static const struct of_device_id msm_csiphy_dt_match[] = {

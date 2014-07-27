@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,11 +30,11 @@
 #define VIB_DRV_EN_MANUAL_MASK	0xfc
 #define VIB_DRV_LOGIC_SHIFT	0x2
 
-/*            */
+/* LGE_CHANGE */
 #define VIB_MAX_LEVEL_mV	2800
 #define VIB_MIN_LEVEL_mV	1000
 
-/*            */
+/* LGE_CHANGE */
 unsigned int debug_mask = 0;
 
 struct pm8xxx_vib {
@@ -46,7 +46,7 @@ struct pm8xxx_vib {
 	const struct pm8xxx_vibrator_platform_data *pdata;
 	int state;
 	int level;
-/*              */
+/* LGE_CHANGE_S */
 	int pre_value;
 	struct hrtimer vib_overdrive_timer;
 	int active_level;
@@ -62,7 +62,7 @@ struct pm8xxx_vib {
 	struct timeval stop_tv;
     int max_level_mv;
     int min_level_mv;
-/*              */
+/* LGE_CHANGE_E */
 	u8  reg_vib_drv;
 };
 
@@ -166,11 +166,11 @@ static int pm8xxx_vib_set(struct pm8xxx_vib *vib, int on)
 {
 	int rc;
 	u8 val;
-/*              */
+/* LGE_CHANGE_S */
 	unsigned long flags;
 
 	spin_lock_irqsave(&vib->lock, flags);
-/*              */
+/* LGE_CHANGE_E */
 
 	if (on) {
 		val = vib->reg_vib_drv;
@@ -190,7 +190,7 @@ static int pm8xxx_vib_set(struct pm8xxx_vib *vib, int on)
 	}
 	__dump_vib_regs(vib, "vib_set_end");
 
-/*              */
+/* LGE_CHANGE_S */
     if(unlikely(debug_mask))
         printk(KERN_INFO "pm8xxx_vib_set vib->level:%d, val:0x%x\n",vib->level,val);
 
@@ -214,7 +214,7 @@ static int pm8xxx_vib_set(struct pm8xxx_vib *vib, int on)
 #endif
 
 	spin_unlock_irqrestore(&vib->lock, flags);
-/*              */
+/* LGE_CHANGE_E */
 
 	return rc;
 }
@@ -225,7 +225,7 @@ static void pm8xxx_vib_enable(struct timed_output_dev *dev, int value)
 					 timed_dev);
 	unsigned long flags;
 
-/*            */
+/* LGE_CHANGE */
 	int origin_value;
 #ifdef CONFIG_LGE_PMIC8XXX_VIBRATOR_REST_POWER
 	struct timeval current_tv;
@@ -245,7 +245,7 @@ static void pm8xxx_vib_enable(struct timed_output_dev *dev, int value)
 	spin_unlock_irqrestore(&vib->lock, flags);
 #endif
 
-/*            */
+/* LGE_CHANGE */
     if(unlikely(debug_mask))
         printk(KERN_INFO "pm8xxx_vib_enable value:%d\n",value);
 
@@ -265,7 +265,7 @@ retry:
 	}
 #endif
 
-/*            */
+/* LGE_CHANGE */
 	origin_value = value;
 
 	if (value == 0)
@@ -488,9 +488,9 @@ static const struct dev_pm_ops pm8xxx_vib_pm_ops = {
 };
 #endif
 
-/*           
-                                 
-                                  
+/* LGE_CHANGE
+* control the volume of vibration
+* 2012-01-02, donggyun.kim@lge.com
 */
 #ifdef CONFIG_LGE_PMIC8XXX_VIBRATOR_VOL
 #define MAGNITUDE_MAX 128
@@ -576,7 +576,7 @@ static ssize_t pm8xxx_vib_default_level_store(struct device *dev, struct device_
 	return size;
 }
 static DEVICE_ATTR(default_level, S_IRUGO | S_IWUSR, pm8xxx_vib_default_level_show, pm8xxx_vib_default_level_store);
-#endif /*                                  */
+#endif /* CONFIG_LGE_PMIC8XXX_VIBRATOR_VOL */
 
 #ifdef CONFIG_LGE_PMIC8XXX_VIBRATOR_MIN_TIMEOUT
 static ssize_t pm8xxx_vib_min_ms_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -596,7 +596,7 @@ static ssize_t pm8xxx_vib_min_ms_store(struct device *dev, struct device_attribu
 	return size;
 }
 static DEVICE_ATTR(min_ms, S_IRUGO | S_IWUSR, pm8xxx_vib_min_ms_show, pm8xxx_vib_min_ms_store);
-#endif /*                                          */
+#endif /* CONFIG_LGE_PMIC8XXX_VIBRATOR_MIN_TIMEOUT */
 
 #ifdef CONFIG_LGE_PMIC8XXX_VIBRATOR_OVERDRIVE
 static ssize_t pm8xxx_vib_over_ms_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -635,7 +635,7 @@ static ssize_t pm8xxx_vib_over_range_ms_store(struct device *dev, struct device_
 	return size;
 }
 static DEVICE_ATTR(over_range_ms, S_IRUGO | S_IWUSR, pm8xxx_vib_over_range_ms_show, pm8xxx_vib_over_range_ms_store);
-#endif /*                                        */
+#endif /* CONFIG_LGE_PMIC8XXX_VIBRATOR_OVERDRIVE */
 
 
 #ifdef CONFIG_LGE_PMIC8XXX_VIBRATOR_REST_POWER
@@ -656,9 +656,9 @@ static ssize_t pm8xxx_vib_min_stop_ms_store(struct device *dev, struct device_at
 	return size;
 }
 static DEVICE_ATTR(min_stop_ms, S_IRUGO | S_IWUSR, pm8xxx_vib_min_stop_ms_show, pm8xxx_vib_min_stop_ms_store);
-#endif /*                                         */
+#endif /* CONFIG_LGE_PMIC8XXX_VIBRATOR_REST_POWER */
 
-//                                                                 
+// LGE_CHANGE_S [younglae.kim@lge.com], add for debugging & tunning
 // echo strength(0~31) duration > /sys/class/timed_output/vibrator/amp_test
 static ssize_t pm8xxx_amp_test_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
@@ -686,7 +686,7 @@ static ssize_t pm8xxx_debug_mask_store(struct device *dev, struct device_attribu
     return size;
 }
 static DEVICE_ATTR(debug_mask, S_IRUGO | S_IWUSR, pm8xxx_debug_mask_show, pm8xxx_debug_mask_store);
-//                                    
+// LGE_CHANGE_E [younglae.kim@lge.com]
 
 static struct attribute *pm8xxx_vib_attributes[] = {
 #ifdef CONFIG_LGE_PMIC8XXX_VIBRATOR_VOL
@@ -703,10 +703,10 @@ static struct attribute *pm8xxx_vib_attributes[] = {
 #ifdef CONFIG_LGE_PMIC8XXX_VIBRATOR_REST_POWER
     &dev_attr_min_stop_ms.attr,
 #endif
-//                                                                 
+// LGE_CHANGE_S [younglae.kim@lge.com], add for debugging & tunning
     &dev_attr_debug_mask.attr,
     &dev_attr_amp_test.attr,
-//                                    
+// LGE_CHANGE_E [younglae.kim@lge.com]
     NULL
 };
 
@@ -813,7 +813,7 @@ static int __devinit pm8xxx_vib_probe(struct platform_device *pdev)
 		goto err_read_vib;
 #endif
 
-//                                                                      
+// LGE does not use this function. power on vib effect is played at SBL3
 #ifndef CONFIG_MACH_LGE
 	pm8xxx_vib_enable(&vib->timed_dev, pdata->initial_vibrate_ms);
 #endif

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  * Copyright (c) 2012-2013, LGE Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  *
  */
-
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
@@ -31,6 +30,7 @@
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
 #endif
+#include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <linux/platform_data/qcom_wcnss_device.h>
@@ -44,6 +44,7 @@
 #include <linux/memory.h>
 #include <linux/memblock.h>
 #include <linux/msm_thermal.h>
+#include <linux/input/synaptics_dsx.h>
 
 #include <linux/slimbus/slimbus.h>
 #include <linux/mfd/wcd9xxx/core.h>
@@ -75,6 +76,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/msm_memtypes.h>
 #include <mach/dma.h>
+#include <mach/msm_serial_hs.h>
 #include <mach/msm_xo.h>
 #include <mach/restart.h>
 
@@ -98,6 +100,7 @@
 #include <mach/cpuidle.h>
 #include "rpm_resources.h"
 #include <mach/mpm.h>
+#include "clock.h"
 #include "smd_private.h"
 #include "pm-boot.h"
 #include "msm_watchdog.h"
@@ -139,7 +142,7 @@ struct sx150x_platform_data msm8930_sx150x_data[] = {
 #endif
 
 #define MSM_PMEM_ADSP_SIZE         0x7800000
-#define MSM_PMEM_AUDIO_SIZE        0x408000
+#define MSM_PMEM_AUDIO_SIZE        0x4CF000
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
 #define MSM_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 #else
@@ -151,10 +154,14 @@ struct sx150x_platform_data msm8930_sx150x_data[] = {
 #define HOLE_SIZE	0x20000
 #define MSM_CONTIG_MEM_SIZE  0x65000
 #ifdef CONFIG_MSM_IOMMU
-#define MSM_ION_MM_SIZE            0x3800000 /* Need to be multiple of 64K */
+/* LGE_CHANGE_S
+ * Increase MSM_ION_MM_SIZE to support WV DASH level1 (case no.01443101, gak.yang@lge.com)
+ */
+#define MSM_ION_MM_SIZE            0x5c00000 /* Need to be multiple of 64K */
+/* LGE_CHANGE_E */
 #define MSM_ION_SF_SIZE            0x0
 #define MSM_ION_QSECOM_SIZE	0x780000 /* (7.5MB) */
-#define MSM_ION_HEAP_NUM	7
+#define MSM_ION_HEAP_NUM	8
 #else
 #define MSM_ION_SF_SIZE		MSM_PMEM_SIZE
 #define MSM_ION_MM_SIZE		MSM_PMEM_ADSP_SIZE
@@ -174,23 +181,24 @@ struct sx150x_platform_data msm8930_sx150x_data[] = {
 								HOLE_SIZE))
 #define MAX_FIXED_AREA_SIZE	0x10000000
 #define MSM8930_FW_START	MSM8930_FIXED_AREA_START
+#define MSM_ION_ADSP_SIZE	SZ_8M
 
 #else
 #define MSM_CONTIG_MEM_SIZE  0x110C000
 #define MSM_ION_HEAP_NUM	1
 #endif
 
-//                  
+//LGE_UPDATE_INPUT_S
 void __init lge_add_input_devices(void);
-//                  
+//LGE_UPDATE_INPUT_E
 
-/*             
-                                                     
+/* LGE_CHANGE S
+	* IRRC porting	* 2013-02-15, choonghyun.jeon@lge.com
 */
 #ifdef CONFIG_ANDROID_SW_IRRC
 void __init lge_add_misc_devices(void);
 #endif
-/*              */
+/* LGE_CHANGE E */
 
 #ifdef CONFIG_KERNEL_MSM_CONTIG_MEM_REGION
 static unsigned msm_contig_mem_size = MSM_CONTIG_MEM_SIZE;
@@ -311,6 +319,8 @@ static void __init reserve_rtb_memory(void)
 {
 #if defined(CONFIG_MSM_RTB)
 	msm8930_reserve_table[MEMTYPE_EBI1].size += msm8930_rtb_pdata.size;
+	pr_info("mem_map: rtb reserved with size 0x%x in pool\n",
+			msm8930_rtb_pdata.size);
 #endif
 }
 
@@ -343,6 +353,8 @@ static void __init reserve_pmem_memory(void)
 	reserve_memory_for(&android_pmem_audio_pdata);
 #endif /*CONFIG_MSM_MULTIMEDIA_USE_ION*/
 	msm8930_reserve_table[MEMTYPE_EBI1].size += msm_contig_mem_size;
+	pr_info("mem_map: contig_mem reserved with size 0x%x in pool\n",
+			msm_contig_mem_size);
 #endif /*CONFIG_ANDROID_PMEM*/
 }
 
@@ -360,6 +372,13 @@ static struct ion_cp_heap_pdata cp_mm_msm8930_ion_pdata = {
 	.reusable = FMEM_ENABLED,
 	.mem_is_fmem = FMEM_ENABLED,
 	.fixed_position = FIXED_MIDDLE,
+
+#ifdef CONFIG_CMA
+	.is_cma	= 1,
+#else
+	.is_cma	= 0,
+#endif
+	.no_nonsecure_alloc = 1,
 };
 
 static struct ion_cp_heap_pdata cp_mfc_msm8930_ion_pdata = {
@@ -368,6 +387,7 @@ static struct ion_cp_heap_pdata cp_mfc_msm8930_ion_pdata = {
 	.reusable = 0,
 	.mem_is_fmem = FMEM_ENABLED,
 	.fixed_position = FIXED_HIGH,
+	.no_nonsecure_alloc = 1,
 };
 
 static struct ion_co_heap_pdata co_msm8930_ion_pdata = {
@@ -384,6 +404,26 @@ static struct ion_co_heap_pdata fw_co_msm8930_ion_pdata = {
 };
 #endif
 
+
+static u64 msm_dmamask = DMA_BIT_MASK(32);
+
+static struct platform_device ion_mm_heap_device = {
+	.name = "ion-mm-heap-device",
+	.id = -1,
+	.dev = {
+		.dma_mask = &msm_dmamask,
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+	}
+};
+
+static struct platform_device ion_adsp_heap_device = {
+	.name = "ion-adsp-heap-device",
+	.id = -1,
+	.dev = {
+		.dma_mask = &msm_dmamask,
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+	}
+};
 /**
  * These heaps are listed in the order they will be allocated. Due to
  * video hardware restrictions and content protection the FW heap has to
@@ -395,9 +435,7 @@ static struct ion_co_heap_pdata fw_co_msm8930_ion_pdata = {
  * to each other.
  * Don't swap the order unless you know what you are doing!
  */
-static struct ion_platform_data msm8930_ion_pdata = {
-	.nr = MSM_ION_HEAP_NUM,
-	.heaps = {
+struct ion_platform_heap msm8930_heaps[] = {
 		{
 			.id	= ION_SYSTEM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_SYSTEM,
@@ -411,6 +449,7 @@ static struct ion_platform_data msm8930_ion_pdata = {
 			.size	= MSM_ION_MM_SIZE,
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *) &cp_mm_msm8930_ion_pdata,
+			.priv	= &ion_mm_heap_device.dev
 		},
 		{
 			.id	= ION_MM_FIRMWARE_HEAP_ID,
@@ -459,8 +498,22 @@ static struct ion_platform_data msm8930_ion_pdata = {
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *) &co_msm8930_ion_pdata,
 		},
+		{
+			.id	= ION_ADSP_HEAP_ID,
+			.type	= ION_HEAP_TYPE_DMA,
+			.name	= ION_ADSP_HEAP_NAME,
+			.size	= MSM_ION_ADSP_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &co_msm8930_ion_pdata,
+			.priv	= &ion_adsp_heap_device.dev,
+		},
 #endif
-	}
+};
+
+static struct ion_platform_data msm8930_ion_pdata = {
+	.nr = MSM_ION_HEAP_NUM,
+	.heaps = msm8930_heaps,
+
 };
 
 static struct platform_device msm8930_ion_dev = {
@@ -496,6 +549,9 @@ static void __init msm8930_reserve_fixed_area(unsigned long fixed_area_size)
 
 	ret = memblock_remove(reserve_info->fixed_area_start,
 		reserve_info->fixed_area_size);
+	pr_info("mem_map: fixed_area reserved at 0x%lx with size 0x%lx\n",
+			reserve_info->fixed_area_start,
+			reserve_info->fixed_area_size);
 	BUG_ON(ret);
 #endif
 }
@@ -516,58 +572,45 @@ static void __init reserve_ion_memory(void)
 {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
 	unsigned int i;
-	unsigned int reusable_count = 0;
+	int ret;
 	unsigned int fixed_size = 0;
 	unsigned int fixed_low_size, fixed_middle_size, fixed_high_size;
 	unsigned long fixed_low_start, fixed_middle_start, fixed_high_start;
+	unsigned long cma_alignment;
+	unsigned int low_use_cma = 0;
+	unsigned int middle_use_cma = 0;
+	unsigned int high_use_cma = 0;
 
-	msm8930_fmem_pdata.size = 0;
-	msm8930_fmem_pdata.reserved_size_low = 0;
-	msm8930_fmem_pdata.reserved_size_high = 0;
-	msm8930_fmem_pdata.align = PAGE_SIZE;
 	fixed_low_size = 0;
 	fixed_middle_size = 0;
 	fixed_high_size = 0;
 
-	/* We only support 1 reusable heap. Check if more than one heap
-	 * is specified as reusable and set as non-reusable if found.
-	 */
-	for (i = 0; i < msm8930_ion_pdata.nr; ++i) {
-		const struct ion_platform_heap *heap =
-						&(msm8930_ion_pdata.heaps[i]);
-
-		if (heap->type == ION_HEAP_TYPE_CP && heap->extra_data) {
-			struct ion_cp_heap_pdata *data = heap->extra_data;
-
-			reusable_count += (data->reusable) ? 1 : 0;
-
-			if (data->reusable && reusable_count > 1) {
-				pr_err("%s: Too many heaps specified as "
-					"reusable. Heap %s was not configured "
-					"as reusable.\n", __func__, heap->name);
-				data->reusable = 0;
-			}
-		}
-	}
+	cma_alignment = PAGE_SIZE << max(MAX_ORDER, pageblock_order);
 
 	for (i = 0; i < msm8930_ion_pdata.nr; ++i) {
-		const struct ion_platform_heap *heap =
+		struct ion_platform_heap *heap =
 						&(msm8930_ion_pdata.heaps[i]);
+
+		int use_cma = 0;
 
 		if (heap->extra_data) {
 			int fixed_position = NOT_FIXED;
-			int mem_is_fmem = 0;
 
-			switch (heap->type) {
+			switch ((int) heap->type) {
 			case ION_HEAP_TYPE_CP:
-				mem_is_fmem = ((struct ion_cp_heap_pdata *)
-					heap->extra_data)->mem_is_fmem;
+				if (((struct ion_cp_heap_pdata *)
+					heap->extra_data)->is_cma) {
+					heap->size = ALIGN(heap->size,
+						cma_alignment);
+						use_cma = 1;
+				}
 				fixed_position = ((struct ion_cp_heap_pdata *)
 					heap->extra_data)->fixed_position;
 				break;
+			case ION_HEAP_TYPE_DMA:
+				use_cma = 1;
+				/* Purposely fall through here */
 			case ION_HEAP_TYPE_CARVEOUT:
-				mem_is_fmem = ((struct ion_co_heap_pdata *)
-					heap->extra_data)->mem_is_fmem;
 				fixed_position = ((struct ion_co_heap_pdata *)
 					heap->extra_data)->fixed_position;
 				break;
@@ -577,40 +620,80 @@ static void __init reserve_ion_memory(void)
 
 			if (fixed_position != NOT_FIXED)
 				fixed_size += heap->size;
-			else
+			else if (!use_cma)
 				reserve_mem_for_ion(MEMTYPE_EBI1, heap->size);
 
-			if (fixed_position == FIXED_LOW)
+			if (fixed_position == FIXED_LOW) {
 				fixed_low_size += heap->size;
-			else if (fixed_position == FIXED_MIDDLE)
+				low_use_cma = use_cma;
+			} else if (fixed_position == FIXED_MIDDLE) {
 				fixed_middle_size += heap->size;
-			else if (fixed_position == FIXED_HIGH)
+				middle_use_cma = use_cma;
+			} else if (fixed_position == FIXED_HIGH) {
 				fixed_high_size += heap->size;
-
-			if (mem_is_fmem)
-				msm8930_fmem_pdata.size += heap->size;
+				high_use_cma = use_cma;
+			} else if (use_cma) {
+				/*
+				 * Heaps that use CMA but are not part of the
+				 * fixed set. Create wherever.
+				 */
+				dma_declare_contiguous(
+					heap->priv,
+					heap->size,
+					0,
+					0xb0000000);
+			}
 		}
 	}
 
 	if (!fixed_size)
 		return;
-
-	if (msm8930_fmem_pdata.size) {
-		msm8930_fmem_pdata.reserved_size_low = fixed_low_size +
-							HOLE_SIZE;
-		msm8930_fmem_pdata.reserved_size_high = fixed_high_size;
-	}
-
-	/* Since the fixed area may be carved out of lowmem,
-	 * make sure the length is a multiple of 1M.
+	/*
+	 * Given the setup for the fixed area, we can't round up all sizes.
+	 * Some sizes must be set up exactly and aligned correctly. Incorrect
+	 * alignments are considered a configuration issue
 	 */
-	fixed_size = (fixed_size + MSM_MM_FW_SIZE + SECTION_SIZE - 1)
-		& SECTION_MASK;
-	msm8930_reserve_fixed_area(fixed_size);
 
 	fixed_low_start = MSM8930_FIXED_AREA_START;
+	if (low_use_cma) {
+		BUG_ON(!IS_ALIGNED(fixed_low_size + HOLE_SIZE, cma_alignment));
+		BUG_ON(!IS_ALIGNED(fixed_low_start, cma_alignment));
+	} else {
+		BUG_ON(!IS_ALIGNED(fixed_low_size + HOLE_SIZE, SECTION_SIZE));
+		ret = memblock_remove(fixed_low_start,
+				      fixed_low_size + HOLE_SIZE);
+		pr_info("mem_map: fixed_low_area reserved at 0x%lx with size \
+				0x%x\n", fixed_low_start,
+				fixed_low_size + HOLE_SIZE);
+		BUG_ON(ret);
+	}
+
 	fixed_middle_start = fixed_low_start + fixed_low_size + HOLE_SIZE;
+	if (middle_use_cma) {
+		BUG_ON(!IS_ALIGNED(fixed_middle_start, cma_alignment));
+		BUG_ON(!IS_ALIGNED(fixed_middle_size, cma_alignment));
+	} else {
+		BUG_ON(!IS_ALIGNED(fixed_middle_size, SECTION_SIZE));
+		ret = memblock_remove(fixed_middle_start, fixed_middle_size);
+		pr_info("mem_map: fixed_middle_area reserved at 0x%lx with \
+				size 0x%x\n", fixed_middle_start,
+				fixed_middle_size);
+		BUG_ON(ret);
+	}
+
 	fixed_high_start = fixed_middle_start + fixed_middle_size;
+	if (high_use_cma) {
+		fixed_high_size = ALIGN(fixed_high_size, cma_alignment);
+		BUG_ON(!IS_ALIGNED(fixed_high_start, cma_alignment));
+	} else {
+		/* This is the end of the fixed area so it's okay to round up */
+		fixed_high_size = ALIGN(fixed_high_size, SECTION_SIZE);
+		ret = memblock_remove(fixed_high_start, fixed_high_size);
+		pr_info("mem_map: fixed_high_area reserved at 0x%lx with size \
+				0x%x\n", fixed_high_start,
+				fixed_high_size);
+		BUG_ON(ret);
+	}
 
 	for (i = 0; i < msm8930_ion_pdata.nr; ++i) {
 		struct ion_platform_heap *heap = &(msm8930_ion_pdata.heaps[i]);
@@ -619,12 +702,13 @@ static void __init reserve_ion_memory(void)
 			int fixed_position = NOT_FIXED;
 			struct ion_cp_heap_pdata *pdata = NULL;
 
-			switch (heap->type) {
+			switch ((int) heap->type) {
 			case ION_HEAP_TYPE_CP:
 				pdata =
 				(struct ion_cp_heap_pdata *)heap->extra_data;
 				fixed_position = pdata->fixed_position;
 				break;
+			case ION_HEAP_TYPE_DMA:
 			case ION_HEAP_TYPE_CARVEOUT:
 				fixed_position = ((struct ion_co_heap_pdata *)
 					heap->extra_data)->fixed_position;
@@ -639,6 +723,12 @@ static void __init reserve_ion_memory(void)
 				break;
 			case FIXED_MIDDLE:
 				heap->base = fixed_middle_start;
+				if (middle_use_cma)
+					dma_declare_contiguous(
+						&ion_mm_heap_device.dev,
+						heap->size,
+						fixed_middle_start,
+						0xa0000000);
 				pdata->secure_base = fixed_middle_start
 							- HOLE_SIZE;
 				pdata->secure_size = HOLE_SIZE + heap->size;
@@ -667,6 +757,8 @@ static void __init reserve_cache_dump_memory(void)
 	total = msm8930_cache_dump_pdata.l1_size +
 		msm8930_cache_dump_pdata.l2_size;
 	msm8930_reserve_table[MEMTYPE_EBI1].size += total;
+	pr_info("mem_map: cache_dump reserved with size 0x%x in pool\n",
+			total);
 }
 #else
 static void __init reserve_cache_dump_memory(void) { }
@@ -689,109 +781,14 @@ static struct reserve_info msm8930_reserve_info __initdata = {
 	.paddr_to_memtype = msm8930_paddr_to_memtype,
 };
 
-static int msm8930_memory_bank_size(void)
-{
-	return 1<<29;
-}
-
-static void __init locate_unstable_memory(void)
-{
-	struct membank *mb = &meminfo.bank[meminfo.nr_banks - 1];
-	unsigned long bank_size;
-	unsigned long low, high;
-
-	bank_size = msm8930_memory_bank_size();
-	low = meminfo.bank[0].start;
-	high = mb->start + mb->size;
-
-	/* Check if 32 bit overflow occured */
-	if (high < mb->start)
-		high -= PAGE_SIZE;
-
-	if (high < MAX_FIXED_AREA_SIZE + MSM8930_FIXED_AREA_START)
-		panic("fixed area extends beyond end of memory\n");
-
-	low &= ~(bank_size - 1);
-
-	if (high - low <= bank_size)
-		goto no_dmm;
-
-	msm8930_reserve_info.bank_size = bank_size;
-#ifdef CONFIG_ENABLE_DMM
-	msm8930_reserve_info.low_unstable_address = mb->start -
-					MIN_MEMORY_BLOCK_SIZE + mb->size;
-	msm8930_reserve_info.max_unstable_size = MIN_MEMORY_BLOCK_SIZE;
-	pr_info("low unstable address %lx max size %lx bank size %lx\n",
-		msm8930_reserve_info.low_unstable_address,
-		msm8930_reserve_info.max_unstable_size,
-		msm8930_reserve_info.bank_size);
-	return;
-#endif
-no_dmm:
-	msm8930_reserve_info.low_unstable_address = high;
-	msm8930_reserve_info.max_unstable_size = 0;
-}
-
-static void __init place_movable_zone(void)
-{
-#ifdef CONFIG_ENABLE_DMM
-	movable_reserved_start = msm8930_reserve_info.low_unstable_address;
-	movable_reserved_size = msm8930_reserve_info.max_unstable_size;
-	pr_info("movable zone start %lx size %lx\n",
-		movable_reserved_start, movable_reserved_size);
-#endif
-}
-
 static void __init msm8930_early_memory(void)
 {
 	reserve_info = &msm8930_reserve_info;
-	locate_unstable_memory();
-	place_movable_zone();
 }
-
-static char prim_panel_name[PANEL_NAME_MAX_LEN];
-static char ext_panel_name[PANEL_NAME_MAX_LEN];
-
-static int __init prim_display_setup(char *param)
-{
-	if (strnlen(param, PANEL_NAME_MAX_LEN))
-		strlcpy(prim_panel_name, param, PANEL_NAME_MAX_LEN);
-	return 0;
-}
-early_param("prim_display", prim_display_setup);
-
-static int __init ext_display_setup(char *param)
-{
-	if (strnlen(param, PANEL_NAME_MAX_LEN))
-		strlcpy(ext_panel_name, param, PANEL_NAME_MAX_LEN);
-	return 0;
-}
-early_param("ext_display", ext_display_setup);
 
 static void __init msm8930_reserve(void)
 {
-#if !defined(CONFIG_MACH_MSM8930_FX3)
-	msm8930_set_display_params(prim_panel_name, ext_panel_name);
-#endif
 	msm_reserve();
-	if (msm8930_fmem_pdata.size) {
-#if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
-		if (reserve_info->fixed_area_size) {
-			msm8930_fmem_pdata.phys =
-				reserve_info->fixed_area_start + MSM_MM_FW_SIZE;
-		pr_info("mm fw at %lx (fixed) size %x\n",
-			reserve_info->fixed_area_start, MSM_MM_FW_SIZE);
-		pr_info("fmem start %lx (fixed) size %lx\n",
-			msm8930_fmem_pdata.phys, msm8930_fmem_pdata.size);
-		}
-#endif
-	}
-}
-
-static int msm8930_change_memory_power(u64 start, u64 size,
-	int change_type)
-{
-	return soc_change_memory_power(start, size, change_type);
 }
 
 static void __init msm8930_allocate_memory_regions(void)
@@ -830,46 +827,46 @@ static struct wcd9xxx_pdata sitar_platform_data = {
 		.cfilt1_mv = 1800,
 		.cfilt2_mv = 1800,
 #endif
-//                                           
+//LGE_START, 2012-11-05, MYUNGWON.KIM@lge.com
 #if defined(CONFIG_LGE_MicBias_EXT_CAPLESS_MODE)
-//                                                                                        
+//LGE_CHANGE_S, 2013-03-19, sungbo0.jung@lge.com, for separate cfilt value each micbias1,2
 		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias1_cap_mode = MICBIAS_NO_EXT_BYP_CAP,
 		.bias2_cap_mode = MICBIAS_EXT_BYP_CAP,
-//                                                                                        
-//                                                                        
+//LGE_CHANGE_E, 2013-03-19, sungbo0.jung@lge.com, for separate cfilt value each micbias1,2
+// LGE_CHANGE_S, 2013-03-28, cheolyong.yu@lge.com, set external bypass cap
 #elif defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
 		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias1_cap_mode = MICBIAS_EXT_BYP_CAP,
 		.bias2_cap_mode = MICBIAS_EXT_BYP_CAP,
-//                                                                        
-//                                                                 
-//                                                                                                                       
-//                                                                                                                           
-//                                                                                
+// LGE_CHANGE_E, 2013-03-28, cheolyong.yu@lge.com, set external bypass cap
+// LGE_CHANGE_S gspapa@lge.com 2013.03.08 proximity sensor for L9II
+//#elif defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3_ATT) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US)
+//#elif defined(CONFIG_MACH_LGE_FX3_ATT) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US)|| defined(CONFIG_MACH_LGE_L9II_COMMON)
+//LGE_CHANGE_S [kugchin.kang@lge.com] Audio for L9II, EarMic Noise Fixed, 13-04-05
 #elif defined(CONFIG_MACH_LGE_FX3_ATT) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US)
-//                                                                                
-//                                                                 
+//LGE_CHANGE_E [kugchin.kang@lge.com] Audio for L9II, EarMic Noise Fixed, 13-04-05
+// LGE_CHANGE_E gspapa@lge.com 2013.03.08 proximity sensor for L9II
 		.bias1_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias1_cap_mode = MICBIAS_NO_EXT_BYP_CAP,
 		.bias2_cap_mode = MICBIAS_NO_EXT_BYP_CAP,
-//                                                                                              
-#elif defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+//LGE_CHANGE_S [kugchin.kang@lge.com] Audio for L9II, Main Mic Noise Fixed (for Rev.A), 13-04-26
+#elif defined(CONFIG_MACH_LGE_L9II_COMMON)
 		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias1_cap_mode = MICBIAS_NO_EXT_BYP_CAP,
 		.bias2_cap_mode = MICBIAS_EXT_BYP_CAP,
-//                                                                                              
+//LGE_CHANGE_E [kugchin.kang@lge.com] Audio for L9II, Main Mic Noise Fixed (for Rev.A), 13-04-26
 #else
 		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias1_cap_mode = MICBIAS_EXT_BYP_CAP,
 		.bias2_cap_mode = MICBIAS_EXT_BYP_CAP,
 #endif
-//                                         
+//LGE_END, 2012-11-05, MYUNGWON.KIM@lge.com
 	},
 	.regulator = {
 	{
@@ -937,46 +934,46 @@ static struct wcd9xxx_pdata sitar1p1_platform_data = {
 		.cfilt1_mv = 1800,
 		.cfilt2_mv = 1800,
 #endif
-//                                           
+//LGE_START, 2012-11-05, MYUNGWON.KIM@lge.com
 #if defined(CONFIG_LGE_MicBias_EXT_CAPLESS_MODE)
-//                                                                                        
+//LGE_CHANGE_S, 2013-03-19, sungbo0.jung@lge.com, for separate cfilt value each micbias1,2
 		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias1_cap_mode = MICBIAS_NO_EXT_BYP_CAP,
 		.bias2_cap_mode = MICBIAS_EXT_BYP_CAP,
-//                                                                                        
-//                                                                        
+//LGE_CHANGE_E, 2013-03-19, sungbo0.jung@lge.com, for separate cfilt value each micbias1,2
+// LGE_CHANGE_S, 2013-03-28, cheolyong.yu@lge.com, set external bypass cap
 #elif defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
 		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias1_cap_mode = MICBIAS_EXT_BYP_CAP,
 		.bias2_cap_mode = MICBIAS_EXT_BYP_CAP,
-//                                                                        
-//                                                                 
-//                                                                                                                       
-//                                                                                                                           
-//                                                                                
+// LGE_CHANGE_E, 2013-03-28, cheolyong.yu@lge.com, set external bypass cap
+// LGE_CHANGE_S gspapa@lge.com 2013.03.08 proximity sensor for L9II
+//#elif defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3_ATT) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US)
+//#elif defined(CONFIG_MACH_LGE_FX3_ATT) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US)|| defined(CONFIG_MACH_LGE_L9II_COMMON)
+//LGE_CHANGE_S [kugchin.kang@lge.com] Audio for L9II, EarMic Noise Fixed, 13-04-05
 #elif defined(CONFIG_MACH_LGE_FX3_ATT) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US)
-//                                                                                
-//                                                                 
+//LGE_CHANGE_E [kugchin.kang@lge.com] Audio for L9II, EarMic Noise Fixed, 13-04-05
+// LGE_CHANGE_E gspapa@lge.com 2013.03.08 proximity sensor for L9II
 		.bias1_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias1_cap_mode = MICBIAS_NO_EXT_BYP_CAP,
 		.bias2_cap_mode = MICBIAS_NO_EXT_BYP_CAP,
-//                                                                                              
-#elif defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+//LGE_CHANGE_S [kugchin.kang@lge.com] Audio for L9II, Main Mic Noise Fixed (for Rev.A), 13-04-26
+#elif defined(CONFIG_MACH_LGE_L9II_COMMON)
 		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias1_cap_mode = MICBIAS_NO_EXT_BYP_CAP,
 		.bias2_cap_mode = MICBIAS_EXT_BYP_CAP,
-//                                                                                              
+//LGE_CHANGE_E [kugchin.kang@lge.com] Audio for L9II, Main Mic Noise Fixed (for Rev.A), 13-04-26
 #else
 		.bias1_cfilt_sel = SITAR_CFILT1_SEL,
 		.bias2_cfilt_sel = SITAR_CFILT2_SEL,
 		.bias1_cap_mode = MICBIAS_EXT_BYP_CAP,
 		.bias2_cap_mode = MICBIAS_EXT_BYP_CAP,
 #endif
-//                                         
+//LGE_END, 2012-11-05, MYUNGWON.KIM@lge.com
 	},
 	.regulator = {
 	{
@@ -1149,6 +1146,27 @@ static struct msm_bus_vectors qseecom_enable_sfpb_vectors[] = {
 	},
 };
 
+static struct msm_bus_vectors qseecom_enable_dfab_sfpb_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ib = (492 * 8) * 1000000UL,
+		.ab = (492 * 8) *  100000UL,
+	},
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_SPS,
+		.ib = (492 * 8) * 1000000UL,
+		.ab = (492 * 8) *  100000UL,
+	},
+	{
+		.src = MSM_BUS_MASTER_SPDM,
+		.dst = MSM_BUS_SLAVE_SPDM,
+		.ib = (64 * 8) * 1000000UL,
+		.ab = (64 * 8) *  100000UL,
+	},
+};
+
 static struct msm_bus_paths qseecom_hw_bus_scale_usecases[] = {
 	{
 		ARRAY_SIZE(qseecom_clks_init_vectors),
@@ -1161,6 +1179,10 @@ static struct msm_bus_paths qseecom_hw_bus_scale_usecases[] = {
 	{
 		ARRAY_SIZE(qseecom_enable_sfpb_vectors),
 		qseecom_enable_sfpb_vectors,
+	},
+	{
+		ARRAY_SIZE(qseecom_enable_dfab_sfpb_vectors),
+		qseecom_enable_dfab_sfpb_vectors,
 	},
 };
 
@@ -1583,6 +1605,17 @@ static struct platform_device mdm_device = {
 	},
 };
 
+static struct mdm_platform_data sglte_platform_data = {
+	.mdm_version = "4.0",
+	.ramdump_delay_ms = 1000,
+	.soft_reset_inverted = 1,
+	.peripheral_platform_device = NULL,
+	.ramdump_timeout_ms = 600000,
+	.no_powerdown_after_ramdumps = 1,
+	.image_upgrade_supported = 1,
+	.subsys_name = "external_modem",
+};
+
 static struct platform_device *mdm_devices[] __initdata = {
 	&mdm_device,
 };
@@ -1731,16 +1764,20 @@ static struct msm_spi_platform_data msm8960_qup_spi_gsbi1_pdata = {
 };
 #endif
 
-/*
- * QCT Original
- *
- * Moves to board-fx3-usb.c
- *
- */
 #if !defined(CONFIG_MACH_LGE)
 #ifdef CONFIG_USB_MSM_OTG_72K
 static struct msm_otg_platform_data msm_otg_pdata;
 #else
+static int enable_usb_host_mode;
+static int __init usb_host_mode_with_pm8917(char *param)
+{
+	int ret;
+
+	ret = kstrtoint(param, 10, &enable_usb_host_mode);
+	return ret;
+}
+early_param("usb_host_mode_pm8917", usb_host_mode_with_pm8917);
+
 #ifdef CONFIG_MSM_BUS_SCALING
 /* Bandwidth requests (zero) if no vote placed */
 static struct msm_bus_vectors usb_init_vectors[] = {
@@ -1783,7 +1820,7 @@ static struct msm_bus_scale_pdata usb_bus_scale_pdata = {
 static int hsusb_phy_init_seq[] = {
 	0x44, 0x80, /* set VBUS valid threshold
 			and disconnect valid threshold */
-	0x68, 0x81, /* update DC voltage level */
+	0x38, 0x81, /* update DC voltage level */
 	0x24, 0x82, /* set preemphasis and rise/fall time */
 	0x13, 0x83, /* set source impedance adjusment */
 	-1};
@@ -1794,7 +1831,6 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
 	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
-	.pmic_id_irq		= PM8038_USB_ID_IN_IRQ(PM8038_IRQ_BASE),
 	.power_budget		= 750,
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table	= &usb_bus_scale_pdata,
@@ -1879,7 +1915,7 @@ static struct platform_device lg_diag_cmd_device = {
 	},
 };
 #endif
-#endif /*                               */
+#endif /* #if !defined(CONFIG_MACH_LGE) */
 
 static uint8_t spm_wfi_cmd_sequence[] __initdata = {
 	0x03, 0x0f,
@@ -1890,6 +1926,12 @@ static uint8_t spm_retention_cmd_sequence[] __initdata = {
 	0x0B, 0x00, 0x0f,
 };
 
+static uint8_t spm_retention_with_krait_v3_cmd_sequence[] __initdata = {
+	0x42, 0x1B, 0x00,
+	0x05, 0x03, 0x0D, 0x0B,
+	0x00, 0x42, 0x1B,
+	0x0f,
+};
 static uint8_t spm_power_collapse_without_rpm[] __initdata = {
 	0x00, 0x24, 0x54, 0x10,
 	0x09, 0x03, 0x01,
@@ -1902,6 +1944,21 @@ static uint8_t spm_power_collapse_with_rpm[] __initdata = {
 	0x09, 0x07, 0x01, 0x0B,
 	0x10, 0x54, 0x30, 0x0C,
 	0x24, 0x30, 0x0f,
+};
+
+static uint8_t spm_power_collapse_without_rpm_krait_v3[] __initdata = {
+	0x00, 0x30, 0x24, 0x30,
+	0x54, 0x10, 0x09, 0x03,
+	0x01, 0x10, 0x54, 0x30,
+	0x0C, 0x24, 0x30, 0x0f,
+};
+
+static uint8_t spm_power_collapse_with_rpm_krait_v3[] __initdata = {
+	0x00, 0x30, 0x24, 0x30,
+	0x54, 0x10, 0x09, 0x07,
+	0x01, 0x0B, 0x10, 0x54,
+	0x30, 0x0C, 0x24, 0x30,
+	0x0f,
 };
 
 static struct msm_spm_seq_entry msm_spm_boot_cpu_seq_list[] __initdata = {
@@ -1934,11 +1991,16 @@ static struct msm_spm_seq_entry msm_spm_nonboot_cpu_seq_list[] __initdata = {
 		.cmd = spm_wfi_cmd_sequence,
 	},
 	[1] = {
+		.mode = MSM_SPM_MODE_POWER_RETENTION,
+		.notify_rpm = false,
+		.cmd = spm_retention_cmd_sequence,
+	},
+	[2] = {
 		.mode = MSM_SPM_MODE_POWER_COLLAPSE,
 		.notify_rpm = false,
 		.cmd = spm_power_collapse_without_rpm,
 	},
-	[2] = {
+	[3] = {
 		.mode = MSM_SPM_MODE_POWER_COLLAPSE,
 		.notify_rpm = true,
 		.cmd = spm_power_collapse_with_rpm,
@@ -1969,9 +2031,9 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0x00,
 #endif
 		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
-		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DLY] = 0x02020204,
-		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_0] = 0x0060009C,
-		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_1] = 0x0000001C,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DLY] = 0x03020004,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_0] = 0x0084009C,
+		.reg_init_values[MSM_SPM_REG_SAW2_PMIC_DATA_1] = 0x00A4001C,
 		.vctl_timeout_us = 50,
 		.num_modes = ARRAY_SIZE(msm_spm_nonboot_cpu_seq_list),
 		.modes = msm_spm_nonboot_cpu_seq_list,
@@ -2027,7 +2089,7 @@ static struct msm_spm_platform_data msm_spm_l2_data[] __initdata = {
 };
 
 
-#if !defined(CONFIG_MACH_MSM8930_FX3)
+#if !defined(CONFIG_MACH_LGE)
 #define ISA1200_HAP_EN_GPIO	77
 #define ISA1200_HAP_LEN_GPIO	78
 #define ISA1200_HAP_CLK_PM8038	PM8038_GPIO_PM_TO_SYS(7)
@@ -2094,12 +2156,6 @@ fail_gpio_req:
 }
 
 static struct isa1200_regulator isa1200_reg_data[] = {
-	{
-		.name = "vddp",
-		.min_uV = ISA_I2C_VTG_MIN_UV,
-		.max_uV = ISA_I2C_VTG_MAX_UV,
-		.load_uA = ISA_I2C_CURR_UA,
-	},
 	{
 		.name = "vcc_i2c",
 		.min_uV = ISA_I2C_VTG_MIN_UV,
@@ -2324,7 +2380,38 @@ static struct i2c_board_info mxt_device_info_8930[] __initdata = {
 	},
 };
 #endif
-#if 0
+#if !defined(CONFIG_MACH_LGE)
+/*?    Synaptics Thin Driver? */
+
+#define CLEARPAD3202_ADDR 0x20
+#define CLEARPAD3202_ATTEN_GPIO (11)
+#define CLEARPAD3202_RESET_GPIO (52)
+
+static unsigned char synaptic_rmi4_button_codes[] = {KEY_MENU, KEY_HOME,
+							KEY_BACK};
+
+static struct synaptics_rmi4_capacitance_button_map synaptic_rmi4_button_map = {
+	.nbuttons = ARRAY_SIZE(synaptic_rmi4_button_codes),
+	.map = synaptic_rmi4_button_codes,
+};
+
+static struct synaptics_rmi4_platform_data rmi4_platformdata = {
+	.irq_flags = IRQF_TRIGGER_FALLING,
+	.irq_gpio = CLEARPAD3202_ATTEN_GPIO,
+	.reset_gpio = CLEARPAD3202_RESET_GPIO,
+	.regulator_en = true,
+	.i2c_pull_up = true,
+	.capacitance_button_map = &synaptic_rmi4_button_map,
+	.fw_image_name = "PR1237913.img",
+};
+
+static struct i2c_board_info rmi4_i2c_devices[] = {
+	{
+		I2C_BOARD_INFO("synaptics_rmi4_i2c",
+		CLEARPAD3202_ADDR),
+		.platform_data = &rmi4_platformdata,
+	},
+};
 
 #define MHL_POWER_GPIO_PM8038	PM8038_GPIO_PM_TO_SYS(MHL_GPIO_PWR_EN)
 #define MHL_POWER_GPIO_PM8917	PM8917_GPIO_PM_TO_SYS(25)
@@ -2455,17 +2542,30 @@ static struct platform_device gpio_keys_8930 = {
 #endif /* MSM8930_PHASE_2 */
 #endif
 
+/* LGE_CHANGE */
+#if defined(CONFIG_MACH_LGE)
 static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi2_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
 };
+#endif
 
 static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi4_pdata = {
+	#if defined (CONFIG_IMX111)
+	.clk_freq = 200000, /*  Uses I2C as 200KHz */
+	#else
 	.clk_freq = 100000,
+	#endif
 	.src_clk_rate = 24000000,
 };
 
 static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi3_pdata = {
+	.clk_freq = 100000,
+	.src_clk_rate = 24000000,
+};
+
+
+static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi8_pdata = {
 	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
 };
@@ -2482,8 +2582,8 @@ static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi9_pdata = {
 
 };
 #else
-static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi9_pdata = {			
-	.clk_freq = 400000,									//hyunho.koh for test   .clk_freq = 100000,	
+static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi9_pdata = {
+	.clk_freq = 100000,
 	.src_clk_rate = 24000000,
 };
 #endif
@@ -2498,7 +2598,7 @@ static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi12_pdata = {
 	.src_clk_rate = 24000000,
 };
 
-#ifndef DISABLE_GSBI1_SPI /*     */
+#ifndef DISABLE_GSBI1_SPI /* LGE */
 static struct ks8851_pdata spi_eth_pdata = {
 	.irq_gpio = KS8851_IRQ_GPIO,
 	.rst_gpio = KS8851_RST_GPIO,
@@ -2556,8 +2656,8 @@ static struct platform_device msm_tsens_device = {
 static struct msm_thermal_data msm_thermal_pdata = {
 	.sensor_id = 9,
 	.poll_ms = 250,
-	.limit_temp_degC = 60,
-	.temp_hysteresis_degC = 10,
+	.limit_temp_degC = 65,
+	.temp_hysteresis_degC = 4,
 	.freq_step = 2,
 };
 
@@ -2567,7 +2667,7 @@ static struct platform_device fish_battery_device = {
 };
 #endif
 
-#ifdef CONFIG_USB_OTG /*     */
+#ifdef CONFIG_USB_OTG /* LGE */
 #ifndef MSM8930_PHASE_2
 
 /* 8930 Phase 1 */
@@ -2609,7 +2709,7 @@ static struct platform_device msm8930_device_ext_otg_sw_vreg __devinitdata = {
 };
 
 #endif
-#endif /*     */
+#endif /* LGE */
 
 static struct platform_device msm8930_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
@@ -2623,7 +2723,7 @@ static struct platform_device msm8930_device_rpm_regulator __devinitdata = {
 	},
 };
 
-//                                                  
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [S]
 #ifdef CONFIG_LGE_BLUESLEEP
 static struct resource bluesleep_resources[] = {
 	{
@@ -2651,37 +2751,37 @@ static struct platform_device msm_bluesleep_device = {
 	.num_resources	= ARRAY_SIZE(bluesleep_resources),
 	.resource	= bluesleep_resources,
 };
-#endif //                     
-//                                                  
+#endif // CONFIG_LGE_BLUESLEEP
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [E]
 
 static struct platform_device *early_common_devices[] __initdata = {
 	&msm8960_device_dmov,
 	&msm_device_smd,
-	&msm8960_device_uart_gsbi5,
+	&msm8960_device_uart_gsbi5, /* LGE */
 	&msm_device_uart_dm6,
 	&msm_device_saw_core0,
 	&msm_device_saw_core1,
-//                                                                       
-    #if defined (CONFIG_LGE_IRRC)
+// LGE_CHANGE_S gspapa@lge.com 2013.03.11 uart port setting for L9II IRRC
+#if defined (CONFIG_LGE_IRRC)
 	&msm8960_device_uart_gsbi8,  // GSPAPA_IRRC
 #endif
-//                                                                       
+// LGE_CHANGE_E gspapa@lge.com 2013.03.11 uart port setting for L9II IRRC
 };
 
 /* ext_5v and ext_otg_sw are present when using PM8038 */
 static struct platform_device *pmic_pm8038_devices[] __initdata = {
-#ifdef CONFIG_USB_OTG /*     */
+#ifdef CONFIG_USB_OTG /* LGE */
 	&msm8930_device_ext_5v_vreg,
 #ifndef MSM8930_PHASE_2
 	&msm8930_device_ext_l2_vreg,
 #endif
-#endif /*     */
+#endif /* LGE */
 	&msm8960_device_ssbi_pmic,
-#ifdef CONFIG_USB_OTG /*     */
+#ifdef CONFIG_USB_OTG /* LGE */
 #ifdef MSM8930_PHASE_2
 	&msm8930_device_ext_otg_sw_vreg,
 #endif
-#endif /*     */
+#endif /* LGE */
 };
 
 /* ext_5v and ext_otg_sw are not present when using PM8917 */
@@ -2689,23 +2789,32 @@ static struct platform_device *pmic_pm8917_devices[] __initdata = {
 	&msm8960_device_ssbi_pmic,
 };
 
+static struct platform_device *i2c_qup_devices[] __initdata = {
+	&msm8960_device_qup_i2c_gsbi2, /* LGE */
+	&msm8960_device_qup_i2c_gsbi4,
+	&msm8960_device_qup_i2c_gsbi9,
+};
+
+static struct platform_device *i2c_qup_sglte_devices[] __initdata = {
+	&msm8960_device_qup_i2c_gsbi8,
+};
+
 static struct platform_device *common_devices[] __initdata = {
 	&msm_8960_q6_lpass,
+	&msm_8960_q6_mss_fw,
+	&msm_8960_q6_mss_sw,
 	&msm_8960_riva,
 	&msm_pil_tzapps,
 	&msm_pil_vidc,
-#ifndef DISABLE_GSBI1_SPI /*     */
+#ifndef DISABLE_GSBI1_SPI /* LGE */
 	&msm8960_device_qup_spi_gsbi1,
 #endif
-	&msm8960_device_qup_i2c_gsbi2, /*     */
 	&msm8960_device_qup_i2c_gsbi3,
-	&msm8960_device_qup_i2c_gsbi4,
-	&msm8960_device_qup_i2c_gsbi9,
-//                                                  
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [S]
 #ifdef CONFIG_LGE_BLUESLEEP
 	&msm_bluesleep_device,
 #endif
-//                                                  
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [E]
 	&msm8960_device_qup_i2c_gsbi10,
 	&msm8960_device_qup_i2c_gsbi12,
 	&msm_slim_ctrl,
@@ -2760,14 +2869,12 @@ static struct platform_device *common_devices[] __initdata = {
 	&coresight_etm1_device,
 	&msm_device_dspcrashd_8960,
 	&msm8960_device_watchdog,
-#if 0 /*     */
+#if !defined(CONFIG_MACH_LGE)
 #ifdef MSM8930_PHASE_2
 	&gpio_keys_8930,
 #endif /* QCT Original */
 #endif
 	&msm8930_rtb_device,
-	&msm8930_cpu_idle_device,
-	&msm8930_msm_gov_device,
 	&msm_bus_8930_apps_fabric,
 	&msm_bus_8930_sys_fabric,
 	&msm_bus_8930_mm_fabric,
@@ -2777,6 +2884,8 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8930_iommu_domain_device,
 	&msm_tsens_device,
 	&msm8930_cache_dump_device,
+	&msm8930_pc_cntr,
+	&msm8930_cpu_slp_status,
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
@@ -2828,22 +2937,45 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_pcm_hostless,
 	&msm_multi_ch_pcm,
 	&msm_lowlatency_pcm,
+	&msm_fm_loopback,
 };
+
+#define GSBI_DUAL_MODE_CODE	0x60
+#define MSM_GSBI10_PHYS		0x1A200000
 
 static void __init msm8930_i2c_init(void)
 {
-/*              */
+	int minor_ver = SOCINFO_VERSION_MINOR(socinfo_get_platform_version());
+	int major_ver = SOCINFO_VERSION_MAJOR(socinfo_get_platform_version());
+	void __iomem *gsbi_mem;
+
+	if (machine_is_msm8930_evt() &&
+		(socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)) {
+		if (major_ver == 1 && minor_ver == 0) {
+			gsbi_mem = ioremap_nocache(MSM_GSBI10_PHYS, 4);
+			writel_relaxed(GSBI_DUAL_MODE_CODE, gsbi_mem);
+			/* Ensure protocol code is written before proceeding */
+			wmb();
+			iounmap(gsbi_mem);
+			msm8960_i2c_qup_gsbi10_pdata.use_gsbi_shared_mode = 1;
+		}
+	}
+
+/* LGE_CHANGE_S */
 	msm8960_device_qup_i2c_gsbi2.dev.platform_data =
 					&msm8960_i2c_qup_gsbi2_pdata;
-/*              */
+/* LGE_CHANGE_E */
 
 	msm8960_device_qup_i2c_gsbi4.dev.platform_data =
 					&msm8960_i2c_qup_gsbi4_pdata;
 
 	msm8960_device_qup_i2c_gsbi3.dev.platform_data =
 					&msm8960_i2c_qup_gsbi3_pdata;
-
-	msm8960_device_qup_i2c_gsbi9.dev.platform_data =
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		msm8960_device_qup_i2c_gsbi8.dev.platform_data =
+					&msm8960_i2c_qup_gsbi8_pdata;
+	else
+		msm8960_device_qup_i2c_gsbi9.dev.platform_data =
 					&msm8960_i2c_qup_gsbi9_pdata;
 
 	msm8960_device_qup_i2c_gsbi10.dev.platform_data =
@@ -2984,6 +3116,7 @@ static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 #define I2C_SIM  (1 << 3)
 #define I2C_FLUID (1 << 4)
 #define I2C_LIQUID (1 << 5)
+#define I2C_EVT (1 << 6)
 
 struct i2c_registry {
 	u8                     machs;
@@ -3053,10 +3186,18 @@ static struct i2c_board_info __initdata lis3dh_i2c_boardinfo[] = {
 };
 #endif /* CONFIG_STM_LIS3DH */
 
+#ifdef CONFIG_BMP18X_I2C
+static struct i2c_board_info __initdata bmp18x_i2c_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("bmp18x", 0x77),
+	},
+};
+#endif
+
 static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 #ifdef CONFIG_ISL9519_CHARGER
 	{
-		I2C_LIQUID,
+		I2C_LIQUID | I2C_EVT,
 		MSM_8930_GSBI10_QUP_I2C_BUS_ID,
 		isl_charger_i2c_info,
 		ARRAY_SIZE(isl_charger_i2c_info),
@@ -3064,7 +3205,7 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 #endif /* CONFIG_ISL9519_CHARGER */
 #ifdef CONFIG_INPUT_MPU3050
 	{
-		I2C_FFA | I2C_FLUID,
+		I2C_FFA | I2C_FLUID | I2C_EVT,
 		MSM_8930_GSBI12_QUP_I2C_BUS_ID,
 		mpu3050_i2c_boardinfo,
 		ARRAY_SIZE(mpu3050_i2c_boardinfo),
@@ -3077,10 +3218,16 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		ARRAY_SIZE(msm_isa1200_board_info),
 	},
 	{
-		I2C_SURF | I2C_FFA | I2C_FLUID,
+		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_EVT,
 		MSM_8930_GSBI3_QUP_I2C_BUS_ID,
 		mxt_device_info_8930,
 		ARRAY_SIZE(mxt_device_info_8930),
+	},
+	{
+		I2C_EVT,
+		MSM_8930_GSBI3_QUP_I2C_BUS_ID,
+		rmi4_i2c_devices,
+		ARRAY_SIZE(rmi4_i2c_devices),
 	},
 	{
 		I2C_SURF | I2C_FFA | I2C_LIQUID | I2C_FLUID,
@@ -3090,12 +3237,22 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 	},
 #ifdef CONFIG_STM_LIS3DH
 	{
-		I2C_FFA | I2C_FLUID,
+		I2C_FFA | I2C_FLUID | I2C_EVT,
 		MSM_8930_GSBI12_QUP_I2C_BUS_ID,
 		lis3dh_i2c_boardinfo,
 		ARRAY_SIZE(lis3dh_i2c_boardinfo),
 	},
 #endif
+#ifdef CONFIG_BMP18X_I2C
+	{
+		I2C_FFA | I2C_FLUID | I2C_EVT,
+		MSM_8930_GSBI12_QUP_I2C_BUS_ID,
+		bmp18x_i2c_boardinfo,
+		ARRAY_SIZE(bmp18x_i2c_boardinfo),
+	},
+#endif
+
+
 };
 #endif /* CONFIG_I2C */
 
@@ -3106,11 +3263,17 @@ static void __init register_i2c_devices(void)
 	int i;
 #ifdef CONFIG_MSM_CAMERA
 	struct i2c_registry msm8930_camera_i2c_devices = {
-		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_LIQUID | I2C_RUMI,
+		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_LIQUID | I2C_RUMI
+			| I2C_EVT,
 		MSM_8930_GSBI4_QUP_I2C_BUS_ID,
 		msm8930_camera_board_info.board_info,
 		msm8930_camera_board_info.num_i2c_board_info,
 	};
+	if (machine_is_msm8930_evt() &&
+		(socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)) {
+		msm8930_camera_i2c_devices.machs |= I2C_EVT;
+		msm8930_camera_i2c_devices.bus = MSM_8930_GSBI8_QUP_I2C_BUS_ID;
+	}
 #endif
 
 	/* Build the matching 'supported_machs' bitmask */
@@ -3120,6 +3283,8 @@ static void __init register_i2c_devices(void)
 		mach_mask = I2C_FLUID;
 	else if (machine_is_msm8930_mtp() || machine_is_msm8627_mtp())
 		mach_mask = I2C_FFA;
+	else if (machine_is_msm8930_evt())
+		mach_mask = I2C_EVT;
 	else
 		pr_err("unmatched machine ID in register_i2c_devices\n");
 
@@ -3184,11 +3349,71 @@ static void __init msm8930_pm8917_pdata_fixup(void)
 
 	pdata = msm8930_device_acpuclk.dev.platform_data;
 	pdata->uses_pm8917 = true;
+
+	pdata = msm8930ab_device_acpuclk.dev.platform_data;
+	pdata->uses_pm8917 = true;
 }
+#endif
+
+static void __init msm8930ab_update_krait_spm(void)
+ {
+	int i;
+
+
+	/* Update the SPM sequences for SPC and PC */
+	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
+		int j;
+		struct msm_spm_platform_data *pdata = &msm_spm_data[i];
+		for (j = 0; j < pdata->num_modes; j++) {
+			if (pdata->modes[j].cmd ==
+					spm_power_collapse_without_rpm)
+				pdata->modes[j].cmd =
+				spm_power_collapse_without_rpm_krait_v3;
+			else if (pdata->modes[j].cmd ==
+					spm_power_collapse_with_rpm)
+				pdata->modes[j].cmd =
+				spm_power_collapse_with_rpm_krait_v3;
+		}
+	}
+}
+
+
+static void __init msm8930ab_update_retention_spm(void)
+{
+	int i;
+
+	/* Update the SPM sequences for krait retention on all cores */
+	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
+		int j;
+		struct msm_spm_platform_data *pdata = &msm_spm_data[i];
+		for (j = 0; j < pdata->num_modes; j++) {
+			if (pdata->modes[j].cmd ==
+					spm_retention_cmd_sequence)
+				pdata->modes[j].cmd =
+				spm_retention_with_krait_v3_cmd_sequence;
+		}
+	}
+}
+
+#if !defined(CONFIG_MACH_LGE)
+#ifdef CONFIG_SERIAL_MSM_HS
+static struct msm_serial_hs_platform_data msm_uart_dm9_pdata = {
+	.config_gpio	= 4,
+	.uart_tx_gpio	= 93,
+	.uart_rx_gpio	= 94,
+	.uart_cts_gpio	= 95,
+	.uart_rfr_gpio	= 96,
+};
+#else
+static struct msm_serial_hs_platform_data msm_uart_dm9_pdata;
+#endif
 #endif
 
 static void __init msm8930_cdp_init(void)
 {
+	int i, reg_size = 0;
+	int minor_ver = SOCINFO_VERSION_MINOR(socinfo_get_platform_version());
+	int major_ver = SOCINFO_VERSION_MAJOR(socinfo_get_platform_version());
 #if !defined(CONFIG_MACH_LGE)
 	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
 		msm8930_pm8917_pdata_fixup();
@@ -3208,6 +3433,14 @@ static void __init msm8930_cdp_init(void)
 		BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data_pm8917));
 	}
 
+	/*
+	 * Configure LDO L17 as away on only for EVT1,
+	 * because it is the power source for a set of
+	 * MSM gpios on 8930 SGLTE EVT1.
+	 */
+	if (machine_is_msm8930_evt() && major_ver == 1 && minor_ver == 0)
+		configure_8930_sglte_regulator();
+
 	regulator_suppress_info_printing();
 	if (msm_xo_init())
 		pr_err("Failed to initialize XO votes\n");
@@ -3216,16 +3449,57 @@ static void __init msm8930_cdp_init(void)
 		msm_clock_init(&msm8930_pm8917_clock_init_data);
 	else
 		msm_clock_init(&msm8930_clock_init_data);
+
 #if !defined(CONFIG_MACH_LGE)
-	msm_otg_pdata.phy_init_seq = hsusb_phy_init_seq;
-	if (msm8930_mhl_display_enabled()) {
-		mhl_platform_data.mhl_enabled = true;
-		msm_otg_pdata.mhl_enable = true;
+	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917) {
+		/*
+		 * By default, set USB mode as USB Peripheral only due to
+		 * hardware rework requirement for USB Host Mode.
+		 * Provide pmic_id_irq number only if host mode is enable
+		 * by user assuming that hardware rework is available.
+		 */
+		if (enable_usb_host_mode) {
+			/* MPP01 IRQ number */
+			msm_otg_pdata.pmic_id_irq =
+				PM8921_MPP_IRQ(PM8917_IRQ_BASE, 1);
+		} else {
+			pr_err("Enabling USB Peripheral Only mode.\n");
+			msm_otg_pdata.mode = USB_PERIPHERAL;
+		}
+	} else {
+		msm_otg_pdata.pmic_id_irq =
+				PM8038_USB_ID_IN_IRQ(PM8038_IRQ_BASE);
 	}
+
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE &&
+						machine_is_msm8930_evt()) {
+#ifdef CONFIG_SERIAL_MSM_HS
+		msm_uart_dm9_pdata.wakeup_irq = gpio_to_irq(94); /* GSBI9(2) */
+		msm_device_uart_dm9.dev.platform_data = &msm_uart_dm9_pdata;
+#endif
+		platform_device_register(&msm_device_uart_dm9);
+
+		/* For 8930 SGLTE serial console */
+		if (major_ver == 1) {
+			if (minor_ver == 0)
+				/* Add UART Serial for EVT1 device */
+				platform_device_register(
+					&msm8930_device_uart_gsbi10);
+			else if (minor_ver == 1)
+				/* Add UART Serial for EVT2 device */
+				platform_device_register(
+					&msm8930_device_uart_gsbi11);
+		}
+	} else {
+		/* For 8930 Standalone serial console */
+		platform_device_register(&msm8960_device_uart_gsbi5);
+	}
+
+	msm_otg_pdata.phy_init_seq = hsusb_phy_init_seq;
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
 	android_usb_pdata.swfi_latency =
 			msm_rpmrs_levels[0].latency_us;
-#endif /* QCT Original */
+#endif
 
 	msm8930_init_gpiomux();
 #ifndef DISABLE_GSBI1_SPI
@@ -3246,6 +3520,14 @@ static void __init msm8930_cdp_init(void)
 #endif
 	msm8930_i2c_init();
 	msm8930_init_gpu();
+	if (cpu_is_msm8930ab())
+		msm8930ab_update_krait_spm();
+	if (cpu_is_krait_v3()) {
+		msm_pm_set_tz_retention_flag(0);
+		msm8930ab_update_retention_spm();
+	} else {
+		msm_pm_set_tz_retention_flag(1);
+	}
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 	msm8930_init_buses();
@@ -3266,6 +3548,8 @@ static void __init msm8930_cdp_init(void)
 		platform_device_register(&msm8930_device_acpuclk);
 	else if (cpu_is_msm8930aa())
 		platform_device_register(&msm8930aa_device_acpuclk);
+	else if (cpu_is_msm8930ab())
+		platform_device_register(&msm8930ab_device_acpuclk);
 	platform_add_devices(early_common_devices,
 				ARRAY_SIZE(early_common_devices));
 	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917)
@@ -3274,7 +3558,28 @@ static void __init msm8930_cdp_init(void)
 	else
 		platform_add_devices(pmic_pm8917_devices,
 					ARRAY_SIZE(pmic_pm8917_devices));
+
+	if (machine_is_msm8930_evt()) {
+	        /* It is QRD Device, clock should be set appropraitely */
+		if ((SOCINFO_VERSION_MAJOR(socinfo_get_platform_version()) == 1)
+		&& (SOCINFO_VERSION_MINOR(socinfo_get_platform_version()) == 1))
+			/* For evt2a, which supports 48 MHz */
+			qcom_wcnss_pdata.has_48mhz_xo = 1;
+		else
+			/* Assuming all other versions do not support 48MHz */
+			qcom_wcnss_pdata.has_48mhz_xo = 0;
+	}
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
+	if (machine_is_msm8930_evt() &&
+		(socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)) {
+		/* Removing GSBI4 and GSBI9 and initializing GSBI8
+		 * as per SGLTE platform requirement */
+		platform_add_devices(i2c_qup_sglte_devices,
+					ARRAY_SIZE(i2c_qup_sglte_devices));
+	} else {
+		platform_add_devices(i2c_qup_devices,
+					ARRAY_SIZE(i2c_qup_devices));
+	}
 	msm8930_add_vidc_device();
 	/*
 	 * TODO: When physical 8930/PM8038 hardware becomes
@@ -3293,72 +3598,81 @@ static void __init msm8930_cdp_init(void)
 		msm8930_pm8917_gpio_mpp_init();
 #endif /* CONFIG_MACH_MSM8930_FX3 */
 #endif
-
-	/* Don't add modem devices on APQ targets */
-	if (socinfo_get_id() != 119 && socinfo_get_id() != 157
-	    && socinfo_get_id() != 160){
-		platform_device_register(&msm_8960_q6_mss_fw);
-		platform_device_register(&msm_8960_q6_mss_sw);
-	}
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
 #ifdef CONFIG_MSM_CAMERA
 	msm8930_init_cam();
 #endif
 	msm8930_init_mmc();
-
 #if !defined(CONFIG_MACH_MSM8930_FX3)
+	if (!machine_is_msm8930_evt())
 	mxt_init_vkeys_8930();
 	register_i2c_devices();
 	msm8930_init_fb();
 #endif
 
-//                                                                
-#ifndef CONFIG_MACH_LGE_L9II_OPEN_EU
-//                                                                
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
+		reg_size = ARRAY_SIZE((
+			(struct wcd9xxx_pdata *)msm_slim_devices[1].
+			slim_slave->dev.platform_data)->regulator);
+
+		for (i = 0; i < reg_size; i++) {
+			if (!(((struct wcd9xxx_pdata *)msm_slim_devices[1].
+				slim_slave->dev.platform_data)->
+				regulator[i].name))
+				break;
+		}
+
+		((struct wcd9xxx_pdata *)msm_slim_devices[1].slim_slave->dev.
+			platform_data)->regulator[i].name =
+							"CDC_VDDA_A_L9_2P85V";
+		((struct wcd9xxx_pdata *)msm_slim_devices[1].slim_slave->dev.
+				platform_data)->regulator[i].min_uV = 2850000;
+		((struct wcd9xxx_pdata *)msm_slim_devices[1].slim_slave->dev.
+				platform_data)->regulator[i].max_uV = 2850000;
+		((struct wcd9xxx_pdata *)msm_slim_devices[1].slim_slave->dev.
+			platform_data)->regulator[i].optimum_uA = 300000;
+	}
 	slim_register_board_info(msm_slim_devices,
 		ARRAY_SIZE(msm_slim_devices));
-//                                                                  
-#endif		
-//                                                                
-	change_memory_power = &msm8930_change_memory_power;
-	
-/*                                   */
+	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
+
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
+		mdm_sglte_device.dev.platform_data = &sglte_platform_data;
+		platform_device_register(&mdm_sglte_device);
+	}
+/* garam.kim@lge.com [START] for NFC */
 #if defined(CONFIG_LGE_NFC)
 	lge_add_nfc_devices();
 #endif
-/*                                 */
+/* garam.kim@lge.com [END] for NFC */
 
-#if defined (CONFIG_NFC_BCM43341) /*                    */
+#if defined (CONFIG_NFC_BCM43341) /* hyunho.koh@lge.com */
 	lge_add_bcm43341_device();
 	pr_err("lge_add_bcm43341_device\n");
 #endif
 
+#if defined(CONFIG_MACH_LGE)
 	lge_add_lcd_devices();
 	lge_add_i2c_devices();
 	lge_add_usb_devices();
 	lge_add_input_devices();
 	lge_add_camera_devices();
 	lge_add_sensor_devices();
-//                                                                
-#ifdef CONFIG_MACH_LGE_L9II_OPEN_EU
-  slim_register_board_info(msm_slim_devices,
-		ARRAY_SIZE(msm_slim_devices));	
-#endif		
-//                                                                
 	lge_add_sound_devices();
+#endif
 
-/*             
-                                                     
+/* LGE_CHANGE S
+	* IRRC porting	* 2013-02-15, choonghyun.jeon@lge.com
 */
 #ifdef CONFIG_ANDROID_SW_IRRC
 	lge_add_misc_devices();
 #endif
-/*              */
+/* LGE_CHANGE E */
 
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 	lge_add_ramconsole_devices();
 #endif
-#ifdef CONFIG_LGE_HANDLE_PANIC
+#ifdef CONFIG_LGE_CRASH_HANDLER
 	lge_add_panic_handler_devices();
 #endif
 #ifdef CONFIG_LGE_QFPROM_INTERFACE
@@ -3381,14 +3695,11 @@ static void __init msm8930_cdp_init(void)
 	}
 #endif
 
-	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
-	msm_pm_set_tz_retention_flag(1);
-
 	if (PLATFORM_IS_CHARM25())
 		platform_add_devices(mdm_devices, ARRAY_SIZE(mdm_devices));
 }
 
-#if defined (CONFIG_MACH_LGE_L9II_OPEN_EU)
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 MACHINE_START(MSM8930_FX3, "LGE MSM8230 L9II")
 	.map_io = msm8930_map_io,
 	.reserve = msm8930_reserve,

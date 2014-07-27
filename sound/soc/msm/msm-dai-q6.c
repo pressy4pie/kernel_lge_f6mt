@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,13 +56,13 @@ static struct clk *pcm_clk;
 static struct clk *sec_pcm_clk;
 static DEFINE_MUTEX(aux_pcm_mutex);
 static int aux_pcm_count;
-/*                                          
-                                                                                
-                                   
+/* LGE_CHANGE_S - QCT patch (case #01013176)
+*  add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
+*  2012-11-10, donggyun.kim@lge.com
 */
 static int aux_tx;
 static int aux_rx;
-/*              */
+/* LGE_CHANGE_E */
 static struct msm_dai_auxpcm_pdata *auxpcm_plat_data;
 static struct msm_dai_auxpcm_pdata *sec_auxpcm_plat_data;
 
@@ -528,7 +528,7 @@ static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 	dai_data->port_config.slim_sch.num_channels = dai_data->channels;
 	dai_data->port_config.slim_sch.reserved = 0;
 
-    //                                   
+    //LGE_START, MYUNGWON.KIM, Log Enable
 	printk("%s:slimbus_dev_id[%hu] bit_wd[%hu] format[%hu]\n"
 		"num_channel %hu  slave_ch_mapping[0]  %hu\n"
 		"slave_port_mapping[1]  %hu slave_port_mapping[2]  %hu\n"
@@ -731,10 +731,10 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 
 	mutex_lock(&aux_pcm_mutex);
 
-	/*                                          
-                                                                                 
-                                    
- */
+	/* LGE_CHANGE_S - QCT patch (case #01013176)
+	*  add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
+	*  2012-11-10, donggyun.kim@lge.com
+	*/
 	if (dai->id == PCM_RX)
 		aux_rx--;
 	else if (dai->id == PCM_TX)
@@ -749,7 +749,7 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 		mutex_unlock(&aux_pcm_mutex);
 		return;
 	}
-	/*              */
+	/* LGE_CHANGE_E */
 	if (aux_pcm_count == 0) {
 		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 0. Just"
 				" return\n", __func__, dai->id);
@@ -785,13 +785,13 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	if (IS_ERR_VALUE(rc))
 		dev_err(dai->dev, "fail to close AUX PCM TX port\n");
 
-	/*                                          
-                                                                                 
-                                    
- */
+	/* LGE_CHANGE_S - QCT patch (case #01013176)
+	*  add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
+	*  2012-11-10, donggyun.kim@lge.com
+	*/
 	aux_rx = 0;
 	aux_tx = 0;
-	/*              */
+	/* LGE_CHANGE_E */
 	mutex_unlock(&aux_pcm_mutex);
 }
 
@@ -879,15 +879,15 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 
 	mutex_lock(&aux_pcm_mutex);
 
-	/*                                          
-                                                                                 
-                                    
- */
+	/* LGE_CHANGE_S - QCT patch (case #01013176)
+	*  add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
+	*  2012-11-10, donggyun.kim@lge.com
+	*/
 	if (dai->id == PCM_RX)
 		aux_rx++;
 	else if (dai->id == PCM_TX)
 		aux_tx++;
-	/*              */
+	/* LGE_CHANGE_E */
 
 	if (aux_pcm_count == 2) {
 		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 2. Just"
@@ -1442,7 +1442,7 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	unsigned int i = 0;
 
-    //                                   
+    //LGE_START, MYUNGWON.KIM, Log Enable
 	printk("%s: dai_id = %d\n", __func__, dai->id);
 	switch (dai->id) {
 	case SLIMBUS_0_RX:
@@ -1460,13 +1460,13 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 		for (i = 0; i < rx_num; i++) {
 			dai_data->port_config.slim_sch.slave_ch_mapping[i] =
 							rx_slot[i];
-    //                                   
+    //LGE_START, MYUNGWON.KIM, Log Enable
 			printk("%s: find number of channels[%d] ch[%d]\n",
 							__func__, i,
 							rx_slot[i]);
 		}
 		dai_data->port_config.slim_sch.num_channels = rx_num;
-    //                                   
+    //LGE_START, MYUNGWON.KIM, Log Enable
 		printk("%s:SLIMBUS_%d_RX cnt[%d] ch[%d %d]\n", __func__,
 				(dai->id - SLIMBUS_0_RX) / 2,
 		rx_num, dai_data->port_config.slim_sch.slave_ch_mapping[0],
@@ -1488,12 +1488,12 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 		for (i = 0; i < tx_num; i++) {
 			dai_data->port_config.slim_sch.slave_ch_mapping[i] =
 							tx_slot[i];
-    //                                   
+    //LGE_START, MYUNGWON.KIM, Log Enable
 			printk("%s: find number of channels[%d] ch[%d]\n",
 						__func__, i, tx_slot[i]);
 		}
 		dai_data->port_config.slim_sch.num_channels = tx_num;
-    //                                   
+    //LGE_START, MYUNGWON.KIM, Log Enable
 		printk("%s:SLIMBUS_%d_TX cnt[%d] ch[%d %d]\n", __func__,
 			(dai->id - SLIMBUS_0_TX) / 2,
 		tx_num, dai_data->port_config.slim_sch.slave_ch_mapping[0],

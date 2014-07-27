@@ -58,10 +58,10 @@ int sensor_power(int on)
 	static struct regulator *vreg_vdd;
 
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
-	/*           
-                                  
-                           
-  */
+	/* LGE_CHANGE
+	 * 2013-1-3, sangyeol.ryu@lge.com
+	 * 1.8V sensor IO power on
+	 */
 	static struct regulator *vreg_vio;
 
     vreg_vio = regulator_get(NULL, "8038_lvs2");
@@ -128,12 +128,34 @@ int sensor_power(int on)
 	return rc;
 }
 
-static struct acceleration_platform_data bma250_pdata = {
-	.irq_num = 46,
+struct bosch_sensor_specific{
+    char *name;
+    int place;
+    int irq;
 };
 
-static struct ecom_platform_data bmm050_pdata = {
-	.irq_num = 46,
+static struct bosch_sensor_specific bmm050_pdata = {
+    .name = "bmm050",
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+    .place = 4,
+#elif defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_F6_VDF)
+    .place = 3,
+#else
+    .place = 0,
+#endif
+    .irq = 46
+};
+
+static struct bosch_sensor_specific bma250_pdata = {
+    .name = "bma2x2",
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+    .place = 4,
+#elif defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_F6_VDF)
+    .place = 3,
+#else
+    .place = 0,
+#endif
+    .irq = 46
 };
 
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
@@ -189,6 +211,11 @@ void __init lge_add_sensor_devices(void)
 {
 	gpio_tlmm_config(GPIO_CFG(44, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_tlmm_config(GPIO_CFG(45, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+
+#if !defined(CONFIG_MACH_LGE_FX3_VZW) && !defined(CONFIG_MACH_LGE_FX3Q_TMUS)
+	gpio_tlmm_config(GPIO_CFG(49, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+#endif
+
 	/* Sensor power on */
 	sensor_power(1);
 

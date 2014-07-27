@@ -49,16 +49,16 @@ static struct v4l2_subdev_ops hi543_eeprom_subdev_ops = {
 
 uint8_t hi543_wbcalib_data[6];
 struct msm_calib_wb hi543_wb_data;
-uint8_t hi543_lsccalib_data[896]; //                                                                    
+uint8_t hi543_lsccalib_data[896]; //[QCT_Change] for EEPROM , by randy, 2013-03-12, hyunjin.jeon@lge.com
 struct msm_calib_lsc hi543_lsc_data;
 uint8_t hi543_afcalib_data[4];
 struct msm_calib_af hi543_af_data;
 
 static struct msm_camera_eeprom_info_t hi543_calib_supp_info = {
 	{ TRUE, 4, 2, 1}, // af
-	{ TRUE, 6, 0, 1024},  //                                                                          
+	{ TRUE, 6, 0, 1024},  // wb //[QCT_Change] for EEPROM , by randy, 2013-03-12, hyunjin.jeon@lge.com
 /*Start : tjeon@qualcomm.com - 20130319 */
-	{FALSE, 896, 1, 255}, //                                                                            
+	{FALSE, 896, 1, 255}, // lsc  //[QCT_Change] for EEPROM , by randy, 2013-03-12, hyunjin.jeon@lge.com
 /*End : tjeon@qualcomm.com - 20130319 */
 	{FALSE, 0, 0, 1},
 };
@@ -67,7 +67,7 @@ static struct msm_camera_eeprom_read_t hi543_eeprom_read_tbl[] = {
 /*Start : tjeon@qualcomm.com - 20130319 */
 	{0x00, &hi543_wbcalib_data[0], 6, 1},
 /*End : tjeon@qualcomm.com - 20130319 */
-	{0x70, &hi543_lsccalib_data[0], /* 884 */896, 0}, //                                                                          
+	{0x70, &hi543_lsccalib_data[0], /* 884 */896, 0}, //LSC //[QCT_Change] for EEPROM , by randy, 2013-03-12, hyunjin.jeon@lge.com
 	{0x66, &hi543_afcalib_data[0], 4, 1},
 };
 
@@ -79,21 +79,21 @@ static struct msm_camera_eeprom_data_t hi543_eeprom_data_tbl[] = {
 };
 
 /*Start : tjeon@qualcomm.com - 20130319 */
-//                                                                      
+//[QCT_Change_S] for EEPROM , by randy, 2013-03-12, hyunjin.jeon@lge.com
 #define R_OVER_G_TYP 691     //692
 #define B_OVER_G_TYP 595    //671
 #define GR_OVER_GB_TYP 1034   //1024
-//                                                                      
+//[QCT_Change_E] for EEPROM , by randy, 2013-03-12, hyunjin.jeon@lge.com
 /*End : tjeon@qualcomm.com - 20130319 */
 static void hi543_format_wbdata(void)
 {
 
 #if 1
-	/*                                                                                      */
+	/* QCT_CHANGE_S, change order  for calibration error, 2013-02-20, donghyun.kwon@lge.com */
 	hi543_wb_data.r_over_g = ((uint16_t)(hi543_wbcalib_data[0]) |hi543_wbcalib_data[1] << 8);
 	hi543_wb_data.b_over_g = ((uint16_t)(hi543_wbcalib_data[2]) |hi543_wbcalib_data[3] << 8);
 	hi543_wb_data.gr_over_gb = ((uint16_t)(hi543_wbcalib_data[4]) | hi543_wbcalib_data[5] << 8);
-//                                                                      
+//[QCT_Change_S] for EEPROM , by randy, 2013-03-12, hyunjin.jeon@lge.com
     if (hi543_wb_data.r_over_g > R_OVER_G_TYP + (R_OVER_G_TYP >> 2) || /* +- 25% */
 		hi543_wb_data.r_over_g < R_OVER_G_TYP - (R_OVER_G_TYP >> 2) ||
 		hi543_wb_data.b_over_g > B_OVER_G_TYP + (R_OVER_G_TYP >> 2) ||
@@ -106,8 +106,8 @@ static void hi543_format_wbdata(void)
 			hi543_wb_data.gr_over_gb);
 	  hi543_calib_supp_info.wb.is_supported = FALSE;
     }
-//                                                                      
-	/*                                                                                     */
+//[QCT_Change_E] for EEPROM , by randy, 2013-03-12, hyunjin.jeon@lge.com
+	/* QCT_CHANGE_E, change order for calibration error, 2013-02-20, donghyun.kwon@lge.com */
 #else
 	hi543_wb_data.r_over_g = (uint16_t)(hi543_wbcalib_data[1] << 8) |
 		hi543_wbcalib_data[0];
@@ -124,7 +124,7 @@ static void hi543_format_wbdata(void)
 static void hi543_format_lscdata(void)
 {
   int i;
-//                                                                      
+//[QCT_Change_S] for EEPROM , by randy, 2013-03-12, hyunjin.jeon@lge.com
   uint16_t r_sum = 0, gr_sum = 0, gb_sum = 0, b_sum = 0;
   
   for (i = 0; i < 221; i++) {
@@ -149,7 +149,7 @@ static void hi543_format_lscdata(void)
 	  hi543_calib_supp_info.lsc.is_supported = FALSE;
   }
 
-//                                                                      
+//[QCT_Change_E] for EEPROM , by randy, 2013-03-12, hyunjin.jeon@lge.com
 }
 #endif
 

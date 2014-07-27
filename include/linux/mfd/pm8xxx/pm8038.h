@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,7 +87,7 @@ struct pm8038_platform_data {
 	struct pm8xxx_vibrator_platform_data	*vibrator_pdata;
 	struct pm8xxx_ccadc_platform_data	*ccadc_pdata;
 	struct pm8xxx_spk_platform_data		*spk_pdata;
-/*                                                 */
+/* LGE_CHANGE: remove below codes due to QCT patch */
 #if 0 // def CONFIG_PMIC8XXX_VIBRATOR
     struct pm8xxx_vibrator_platform_data    *vibrator_pdata;
 #endif

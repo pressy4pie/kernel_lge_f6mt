@@ -14,8 +14,8 @@
  */
 
 #include <linux/module.h>
-#include <linux/kernel.h>	/*                                                              */
-#include <linux/slab.h>	    /*                                                                               */
+#include <linux/kernel.h>	/*LGE_CHANGE, to load module, 2012-10-15, kwangsik83.kim@lge.com*/
+#include <linux/slab.h>	    /*LGE_CHANGE, to avoid error about kmzalloc(), 2012-10-15, kwangsik83.kim@lge.com*/
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/mutex.h>
@@ -24,15 +24,15 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/leds-as364x.h>
-#include <mach/camera.h>	/*                                                                                  */
-#include <linux/mfd/pm8xxx/pm8921-charger.h> /*                                                                                */
+#include <mach/camera.h>	/*LGE_CHANGE, to use enum about operation of led, 2012-10-15, kwangsik83.kim@lge.com*/
+#include <linux/mfd/pm8xxx/pm8921-charger.h> /* LGE_CHANGE, Low temperature exception handling, 2012-12-10 soojong.jin@lge.com */
 
 
-/*                                                  
-                                           
+/*LGE_CHANGE_S : seven.kim@lge.com kernel3.0 porting
+ * camera flash device/driver naming match 
  */
 #include <mach/board_lge.h>
-/*                                                  */
+/*LGE_CHANGE_E : seven.kim@lge.com kernel3.0 porting*/
 
 #ifdef CONFIG_AS3648
 #define AS364X_CURR_STEP 3529 /* uA */
@@ -136,13 +136,13 @@ static const struct as364x_data as364x_default_data = {
 #endif
 		AS364X_REG(TXMask, 0x68),
 		AS364X_REG(Low_Voltage, 0x2C),
-/*                                       
-                                 
-                                      */
+/*LGE_CHANGE_S : as3647 flash reg setting
+  2011-12-20, suk.kitak@lge.com, 
+  adjust light intensity and timing   */
 		AS364X_REG(Flash_Timer, 0xC0),	//0x23->0xC0
 		AS364X_REG(Control, 0x00),
 		AS364X_REG(Strobe_Signalling, 0x00),	//0xc0->0x00
-/*                                         */
+/* LGE_CHANGE_E : as3647 flash reg setting */
 		AS364X_REG(Fault, 0x00),
 		AS364X_REG(PWM_and_Indicator, 0x00),
 		AS364X_REG(min_LED_Current, 0x00),
@@ -154,9 +154,9 @@ static const struct as364x_data as364x_default_data = {
 	},
 };
 
-/*                                                                     */
+/* LGE_CHANGE_S :  current issue fixed 2011.12.16, samjinjang@lge.com  */
 #if 0  //#ifdef CONFIG_PM
-/*                                      */
+/* LGE_CHANGE_E :  current issue fixed  */
 static int as364x_suspend(struct i2c_client *client, pm_message_t msg)
 {
 	dev_info(&client->dev, "Suspending AS364X\n");
@@ -242,9 +242,9 @@ static void as364x_set_leds(struct as364x_data *data,
 
 }
 
-/*                                                                          */
+/* LGE_CHANGE_S, dont use this functions, 2012-12-05, donghyun.kwon@lge.com */
 #if 0
-/*                                                                      */
+/*LGE_CHANGE_S, to control the flash, 2012-10-15, kwangsik83.kim@lge.com*/
 static void as364x_config_gpio_on(void){
 	pr_err("%s: Start\n", __func__);
 
@@ -270,75 +270,88 @@ static void as364x_led_disable(void){
 	pr_err("%s: Start\n", __func__);
 	gpio_set_value(3, 0);
 }
-/*                                                                   */
+/*LGE_CHANGE_E, add new flash dev, 2012-10-15, kwangsik83.kim@lge.com*/
 #endif  
-/*                                                                          */
+/* LGE_CHANGE_E, dont use this functions, 2012-12-05, donghyun.kwon@lge.com */
 
 
 int as3647_flash_set_led_state(int state)
 {
 	int rc = 0;
-/*                                                                                  */
+/* LGE_CHANGE S, Low temperature exception handling, 2012-12-10 soojong.jin@lge.com */
 	int batt_temp = 0;
-/*                                                                                  */
+/* LGE_CHANGE E, Low temperature exception handling, 2012-12-10 soojong.jin@lge.com */
 
 	pr_err("%s %d\n", __func__, state);
 
 	switch (state) {
 
 	case MSM_CAMERA_LED_OFF:
-		//                                                                                                  
+		//as364x_led_disable(); /* LGE_CHANGE, dont use this functions, 2012-12-05, donghyun.kwon@lge.com */
 		as364x_set_leds(as3647_data, 0,0,0);
 		printk("as3647_flash_set_led_state -> off\n");
 		break;
-
-	/*                                                                                                              */
-	case MSM_CAMERA_LED_LOW:
-		//                                                                                                  
-		/*                                                                                  */
+/*LGE_CHANGE_S, added torch mode to distinguish torch and pre-flashing, 2013-06-26, soojong.jin@lge.com */
+	case MSM_CAMERA_LED_TORCH:
 		batt_temp = pm8921_batt_temperature();
 		pr_err("%s: Battery temperature = %d\n", __func__, batt_temp);
 		if(batt_temp > -100) 
-			as364x_set_leds(as3647_data, 1,0x0a,0x3f);	/*                                                                                                                               */
+			as364x_set_leds(as3647_data, 1,0x0a,0x24); //225mA /* LGE_CHANGE, Change mode setting from indicator mode to assist light mode, 393.3mA->591.3mA, 2013-02-18, donghyun.kwon@lge.com */
 		else{
 			as364x_set_leds(as3647_data, 0,0,0);
 			pr_err("%s: torch is blocked for low temperature\n", __func__);
 		}
-		/*                                                                                  */
-		printk("as3647_flash_set_led_state -> torch mode \n");
+		/* LGE_CHANGE E, Low temperature exception handling, 2012-12-10 soojong.jin@lge.com */
+		printk("as3647_flash_set_led_state -> torch mode MSM_CAMERA_LED_TORCH \n");
+		break;
+/*LGE_CHANGE_E, added torch mode to distinguish torch and pre-flashing, 2013-06-26, soojong.jin@lge.com */
+	/*LGE_CHANGE_S : as3647 flash reg setting  2011-12-20, suk.kitak@lge.com,   adjust light intensity and timing   */
+	case MSM_CAMERA_LED_LOW:
+		//as364x_led_enable();  /* LGE_CHANGE, dont use this functions, 2012-12-05, donghyun.kwon@lge.com */
+		/* LGE_CHANGE S, Low temperature exception handling, 2012-12-10 soojong.jin@lge.com */
+		batt_temp = pm8921_batt_temperature();
+		pr_err("%s: Battery temperature = %d\n", __func__, batt_temp);
+		if(batt_temp > -100) 
+			as364x_set_leds(as3647_data, 1,0x0a,0x3f);	/* LGE_CHANGE, Change mode setting from indicator mode to assist light mode, 393.3mA->591.3mA, 2013-02-18, donghyun.kwon@lge.com */
+		else{
+			as364x_set_leds(as3647_data, 0,0,0);
+			pr_err("%s: torch is blocked for low temperature\n", __func__);
+		}
+		/* LGE_CHANGE E, Low temperature exception handling, 2012-12-10 soojong.jin@lge.com */
+		printk("as3647_flash_set_led_state -> torch mode MSM_CAMERA_LED_LOW \n");
 		break;
 	case MSM_CAMERA_LED_HIGH:
-		//                                                                                                   
+		//as364x_led_enable();   /* LGE_CHANGE, dont use this functions, 2012-12-05, donghyun.kwon@lge.com */
 #if 1
-/*                                                                                  */
+/* LGE_CHANGE S, Low temperature exception handling, 2012-12-10 soojong.jin@lge.com */
 		batt_temp = pm8921_batt_temperature();
              pr_err("%s: Battery temperature = %d\n", __func__, batt_temp);
 			 
     if(batt_temp > -100) 
-		    as364x_set_leds(as3647_data, 1,0x0b,0xb1); /*                                                                                                   */
+		    as364x_set_leds(as3647_data, 1,0x0b,0xb1); /* LGE_CHANGE, change flash current 800mA -> 1A, requested from HW, 2012-11-15 donghyun.kwon@lge.com */
 		else	{
                 as364x_set_leds(as3647_data, 0,0,0);
 		   pr_err("%s: flash is blocked for low temperature\n", __func__);
 		}
-/*                                                                                  */		 
-//                                                                                                                                                              
+/* LGE_CHANGE E, Low temperature exception handling, 2012-12-10 soojong.jin@lge.com */		 
+//		as364x_set_leds(as3647_data, 1,0x0b,0xb1); //0x09f); /* LGE_CHANGE, change flash current 800mA -> 1A, requested from HW, 2012-11-15 donghyun.kwon@lge.com */
 #else
 	    as364x_set_leds(as3647_data, 1,0x0b,0x80);	//0x9c
 #endif	    
 		printk("as3647_flash_set_led_state -> Strobe on \n");
-		/*                                         */	
+		/* LGE_CHANGE_E : as3647 flash reg setting */	
 		break;
 	case MSM_CAMERA_LED_INIT:
-		//                                                                                                   
+		//as364x_led_enable();   /* LGE_CHANGE, dont use this functions, 2012-12-05, donghyun.kwon@lge.com */
 		as364x_set_leds(as3647_data, 0,0,0);
 		printk("as3647_flash_set_led_state -> LED init \n");
-		//                                                                                                       
+		//as364x_config_gpio_on();   /* LGE_CHANGE, dont use this functions, 2012-12-05, donghyun.kwon@lge.com */
 		break;
 
 	case MSM_CAMERA_LED_RELEASE:
 		as364x_set_leds(as3647_data, 0,0,0);
-		//                                                                                                   
-		//                                                                                                       
+		//as364x_led_disable();  /* LGE_CHANGE, dont use this functions, 2012-12-05, donghyun.kwon@lge.com */
+		//as364x_config_gpio_off();  /* LGE_CHANGE, dont use this functions, 2012-12-05, donghyun.kwon@lge.com */
 		printk("as3647_flash_set_led_state -> LED release \n");
 		break;
 
@@ -789,11 +802,11 @@ static int as364x_configure(struct i2c_client *client,
 
 	AS364X_WRITE_REG(1, 1);
 	AS364X_WRITE_REG(2, 2);
-/*                                       
-                                 
-                                      */
+/*LGE_CHANGE_S : as3647 flash reg setting
+  2011-12-20, suk.kitak@lge.com, 
+  adjust light intensity and timing   */
 	AS364X_WRITE_REG(5, 0xC0); 
-/*                                         */	
+/* LGE_CHANGE_E : as3647 flash reg setting */	
 #ifdef CONFIG_AS3647
 	if (i2c_smbus_read_byte_data(client, 2) != 0) {
 		dev_err(&client->dev, "Not AS3647, maybe AS3648, exiting\n");
@@ -826,11 +839,11 @@ static int as364x_configure(struct i2c_client *client,
 	AS364X_WRITE_REG(AS364X_REG_PWM_and_Indicator,
 			pdata->freq_switch_on ? 0x04 : 0);
 
-/*                                       
-                                 
-                                      */
+/*LGE_CHANGE_S : as3647 flash reg setting
+  2011-12-20, suk.kitak@lge.com, 
+  adjust light intensity and timing   */
 	data->strobe_reg = 0x00;	//data->strobe_reg = pdata->strobe_type ? 0xc0 : 0x80;
-/*                                         */
+/* LGE_CHANGE_E : as3647 flash reg setting */
 	
 	AS364X_WRITE_REG(AS364X_REG_Strobe_Signalling, data->strobe_reg);
 
@@ -968,11 +981,11 @@ static int as364x_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id as364x_id[] = {
-	/*                                                   
-                                             
-   */
+	/*LGE_CHANGE_S : samjinjang@lge.com kernel3.0 porting
+ 	 * camera flash device/driver naming match 
+ 	 */
 	{ "as364x", 0 },
-	/*                                                   */
+	/*LGE_CHANGE_E : samjinjang@lge.com kernel3.0 porting*/
 	{ }
 };
 
@@ -980,17 +993,17 @@ MODULE_DEVICE_TABLE(i2c, as364x_id);
 
 static struct i2c_driver as364x_driver = {
 	.driver = {
-		/*                                                  
-                                              
-    */
+		/*LGE_CHANGE_S : seven.kim@lge.com kernel3.0 porting
+ 		 * camera flash device/driver naming match 
+ 		 */
 		.name   = "as364x",
-		/*                                                  */
+		/*LGE_CHANGE_E : seven.kim@lge.com kernel3.0 porting*/
 	},
 	.probe  = as364x_probe,
 	.remove = as364x_remove,
-/*                                                                     */
+/* LGE_CHANGE_S :  current issue fixed 2011.12.16, samjinjang@lge.com  */
 #if 0  //#ifdef CONFIG_PM
-/*                                     */
+/* LGE_CHANGE_E :  current issue fixed	*/
 	.shutdown = as364x_shutdown,
 	.suspend  = as364x_suspend,
 	.resume   = as364x_resume,

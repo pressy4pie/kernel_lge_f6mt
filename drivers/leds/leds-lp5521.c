@@ -94,7 +94,7 @@
 
 /* Pattern Mode */
 #define PATTERN_OFF	0
-/*            */
+/* LGE_CHANGE */
 #define PATTERN_BLINK_ON	-1
 
 /* Program Commands */
@@ -140,11 +140,11 @@ struct lp5521_chip {
 	struct lp5521_led	leds[LP5521_MAX_LEDS];
 	u8			num_channels;
 	u8			num_leds;
-	/*            */
+	/* LGE_CHANGE */
 	int id_pattern_play;
 };
 
-/*            */
+/* LGE_CHANGE */
 struct lp5521_pattern_cmd {
 	u8 r[LP5521_PROGRAM_LENGTH];
 	u8 g[LP5521_PROGRAM_LENGTH];
@@ -265,7 +265,7 @@ static int lp5521_load_program(struct lp5521_engine *eng, const u8 *pattern)
 	struct i2c_client *client = chip->client;
 	int ret;
 	int addr;
-  /*            */
+  /* LGE_CHANGE */
 	u8 mode = 0;
 
 	/* move current engine to direct mode and remember the state */
@@ -380,7 +380,7 @@ static void lp5521_led_brightness_work(struct work_struct *work)
 static int lp5521_detect(struct i2c_client *client)
 {
 	int ret;
-  /*            */
+  /* LGE_CHANGE */
 	u8 buf = 0;
 
 	ret = lp5521_write(client, LP5521_REG_ENABLE, LP5521_ENABLE_DEFAULT);
@@ -646,7 +646,7 @@ static inline struct lp5521_led_pattern *lp5521_get_pattern
 	return ptn;
 }
 
-/*            */
+/* LGE_CHANGE */
 static void _run_led_pattern(struct lp5521_chip *chip,
 			struct lp5521_led_pattern *ptn)
 {
@@ -709,7 +709,7 @@ static ssize_t store_led_pattern(struct device *dev,
 	struct lp5521_chip *chip = i2c_get_clientdata(to_i2c_client(dev));
 	unsigned long val;
 	int ret;
-	/*            */
+	/* LGE_CHANGE */
 	printk("LP5521: [%s] pattern id : %s", __func__, buf);
 
 	ret = strict_strtoul(buf, 10, &val);

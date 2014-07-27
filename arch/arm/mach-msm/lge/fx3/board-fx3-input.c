@@ -53,7 +53,7 @@
 #define MELFAS_TS_I2C_SLAVE_ADDR 	0x48
 #define LGE_TOUCH_SYNATICS_I2C_SLAVE_ADDR 	0x20
 
-//                                                                  
+// LGE_CHANGE_S [younglae.kim@lge.com] 2013-01-22, re-arrange keymap
 #define GPIO_VOLUME_UP		PM8038_GPIO_PM_TO_SYS(2)
 #define GPIO_VOLUME_DOWN	PM8038_GPIO_PM_TO_SYS(3)
 #define GPIO_HOMEPAGE		PM8038_GPIO_PM_TO_SYS(1)
@@ -99,9 +99,9 @@ static struct platform_device gpio_keys_8930 = {
 		.platform_data  = &gpio_keys_8930_pdata,
 	},
 };
-//                                               
+// LGE_CHANGE_E [younglae.kim@lge.com] 2012-01-22
 
-/*                    */
+/*	LGE_UPDATE_TOUCH_S */
 extern unsigned int system_rev;
 static bool touch_req = false;
 int vdd_set_on_off(int on)
@@ -229,7 +229,7 @@ static struct touch_platform_data  lge_synaptics_ts_data = {
 	.int_pin	= TS_GPIO_IRQ,
 	.reset_pin	= TS_GPIO_RESET,
 	.maker		= "Synaptics",
-	.fw_version = "E011",
+	.fw_version = "E014",
 	.caps		= &touch_caps,
 	.role		= &touch_role,
 	.pwr		= &touch_pwr,
@@ -242,7 +242,7 @@ static struct i2c_board_info msm_i2c_synaptics_ts_info[] = {
                .irq = MSM_GPIO_TO_INT(TS_GPIO_IRQ),
        },
 };
-/*                    */
+/*	LGE_UPDATE_TOUCH_E */
 void __init lge_add_input_devices(void)
 {
 	int rc = 0;
@@ -274,7 +274,7 @@ void __init lge_add_input_devices(void)
 		printk("%s :MSM_8930_TS_MAKER_ID is low\n", __func__);
 #endif//	
 
-//                                                                  
+// LGE_CHANGE_S [younglae.kim@lge.com] 2013-01-22, re-arrange keymap
 #if defined(CONFIG_MACH_LGE_FX3_SPCS)
     if(system_rev < HW_REV_B) {
         keys_8930[1].gpio = PM8038_GPIO_PM_TO_SYS(8);
@@ -282,7 +282,7 @@ void __init lge_add_input_devices(void)
     }
 #endif
     platform_device_register(&gpio_keys_8930);
-//                                               
+// LGE_CHANGE_E [younglae.kim@lge.com] 2013-01-22
 
 }
 

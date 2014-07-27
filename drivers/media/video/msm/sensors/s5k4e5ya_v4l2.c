@@ -31,16 +31,16 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_stop_settings[] = {
 };
 
 static struct msm_camera_i2c_reg_conf s5k4e5ya_groupon_settings[] = {
-//                                                                                    
+//	{0x0104, 0x01},  /* LGE_CHANGE, for stability, 2012-12-05, donghyun.kwon@lge.com */
 };
 
 static struct msm_camera_i2c_reg_conf s5k4e5ya_groupoff_settings[] = {
-//                                                                                    
+//	{0x0104, 0x00},  /* LGE_CHANGE, for stability, 2012-12-05, donghyun.kwon@lge.com */
 };
 
 static struct msm_camera_i2c_reg_conf s5k4e5ya_prev_settings[] = {
 	// Reset for operation ...
-	{0x0103, 0x01}, //                                                                                                                      
+	{0x0103, 0x01}, // software reset /* LGE_CHANGE, add sw reset for sensor. it is guided from SS LSI, 2013-05-16, donghyun.kwon@lge.com */
 	//--> This registers are for FACTORY ONLY. If you change it without prior notification.
 	// YOU are RESPONSIBLE for the FAILURE that will happen in the future.
 	//+++++++++++++++++++++++++++++++//
@@ -63,41 +63,41 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_prev_settings[] = {
 	//S300E28 // dshut_en / srx_en
 	{0x300F, 0x40}, // [7]CDS limiter enable, [1]limiter off @ auto-zero
 	{0x301B, 0x77}, // COMP bias [7:4]comp1, [3:0]comp2
-	
+
 	//s30ae0a	// High Speed TEST mode
-			   
+
 	//// CDS option setting ...
-	{0x3010, 0x00}, // smp_en[2]=0(00) 1(04) row_id[1:0] = 00			   
+	{0x3010, 0x00}, // smp_en[2]=0(00) 1(04) row_id[1:0] = 00
 	{0x3011, 0x3A}, // RST_MX (384), SIG_MX (1440)
-	
-	{0x3012, 0x30}, // SIG offset1	48 code 
+
+	{0x3012, 0x30}, // SIG offset1	48 code
 	{0x3013, 0xA0}, // RST offset1	192 code
 	{0x3014, 0x00}, // SIG offset2
-	{0x3015, 0x00}, // RST offset2								  
-	{0x3016, 0x52}, // ADC_SAT (450mV)							   
-	{0x3017, 0x94}, // RMP_INIT[3:0](RMP_REG) 1.8V MS[6:4]=1	 
+	{0x3015, 0x00}, // RST offset2
+	{0x3016, 0x52}, // ADC_SAT (450mV)
+	{0x3017, 0x94}, // RMP_INIT[3:0](RMP_REG) 1.8V MS[6:4]=1
 	{0x3018, 0x70}, // rmp option - ramp connect[MSB] +RMP INIT DAC MIN
-	
+
 	{0x301D, 0xD4}, // CLP level (default = 0Fh)
-			
-	{0x3021, 0x02}, // inrush ctrl[1] off							   
-	{0x3022, 0x24}, // pump ring oscillator set [7:4]=CP, [3:0]=NCP 
-	{0x3024, 0x40}, // pix voltage 3.06V   (default = 88h)		
+
+	{0x3021, 0x02}, // inrush ctrl[1] off
+	{0x3022, 0x24}, // pump ring oscillator set [7:4]=CP, [3:0]=NCP
+	{0x3024, 0x40}, // pix voltage 3.06V   (default = 88h)
 	{0x3027, 0x08}, // ntg voltage (default = 04h)
-	
-	//// Pixel option setting ...	   
+
+	//// Pixel option setting ...
 	{0x301C, 0x06}, // Pixel Bias [3:0] (default = 03h)
 	{0x30D8, 0x3F}, // All tx off 2f, on 3f
-	 
+
 	//+++++++++++++++++++++++++++++++//
 	// ADLC setting ...
 	{0x3070, 0x5B}, // [6]L-ADLC BPR, [4]ch sel, [3]L-ADLC, [2]F-ADLC
 	{0x3071, 0x00}, // F&L-adlc max 127 (default = 11h, max 255)
 	{0x3080, 0x04}, // F-ADLC filter A (default = 10h)
 	{0x3081, 0x38}, // F-ADLC filter B (default = 20h)
-	// Internal VDD Regulator Setting 
+	// Internal VDD Regulator Setting
 	{0x302E, 0x0B},  // 0x08 -> 0x0B (For Internal regulator margin) 2010.08.05
-	
+
 	//+++++++++++++++++++++++++++++++//
 	// MIPI setting
 	{0x30BD, 0x00},//SEL_CCP[0]
@@ -106,8 +106,8 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_prev_settings[] = {
 	{0x30C1, 0x01},//pack video enable [0]
 	{0x30EE, 0x02},//DPHY enable [1]
 	{0x3111, 0x86},//Embedded data off [5]
-	
-	//30E80F  // : 0F Continous mode(default) , : 07 Non-Continous mode   
+
+	//30E80F  // : 0F Continous mode(default) , : 07 Non-Continous mode
 	{0x30E3, 0x38},  //according to MCLK 24Mhz
 	{0x30E4, 0x40},
 	{0x3113, 0x70},
@@ -115,9 +115,9 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_prev_settings[] = {
 	{0x3115, 0x7B},
 	{0x3116, 0xC0},
 	{0x30EE, 0x12},
-	
-	
-	
+
+
+
 		// PLL setting ...
 	//// input clock 24MHz
 	////// (3) MIPI 1-lane Serial(TST = 0000b or TST = 0010b), 15 fps
@@ -136,30 +136,30 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_prev_settings[] = {
 			//	/10:  A8h
 			//	/12:  B0h
 			//	/14:  B8h
-	
+
 	{0x30BF, 0xAB},//outif_enable[7], data_type[5:0](2Bh = bayer 10bit)
 	{0x30C0, 0x40},//video_offset[7:4] 1600%12
 	{0x30C8, 0x06},//video_data_length 1600 = 1280 * 1.25
 	{0x30C9, 0x40},
-	
+
 	{0x3112, 0x00}, //gain option sel off, shuter and gain setting for same time update
-	{0x3030, 0x07}, //old shut mode  
-	
+	{0x3030, 0x07}, //old shut mode
+
 	//--> This register are for user.
 	//+++++++++++++++++++++++++++++++//
-	// Integration setting ... 
+	// Integration setting ...
 	{0x0200, 0x03},    //fine integration time, WARNING: User should use fixed fine integration time.
 	{0x0201, 0x5C},
 	//{0x0203, 0x5C},
-	
-	
-	{0x0202, 0x07},    // coarse integration time, Max Coarse integration time = frame lenth line -5   
+
+
+	{0x0202, 0x07},    // coarse integration time, Max Coarse integration time = frame lenth line -5
 	{0x0203, 0x02},
-	
+
 	{0x0204, 0x00},    // analog gain
 	{0x0205, 0x20},
-//                                                                   
-#if 0	
+//[LGE_Change_S] for Flicker_Auto , 2013-02-26 , hyunjin.jeon@lge.com
+#if 0
 	{0x0340, 0x07},   // Frame Length, Min frame lenth = Vsize + 12
 	{0x0341, 0x07},   // 720 + 12 = 732 dec = 2DCh
 					  //07B4 = 27fps, 0707h=30fps
@@ -167,16 +167,16 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_prev_settings[] = {
 	{0x0340, 0x07},   // Frame Length, Min frame lenth = Vsize + 12
 	{0x0341, 0x25},   // 720 + 12 = 732 dec = 2DCh
 #endif
-//                                                                   
-	{0x0342, 0x0C},    // Line Length, MIPI Non-Continuous mode : B30h 이상, Continous mode :AB2h 이상.] 
+//[LGE_Change_E] for Flicker_Auto , 2013-02-26 , hyunjin.jeon@lge.com
+	{0x0342, 0x0C},    // Line Length, MIPI Non-Continuous mode : B30h 이상, Continous mode :AB2h 이상.]
 	{0x0343, 0x6F},    // B30h 이상이면 모두 이상없음.
-	
+
 	// MIPI Size Setting
 	{0x30A9, 0x02},//Horizontal Binning On
-	{0x300E, 0x29},//                                                                                   
+	{0x300E, 0x29},//EB},//Vertical Binning On    /*kwangsik83.kim@lge.comfor image string correction */
 	{0x302B, 0x00}, // [0]blst_en, [1]sl_off
 	{0x3029, 0x74}, //04 RST_MX(ramp)(384) + ring oscillator
-	
+
 	{0x0380, 0x00},//x_even_inc 1
 	{0x0381, 0x01},
 	{0x0382, 0x00},//x_odd_inc 1
@@ -185,7 +185,7 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_prev_settings[] = {
 	{0x0385, 0x01},
 	{0x0386, 0x00},//y_odd_inc 3
 	{0x0387, 0x03},
-	
+
 	{0x0344, 0x00},//x_addr_start
 	{0x0345, 0x18},
 	{0x0346, 0x00},//y_addr_start
@@ -194,7 +194,7 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_prev_settings[] = {
 	{0x0349, 0x17},
 	{0x034A, 0x07},//y_addr_end
 	{0x034B, 0x93},
-	
+
 	{0x034C, 0x05},//x_output_size 1304
 	{0x034D, 0x00},
 	{0x034E, 0x03},//y_output_size 980
@@ -203,7 +203,7 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_prev_settings[] = {
 
 static struct msm_camera_i2c_reg_conf s5k4e5ya_snap_settings[] = {
 	// Reset for operation ...
-	{0x0103, 0x01}, //                                                                                                                      
+	{0x0103, 0x01}, // software reset /* LGE_CHANGE, add sw reset for sensor. it is guided from SS LSI, 2013-05-16, donghyun.kwon@lge.com */
 	//--> This registers are for FACTORY ONLY. If you change it without prior notification.
 	// YOU are RESPONSIBLE for the FAILURE that will happen in the future.
 	//+++++++++++++++++++++++++++++++//
@@ -226,41 +226,41 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_snap_settings[] = {
 	//S300E28 // dshut_en / srx_en
 	{0x300F, 0x40}, // [7]CDS limiter enable, [1]limiter off @ auto-zero
 	{0x301B, 0x77}, // COMP bias [7:4]comp1, [3:0]comp2
-	
+
 	//s30ae0a	// High Speed TEST mode
-			   
+
 	//// CDS option setting ...
-	{0x3010, 0x00}, // smp_en[2]=0(00) 1(04) row_id[1:0] = 00			   
+	{0x3010, 0x00}, // smp_en[2]=0(00) 1(04) row_id[1:0] = 00
 	{0x3011, 0x3A}, // RST_MX (384), SIG_MX (1440)
-	
-	{0x3012, 0x30}, // SIG offset1	48 code 
+
+	{0x3012, 0x30}, // SIG offset1	48 code
 	{0x3013, 0xA0}, // RST offset1	192 code
 	{0x3014, 0x00}, // SIG offset2
-	{0x3015, 0x00}, // RST offset2								  
-	{0x3016, 0x52}, // ADC_SAT (450mV)							   
-	{0x3017, 0x94}, // RMP_INIT[3:0](RMP_REG) 1.8V MS[6:4]=1	 
+	{0x3015, 0x00}, // RST offset2
+	{0x3016, 0x52}, // ADC_SAT (450mV)
+	{0x3017, 0x94}, // RMP_INIT[3:0](RMP_REG) 1.8V MS[6:4]=1
 	{0x3018, 0x70}, // rmp option - ramp connect[MSB] +RMP INIT DAC MIN
-	
+
 	{0x301D, 0xD4}, // CLP level (default = 0Fh)
-			
-	{0x3021, 0x02}, // inrush ctrl[1] off							   
-	{0x3022, 0x24}, // pump ring oscillator set [7:4]=CP, [3:0]=NCP 
-	{0x3024, 0x40}, // pix voltage 3.06V   (default = 88h)		
+
+	{0x3021, 0x02}, // inrush ctrl[1] off
+	{0x3022, 0x24}, // pump ring oscillator set [7:4]=CP, [3:0]=NCP
+	{0x3024, 0x40}, // pix voltage 3.06V   (default = 88h)
 	{0x3027, 0x08}, // ntg voltage (default = 04h)
-	
-	//// Pixel option setting ...	   
+
+	//// Pixel option setting ...
 	{0x301C, 0x06}, // Pixel Bias [3:0] (default = 03h)
 	{0x30D8, 0x3F}, // All tx off 2f, on 3f
-	 
+
 	//+++++++++++++++++++++++++++++++//
 	// ADLC setting ...
 	{0x3070, 0x5B}, // [6]L-ADLC BPR, [4]ch sel, [3]L-ADLC, [2]F-ADLC
 	{0x3071, 0x00}, // F&L-adlc max 127 (default = 11h, max 255)
 	{0x3080, 0x04}, // F-ADLC filter A (default = 10h)
 	{0x3081, 0x38}, // F-ADLC filter B (default = 20h)
-	// Internal VDD Regulator Setting 
+	// Internal VDD Regulator Setting
 	{0x302E, 0x0B},  // 0x08 -> 0x0B (For Internal regulator margin) 2010.08.05
-	
+
 	//+++++++++++++++++++++++++++++++//
 	// MIPI setting
 	{0x30BD, 0x00},//SEL_CCP[0]
@@ -269,8 +269,8 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_snap_settings[] = {
 	{0x30C1, 0x01},//pack video enable [0]
 	{0x30EE, 0x02},//DPHY enable [1]
 	{0x3111, 0x86},//Embedded data off [5]
-	
-	//30E80F  // : 0F Continous mode(default) , : 07 Non-Continous mode   
+
+	//30E80F  // : 0F Continous mode(default) , : 07 Non-Continous mode
 	{0x30E3, 0x38},  //according to MCLK 24Mhz
 	{0x30E4, 0x40},
 	{0x3113, 0x70},
@@ -278,7 +278,7 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_snap_settings[] = {
 	{0x3115, 0x7B},
 	{0x3116, 0xC0},
 	{0x30EE, 0x12},
-	
+
 	//+++++++++++++++++++++++++++++++//
 	// PLL setting ...
 	//// input clock 24MHz
@@ -298,29 +298,29 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_snap_settings[] = {
 			//	/10:  A8h
 			//	/12:  B0h
 			//	/14:  B8h
-				
+
 	{0x30BF, 0xAB},//outif_enable[7], data_type[5:0](2Bh = bayer 10bit)
 	{0x30C0, 0x80},//video_offset[7:4] 3200%12
 	{0x30C8, 0x0C},//video_data_length 3200 = 2560 * 1.25
 	{0x30C9, 0xBC},
-	
+
 	{0x3112, 0x00}, //gain option sel off, shuter and gain setting for same time update
-	{0x3030, 0x07}, //old shut mode  
-	
-	
+	{0x3030, 0x07}, //old shut mode
+
+
 	//--> This register are for user.
 	//+++++++++++++++++++++++++++++++//
-	// Integration setting ... 
+	// Integration setting ...
 	{0x0200, 0x03},    //fine integration time, WARNING: User should use fixed fine integration time.
 	{0x0201, 0x5C},
-	
-	{0x0202, 0x07},    // coarse integration time, Max Coarse integration time = frame lenth line -5   
+
+	{0x0202, 0x07},    // coarse integration time, Max Coarse integration time = frame lenth line -5
 	{0x0203, 0xAA},
-	
+
 	{0x0204, 0x00},    // analog gain
 	{0x0205, 0x40},
-//                                                                   
-#if 0	
+//[LGE_Change_S] for Flicker_Auto , 2013-02-26 , hyunjin.jeon@lge.com
+#if 0
 	{0x0340, 0x07},   // Frame Length, Min frame lenth = Vsize + 12
 	{0x0341, 0xB4},   //1960 + 12 = 1972 dec = 7B4h
 					  //07B4 = 30fps,  0F6C = 15fps, 2E44 = 5fps
@@ -328,16 +328,16 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_snap_settings[] = {
 	{0x0340, 0x07},   // Frame Length, Min frame lenth = Vsize + 12
 	{0x0341, 0xD5},   //1960 + 12 = 1972 dec = 7B4h
 #endif
-//                                                                   
-	{0x0342, 0x0B},    // Line Length, MIPI Non-Continuous mode : B30h 이상, Continous mode :AB2h 이상.] 
+//[LGE_Change_E] for Flicker_Auto , 2013-02-26 , hyunjin.jeon@lge.com
+	{0x0342, 0x0B},    // Line Length, MIPI Non-Continuous mode : B30h 이상, Continous mode :AB2h 이상.]
 	{0x0343, 0x30},    // B30h 이상이면 모두 이상없음.
-	
+
 	// MIPI Size Setting
 	{0x30A9, 0x03},//Horizontal Binning Off
 	{0x300E, 0x28},//E8 Vertical Binning Off
 	{0x302B, 0x01}, // [0]blst_en, [1]sl_off
 	{0x3029, 0x34}, //04 RST_MX(ramp)(384) + ring oscillator
-	
+
 	{0x0380, 0x00},//x_even_inc 1
 	{0x0381, 0x01},
 	{0x0382, 0x00},//x_odd_inc 1
@@ -346,7 +346,7 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_snap_settings[] = {
 	{0x0385, 0x01},
 	{0x0386, 0x00},//y_odd_inc 3
 	{0x0387, 0x01},
-	
+
 	{0x0344, 0x00},//x_addr_start
 	{0x0345, 0x00},
 	{0x0346, 0x00},//y_addr_start
@@ -355,7 +355,7 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_snap_settings[] = {
 	{0x0349, 0x2F},
 	{0x034A, 0x07},//y_addr_end
 	{0x034B, 0xA7},
-	
+
 	{0x034C, 0x0A},//x_output_size 2608
 	{0x034D, 0x30},
 	{0x034E, 0x07},//y_output_size 1952
@@ -364,7 +364,7 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_snap_settings[] = {
 
 static struct msm_camera_i2c_reg_conf s5k4e5ya_video_settings[] = {
 	// Reset for operation ...
-	{0x0103, 0x01}, //                                                                                                                      
+	{0x0103, 0x01}, // software reset /* LGE_CHANGE, add sw reset for sensor. it is guided from SS LSI, 2013-05-16, donghyun.kwon@lge.com */
 	//--> This registers are for FACTORY ONLY. If you change it without prior notification.
 	// YOU are RESPONSIBLE for the FAILURE that will happen in the future.
 	//+++++++++++++++++++++++++++++++//
@@ -387,41 +387,41 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_video_settings[] = {
 	//S300E28 // dshut_en / srx_en
 	{0x300F, 0x40}, // [7]CDS limiter enable, [1]limiter off @ auto-zero
 	{0x301B, 0x77}, // COMP bias [7:4]comp1, [3:0]comp2
-	
+
 	//s30ae0a	// High Speed TEST mode
-			   
+
 	//// CDS option setting ...
-	{0x3010, 0x00}, // smp_en[2]=0(00) 1(04) row_id[1:0] = 00			   
+	{0x3010, 0x00}, // smp_en[2]=0(00) 1(04) row_id[1:0] = 00
 	{0x3011, 0x3A}, // RST_MX (384), SIG_MX (1440)
-	
-	{0x3012, 0x30}, // SIG offset1	48 code 
+
+	{0x3012, 0x30}, // SIG offset1	48 code
 	{0x3013, 0xA0}, // RST offset1	192 code
 	{0x3014, 0x00}, // SIG offset2
-	{0x3015, 0x00}, // RST offset2								  
-	{0x3016, 0x52}, // ADC_SAT (450mV)							   
-	{0x3017, 0x94}, // RMP_INIT[3:0](RMP_REG) 1.8V MS[6:4]=1	 
+	{0x3015, 0x00}, // RST offset2
+	{0x3016, 0x52}, // ADC_SAT (450mV)
+	{0x3017, 0x94}, // RMP_INIT[3:0](RMP_REG) 1.8V MS[6:4]=1
 	{0x3018, 0x70}, // rmp option - ramp connect[MSB] +RMP INIT DAC MIN
-	
+
 	{0x301D, 0xD4}, // CLP level (default = 0Fh)
-			
-	{0x3021, 0x02}, // inrush ctrl[1] off							   
-	{0x3022, 0x24}, // pump ring oscillator set [7:4]=CP, [3:0]=NCP 
-	{0x3024, 0x40}, // pix voltage 3.06V   (default = 88h)		
+
+	{0x3021, 0x02}, // inrush ctrl[1] off
+	{0x3022, 0x24}, // pump ring oscillator set [7:4]=CP, [3:0]=NCP
+	{0x3024, 0x40}, // pix voltage 3.06V   (default = 88h)
 	{0x3027, 0x08}, // ntg voltage (default = 04h)
-	
-	//// Pixel option setting ...	   
+
+	//// Pixel option setting ...
 	{0x301C, 0x06}, // Pixel Bias [3:0] (default = 03h)
 	{0x30D8, 0x3F}, // All tx off 2f, on 3f
-	
+
 	//+++++++++++++++++++++++++++++++//
 	// ADLC setting ...
 	{0x3070, 0x5B}, // [6]L-ADLC BPR, [4]ch sel, [3]L-ADLC, [2]F-ADLC
 	{0x3071, 0x00}, // F&L-adlc max 127 (default = 11h, max 255)
 	{0x3080, 0x04}, // F-ADLC filter A (default = 10h)
 	{0x3081, 0x38}, // F-ADLC filter B (default = 20h)
-	// Internal VDD Regulator Setting 
+	// Internal VDD Regulator Setting
 	{0x302E, 0x0B},  // 0x08 -> 0x0B (For Internal regulator margin) 2010.08.05
-	
+
 	//+++++++++++++++++++++++++++++++//
 	// MIPI setting
 	{0x30BD, 0x00},//SEL_CCP[0]
@@ -430,8 +430,8 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_video_settings[] = {
 	{0x30C1, 0x01},//pack video enable [0]
 	{0x30EE, 0x02},//DPHY enable [1]
 	{0x3111, 0x86},//Embedded data off [5]
-	
-	//30E80F  // : 0F Continous mode(default) , : 07 Non-Continous mode   
+
+	//30E80F  // : 0F Continous mode(default) , : 07 Non-Continous mode
 	{0x30E3, 0x38},  //according to MCLK 24Mhz
 	{0x30E4, 0x40},
 	{0x3113, 0x70},
@@ -439,7 +439,7 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_video_settings[] = {
 	{0x3115, 0x7B},
 	{0x3116, 0xC0},
 	{0x30EE, 0x12},
-	
+
 	//+++++++++++++++++++++++++++++++//
 	// PLL setting ...
 	//// input clock 24MHz
@@ -459,29 +459,29 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_video_settings[] = {
 			//	/10:  A8h
 			//	/12:  B0h
 			//	/14:  B8h
-		   
+
 	{0x30BF, 0xAB},//outif_enable[7], data_type[5:0](2Bh = bayer 10bit)
 	{0x30C0, 0x00},//video_offset[7:4] 2400%12
 	{0x30C8, 0x09},//video_data_length 2400 = 1920 * 1.25
 	{0x30C9, 0x60},
-	
+
 	{0x3112, 0x00}, //gain option sel off, shuter and gain setting for same time update
-	{0x3030, 0x07}, //old shut mode  
-	
-	
+	{0x3030, 0x07}, //old shut mode
+
+
 	//--> This register are for user.
 	//+++++++++++++++++++++++++++++++//
-	// Integration setting ... 
+	// Integration setting ...
 	{0x0200, 0x03},    //fine integration time, WARNING: User should use fixed fine integration time.
 	{0x0201, 0x5C},
-	
-	{0x0202, 0x07},    // coarse integration time, Max Coarse integration time = frame lenth line -5   
+
+	{0x0202, 0x07},    // coarse integration time, Max Coarse integration time = frame lenth line -5
 	{0x0203, 0xAA},
-	
+
 	{0x0204, 0x00},    // analog gain
 	{0x0205, 0x40},
-//                                                                   
-#if 0	
+//[LGE_Change_S] for Flicker_Auto , 2013-02-26 , hyunjin.jeon@lge.com
+#if 0
 	{0x0340, 0x07},   // Frame Length, Min frame lenth = Vsize + 12
 	{0x0341, 0xB4},   //1960 + 12 = 1972 dec = 7B4h
 					  //07B4 = 30fps,  0F6C = 15fps, 2E44 = 5fps
@@ -489,16 +489,16 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_video_settings[] = {
 	{0x0340, 0x07},   // Frame Length, Min frame lenth = Vsize + 12
 	{0x0341, 0xD5},   //1960 + 12 = 1972 dec = 7B4h
 #endif
-//                                                                   
-	{0x0342, 0x0B},    // Line Length, MIPI Non-Continuous mode : B30h 이상, Continous mode :AB2h 이상.] 
+//[LGE_Change_E] for Flicker_Auto , 2013-02-26 , hyunjin.jeon@lge.com
+	{0x0342, 0x0B},    // Line Length, MIPI Non-Continuous mode : B30h 이상, Continous mode :AB2h 이상.]
 	{0x0343, 0x30},    // B30h 이상이면 모두 이상없음.
-	
+
 	// MIPI Size Setting
 	{0x30A9, 0x03},//Horizontal Binning Off
 	{0x300E, 0x28},//E8 Vertical Binning Off
 	{0x302B, 0x01}, // [0]blst_en, [1]sl_off
 	{0x3029, 0x34}, //04 RST_MX(ramp)(384) + ring oscillator
-	
+
 	{0x0380, 0x00},//x_even_inc 1
 	{0x0381, 0x01},
 	{0x0382, 0x00},//x_odd_inc 1
@@ -507,16 +507,16 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_video_settings[] = {
 	{0x0385, 0x01},
 	{0x0386, 0x00},//y_odd_inc 3
 	{0x0387, 0x01},
-	
+
 	{0x0344, 0x01},//x_addr_start, 344dec = 0158h , order 로 인해 좌표 +1 한다
-	{0x0345, 0x58}, 			   
+	{0x0345, 0x58},
 	{0x0346, 0x01},//y_addr_start, 440dec = 01B8h
 	{0x0347, 0xB8},
 	{0x0348, 0x08},//x_addr_end, 344+1920 = 2264 dec = 08D8h
 	{0x0349, 0xD8},
-	{0x034A, 0x05},//y_addr_end, 440+1088 = 1528 dec = 05F8h 
+	{0x034A, 0x05},//y_addr_end, 440+1088 = 1528 dec = 05F8h
 	{0x034B, 0xF8},
-	
+
 	{0x034C, 0x07},//x_output_size
 	{0x034D, 0x80},
 	{0x034E, 0x04},//y_output_size
@@ -526,7 +526,7 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_recommend_settings[] = {
 #if 0
 	// ******************* //
 	// S5K4E5Y MIPI Setting
-	// 
+	//
 	// last update date : 2012. 10. 15
 	//
 	// Full size output (2608 x 1960)
@@ -563,24 +563,24 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_recommend_settings[] = {
 	{0x301B, 0x77},  	// COMP bias [7:4]comp1, [3:0]comp2
 
 	//s30ae0a	// High Speed TEST mode
-	           
+
 	//// CDS option setting ...
-	{0x3010, 0x00},  	// smp_en[2]=0(00) 1(04) row_id[1:0] = 00              
+	{0x3010, 0x00},  	// smp_en[2]=0(00) 1(04) row_id[1:0] = 00
 	{0x3011, 0x3A},  	// RST_MX (384), SIG_MX (1440)
-	{0x3012, 0x30},  	// SIG offset1  48 code 
+	{0x3012, 0x30},  	// SIG offset1  48 code
 	{0x3013, 0xA0},  	// RST offset1  192 code
 	{0x3014, 0x00},  	// SIG offset2
-	{0x3015, 0x00},  	// RST offset2                                
-	{0x3016, 0x52},  	// ADC_SAT (450mV)                             
-	{0x3017, 0x94},  	// RMP_INIT[3:0](RMP_REG) 1.8V MS[6:4]=1     
+	{0x3015, 0x00},  	// RST offset2
+	{0x3016, 0x52},  	// ADC_SAT (450mV)
+	{0x3017, 0x94},  	// RMP_INIT[3:0](RMP_REG) 1.8V MS[6:4]=1
 	{0x3018, 0x70},  	// rmp option - ramp connect[MSB] +RMP INIT DAC MIN
 	{0x301D, 0xD4},  	// CLP level (default = 0Fh)
-	{0x3021, 0x02},  	// inrush ctrl[1] off                              
-	{0x3022, 0x24},  	// pump ring oscillator set [7:4]=CP, [3:0]=NCP 
-	{0x3024, 0x40},  	// pix voltage 3.06V   (default = 88h)      
+	{0x3021, 0x02},  	// inrush ctrl[1] off
+	{0x3022, 0x24},  	// pump ring oscillator set [7:4]=CP, [3:0]=NCP
+	{0x3024, 0x40},  	// pix voltage 3.06V   (default = 88h)
 	{0x3027, 0x08},  	// ntg voltage (default = 04h)
 
-	//// Pixel option setting ...      
+	//// Pixel option setting ...
 	{0x301C, 0x06},  	// Pixel Bias [3:0] (default = 03h)
 	{0x30D8, 0x3F},  	// All tx off 2f, on 3f
 
@@ -590,7 +590,7 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_recommend_settings[] = {
 	{0x3071, 0x00},  	// F&L-adlc max 127 (default = 11h, max 255)
 	{0x3080, 0x04},  	// F-ADLC filter A (default = 10h)
 	{0x3081, 0x38},  	// F-ADLC filter B (default = 20h)
-	// Internal VDD Regulator Setting 
+	// Internal VDD Regulator Setting
 	{0x302E, 0x0B},    // 0x08 -> 0x0B (For Internal regulator margin) 2010.08.05
 
 	//+++++++++++++++++++++++++++++++//
@@ -602,21 +602,21 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_recommend_settings[] = {
 	{0x30EE, 0x02}, //DPHY enable [1]
 	{0x3111, 0x86}, //Embedded data off [5]
 
-	//30E80F  // : 0F Continous mode(default) , : 07 Non-Continous mode   
+	//30E80F  // : 0F Continous mode(default) , : 07 Non-Continous mode
 	{0x30E3, 0x38},   //according to MCLK 24Mhz
-	{0x30E4, 0x40}, 
-	{0x3113, 0x70}, 
-	{0x3114, 0x80}, 
-	{0x3115, 0x7B}, 
-	{0x3116, 0xC0}, 
-	{0x30EE, 0x12}, 
+	{0x30E4, 0x40},
+	{0x3113, 0x70},
+	{0x3114, 0x80},
+	{0x3115, 0x7B},
+	{0x3116, 0xC0},
+	{0x30EE, 0x12},
 
 	//+++++++++++++++++++++++++++++++//
 	// PLL setting ...
 	//// input clock 24MHz
 	////// (3) MIPI 1-lane Serial(TST = 0000b or TST = 0010b), 15 fps
 	{0x0305, 0x06},  //24/6 = 4Mhz
-	{0x0306, 0x00}, 
+	{0x0306, 0x00},
 	{0x0307, 0x6A},  //4Mhz x 100 x 2 = 848M
 	{0x30B5, 0x00},  //848 / 2^0 = 848M per lane, total 1696Mbps
 	{0x30E2, 0x02},  //num lanes[1:0] = 2
@@ -633,23 +633,23 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_recommend_settings[] = {
 	{0x30BF, 0xAB},  //outif_enable[7], data_type[5:0](2Bh = bayer 10bit)
 	{0x30C0, 0x80},  //video_offset[7:4] 3260%12
 	{0x30C8, 0x0C},  //video_data_length 3260 = 2608 * 1.25
-	{0x30C9, 0xBC},  
+	{0x30C9, 0xBC},
 	{0x3112, 0x00},  	//gain option sel off, shuter and gain setting for same time update
-	{0x3030, 0x07},  	//old shut mode  
+	{0x3030, 0x07},  	//old shut mode
 
 	//--> This register are for user.
 	//+++++++++++++++++++++++++++++++//
-	// Integration setting ... 
+	// Integration setting ...
 	{0x0200, 0x03},      //fine integration time, WARNING: User should use fixed fine integration time.
-	{0x0201, 0x5C},  
-	{0x0202, 0x07},      // coarse integration time, Max Coarse integration time = frame lenth line -5   
+	{0x0201, 0x5C},
+	{0x0202, 0x07},      // coarse integration time, Max Coarse integration time = frame lenth line -5
 	{0x0203, 0xAA},      // = 7B4-5
 	{0x0204, 0x00},      // analog gain
-	{0x0205, 0x40},  
+	{0x0205, 0x40},
 	{0x0340, 0x07},     //Frame Length, Min frame lenth = Vsize + 12
 	{0x0341, 0xB4},     //1960 + 12 = 1972 dec = 7B4h
 	                    //07B4 = 30fps,  0F6C = 15fps, 2E44 = 5fps
-	{0x0342, 0x0B},      // Line Length, MIPI Non-Continuous mode : B30h 이상, Continous mode :AB2h 이상.] 
+	{0x0342, 0x0B},      // Line Length, MIPI Non-Continuous mode : B30h 이상, Continous mode :AB2h 이상.]
 	{0x0343, 0x30},      // B30h 이상이면 모두 이상없음.
 
 	// MIPI Size Setting
@@ -658,26 +658,26 @@ static struct msm_camera_i2c_reg_conf s5k4e5ya_recommend_settings[] = {
 	{0x302B, 0x01},  	// [0]blst_en, [1]sl_off
 	{0x3029, 0x34},  	//04 RST_MX(ramp)(384) + ring oscillator
 	{0x0380, 0x00},  //x_even_inc 1
-	{0x0381, 0x01},  
+	{0x0381, 0x01},
 	{0x0382, 0x00},  //x_odd_inc 1
-	{0x0383, 0x01},  
+	{0x0383, 0x01},
 	{0x0384, 0x00},  //y_even_inc 1
-	{0x0385, 0x01},  
+	{0x0385, 0x01},
 	{0x0386, 0x00},  //y_odd_inc 3
-	{0x0387, 0x01},  
+	{0x0387, 0x01},
 	{0x0344, 0x00},  //x_addr_start
-	{0x0345, 0x00},  
+	{0x0345, 0x00},
 	{0x0346, 0x00},  //y_addr_start
-	{0x0347, 0x00},  
+	{0x0347, 0x00},
 	{0x0348, 0x0A},  //x_addr_end
-	{0x0349, 0x2F},  
+	{0x0349, 0x2F},
 	{0x034A, 0x07},  //y_addr_end
-	{0x034B, 0xA7},  
+	{0x034B, 0xA7},
 	{0x034C, 0x0A},  //x_output_size
-	{0x034D, 0x30},  
+	{0x034D, 0x30},
 	{0x034E, 0x07},  //y_output_size
-	{0x034F, 0xA8},  
-	//{0x0100, 0x01},  
+	{0x034F, 0xA8},
+	//{0x0100, 0x01},
 #endif
 };
 
@@ -706,41 +706,41 @@ static struct msm_camera_i2c_conf_array s5k4e5ya_confs[] = {
 };
 
 
-//                                                                                  
+//LGE_CHANGE 2012-09-19 kwangsik83.kim@lge.com all value set as default in DATASHEET
 static struct msm_sensor_output_info_t s5k4e5ya_dimensions[] = {
-	/*                                                                 */
+	/* LGE_CHANGE, ZSL PREVIEW, SNAPSHOT, 11-15, kwangsik83.kim@lge.com*/
 	{
 		.x_output = 0x0A30,
 		.y_output = 0x07A0,
 		.line_length_pclk = 0x0B30,
-		.frame_length_lines = 0x7D5, //                                                             
+		.frame_length_lines = 0x7D5, // 0x07B4, for Flicker_Auto , 2013-02-26 , hyunjin.jeon@lge.com
 		.vt_pixel_clk = 169600000,	//848Mhz/5=169.6Mhz
 		.op_pixel_clk = 169600000,	//848Mhz/5=169.6Mhz
 		.binning_factor = 1,
 	},
-	/*                                                                             */
+	/* LGE_CHANGE, Non PREVIEW, HD Recording Preview, 11-15, kwangsik83.kim@lge.com*/
 	{
-		.x_output = 0x0500,		/*                                                                                              */
-		.y_output = 0x03C0, 	/*                                                                                              */
-		.line_length_pclk = 0x0C6F, 	/*                                                                                              */
-		.frame_length_lines = 0x725, //                                                            
+		.x_output = 0x0500,		/* LGE_CHANGE, change initial code for non-zsl preview mode , 2012-11-27, donghyun.kwon@lge.com */
+		.y_output = 0x03C0, 	/* LGE_CHANGE, change initial code for non-zsl preview mode , 2012-11-27, donghyun.kwon@lge.com */
+		.line_length_pclk = 0x0C6F, 	/* LGE_CHANGE, change initial code for non-zsl preview mode , 2012-11-27, donghyun.kwon@lge.com */
+		.frame_length_lines = 0x725, // 0x0707,for Flicker_Auto , 2013-02-26 , hyunjin.jeon@lge.com
 		.vt_pixel_clk = 169600000,	//848Mhz/5=169.6Mhz
 		.op_pixel_clk = 169600000,	//848Mhz/5=169.6Mhz
 		.binning_factor = 1,
 	},
-	/*                                                                 */
+	/* LGE_CHANGE, FHD Recording PREVIEW, 11-15, kwangsik83.kim@lge.com*/
 	{
 		.x_output = 0x0780,	//1920
 		.y_output = 0x0440,	//1088
 		.line_length_pclk = 0x0B30,
-		.frame_length_lines = 0x7D5, //                                                             
+		.frame_length_lines = 0x7D5, // 0x07B4, for Flicker_Auto , 2013-02-26 , hyunjin.jeon@lge.com
 		.vt_pixel_clk = 169600000,	//848Mhz/5=169.6Mhz
 		.op_pixel_clk = 169600000,	//848Mhz/5=169.6Mhz
 		.binning_factor = 1,
 	},
 };
 
-//                                                                                  
+//LGE_CHANGE 2012-09-19 kwangsik83.kim@lge.com all value set as default in DATASHEET
 static struct msm_sensor_output_reg_addr_t s5k4e5ya_reg_addr = {
 	.x_output = 0x034C,
 	.y_output = 0x034E,
@@ -748,7 +748,7 @@ static struct msm_sensor_output_reg_addr_t s5k4e5ya_reg_addr = {
 	.frame_length_lines = 0x0340,
 };
 
-//                                            
+//LGE_CHANGE 2012-09-19 kwangsik83.kim@lge.com
 static struct msm_sensor_id_info_t s5k4e5ya_id_info = {
 	.sensor_id_reg_addr = 0x0000,
 	.sensor_id = 0x4E50,
@@ -773,7 +773,7 @@ static inline uint8_t s5k4e5ya_byte(uint16_t word, uint8_t offset)
 }
 
 static int32_t s5k4e5ya_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
-						uint16_t gain, uint32_t line)
+						uint16_t gain, uint32_t line, int32_t luma_avg, uint16_t fgain)
 {
 	uint32_t fl_lines;
 	uint8_t offset;

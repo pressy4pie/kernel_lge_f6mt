@@ -33,7 +33,7 @@
 #define ANDROID_ALARM_PRINT_INT (1U << 5)
 #define ANDROID_ALARM_PRINT_FLOW (1U << 6)
 
-/*                                              */
+/* LGE_CHANGE: add debug mask for debugging rtc */
 #ifdef CONFIG_MACH_LGE
 static int debug_mask = ANDROID_ALARM_PRINT_ERROR | \
 			ANDROID_ALARM_PRINT_TSET | \
@@ -259,7 +259,7 @@ int alarm_set_rtc(struct timespec new_time)
 	struct rtc_time rtc_new_rtc_time;
 	struct timespec tmp_time;
 
-/*                              */
+/* LGE_CHANGE: print out caller */
 #ifdef CONFIG_MACH_LGE
 	pr_alarm(CALL, "%s: caller %s\n", __func__, current->comm);
 #endif
@@ -306,7 +306,7 @@ int alarm_set_rtc(struct timespec new_time)
 	ret = rtc_set_time(alarm_rtc_dev, &rtc_new_rtc_time);
 	if (ret < 0)
 		pr_alarm(ERROR, "alarm_set_rtc: "
-			"Failed to set RTC, time will be lost on reboot\n");
+			"Failed to set RTC, time will be lost on reboot <- normal error if on MSM\n");
 err:
 	wake_unlock(&alarm_rtc_wake_lock);
 	mutex_unlock(&alarm_setrtc_mutex);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -190,7 +190,7 @@
 #define MSM8960_GSBI1_QUP_IRQ			(GIC_SPI_START + 147)
 #define MSM8960_GSBI2_UARTDM_IRQ		(GIC_SPI_START + 148)
 #define MSM8960_GSBI2_QUP_IRQ		        (GIC_SPI_START + 149)
-/*            */
+/* LGE_CHANGE */
 #ifdef CONFIG_MACH_MSM8930_FX3
 #define GSBI2_UARTDM_IRQ			(GIC_SPI_START + 148)
 #define GSBI2_QUP_IRQ				(GIC_SPI_START + 149)

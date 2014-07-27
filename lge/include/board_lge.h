@@ -23,7 +23,7 @@ platform.team@lge.com	2011.01
 #include <linux/platform_device.h>
 #include <asm/setup.h>
 
-/*                                                    */
+/* neo.kang@lge.com 2011-03-15, to get board revision */
 enum {
   EVB1         = 0,
   EVB2,
@@ -50,7 +50,7 @@ enum {
 
 extern int lge_bd_rev;
 
-/*                                      */
+/* 20110613 hoyeon.jang@lge.com [START] */
 enum {
   LGE_I_BOARD_ATNT = 0,
   LGE_I_BOARD_DCM,
@@ -61,7 +61,7 @@ enum {
 };
 
 extern int lge_bd_target;
-/*                                    */
+/* 20110613 hoyeon.jang@lge.com [END] */
 
 #ifdef CONFIG_LGE_CHARGER_VOLTAGE_CURRENT_SCENARIO
 enum {
@@ -144,9 +144,9 @@ struct ami306_platform_data {
 	int fdata_order2;
 };
 
-//                                                                                                      
-#ifndef CONFIG_MACH_LGE_L9II_OPEN_EU
-//                                                                             
+//[LGE_CHANGE_S] 2013.03.13 daewon1004.kim@lge.com l9ii use the pwm mode moter. L9II doesn't use struct.
+#if !defined(CONFIG_MACH_LGE_L9II_COMMON)
+//[LGE_CHANGE_E] 2013.03.13 daewon1004.kim@lge.com l9ii use the pwm mode moter.
 /* android vibrator platform data */
 struct android_vibrator_platform_data {
 	int enable_status;
@@ -155,11 +155,11 @@ struct android_vibrator_platform_data {
 	int (*ic_enable_set)(int enable);       /* Motor IC Set Function */
 	int (*vibrator_init)(void);
 };
-//                                                                                                      
+//[LGE_CHANGE_S] 2013.03.13 daewon1004.kim@lge.com l9ii use the pwm mode moter. L9II doesn't use struct.
 #endif
-//                                                                             
+//[LGE_CHANGE_E] 2013.03.13 daewon1004.kim@lge.com l9ii use the pwm mode moter.
 
-//                                                      
+//[LGE_UPDATE_S] 20110420, sangyeol.lee@lge.com, [START]
 struct bluetooth_platform_data {
 	int (*bluetooth_power)(int on);
 	int (*bluetooth_toggle_radio)(void *data, bool blocked);
@@ -168,7 +168,7 @@ struct bluetooth_platform_data {
 struct bluesleep_platform_data {
 	int bluetooth_port_num;
 };
-//                                                     
+//[LGE_UPDATE_E] 20110420, sangyeol.lee@lge.com,  [END]
 
 /* atcmd virtual keyboard platform data */
 struct atcmd_virtual_platform_data {
@@ -177,7 +177,7 @@ struct atcmd_virtual_platform_data {
 	unsigned char *keycode;
 };
 
-/*                                                                  */
+/* 20110616 hoyeon.jang@lge.com add mhl platformdata struct [START] */
 /* mhl platform data */
 struct mhl_platform_data {
   unsigned int is_support;
@@ -188,11 +188,11 @@ struct mhl_platform_data {
   int (*power)(int on);
   int (*power_config)(void);
 };
-/*                                                                 */
+/* 20110616 hoyeon.jang@lge.com add mhl platform data struct [END] */
 
 /* implement in devices_lge.c */
 
-/*                                               */
+/* neo.kang@lge.com 2011-09-08, for hidden reset */
 #if defined(CONFIG_LGE_HIDDEN_RESET_PATCH)
 extern int hidden_reset_enable;
 extern int on_hidden_reset;

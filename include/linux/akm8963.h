@@ -11,6 +11,8 @@
 #define SENSOR_DATA_SIZE	8
 #define YPR_DATA_SIZE		12
 #define RWBUF_SIZE		16
+#define FDATA_SIZE  32
+#define MAG_INIT_VALUE          (0x7FFF)        // Initial value
 
 #define ACC_DATA_FLAG		0
 #define MAG_DATA_FLAG		1
@@ -70,6 +72,19 @@ Defines a read-only address of the fuse ROM of the AK8963.*/
 
 #define AKMIO                   0xA1
 
+//Average Filter for e-compass
+// 1: No filter
+// 4: Average 4 filter
+// 8: Average 8 filter
+// 16: Average 16 filter
+#define CSPEC_AVR_Filter        16
+
+// Sensitivity Value
+// 0.15f    : 0.15uT
+// 0.3f     : 0.3uT
+// 1f   : 1.0uT
+#define MAG_SENSITIVITY_VALUE   (0.3f)
+
 /* IOCTLs for AKM library */
 #define ECS_IOCTL_READ              _IOWR(AKMIO, 0x01, char*)
 #define ECS_IOCTL_WRITE             _IOW(AKMIO, 0x02, char*)
@@ -90,6 +105,18 @@ struct akm8963_platform_data {
 	int gpio_DRDY;
 	int gpio_RST;
 };
+
+struct FILTERPRMS{
+    short fdata[FDATA_SIZE][3];
+    int chdata[3];
+};
+
+//========================= Prototype of Function =============================//
+void InitAVR_Filter(struct FILTERPRMS* fltprms);
+
+void AVR_Filter(
+    struct FILTERPRMS*  fltprms
+);
 
 #endif
 

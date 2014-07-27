@@ -1441,7 +1441,7 @@ static int crypt_ctr_cipher(struct dm_target *ti,
 	if (!cipher_api)
 		goto bad_mem;
 
-/*            */
+/* LGE_CHANGE */
 #ifdef CONFIG_CRYPTO_DEV_KFIPS
 	if (!strcmp(cipher, "aes") &&
 	    (!strcmp(chainmode, "cbc") || !strcmp(chainmode, "xts")))

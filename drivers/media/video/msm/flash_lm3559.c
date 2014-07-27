@@ -27,12 +27,12 @@
 #include <linux/hrtimer.h>
 #include <linux/types.h>
 #include <mach/camera.h>
-//                                                      
+//Start LGE_BSP_CAMERA : zsl_flash - jonghwan.ko@lge.com
 #include <linux/gpio.h>
-//                                                     
-/*                                                                              */
+//End  LGE_BSP_CAMERA : zsl_flash - jonghwan.ko@lge.com
+/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
-/*                                                                              */
+/* LGE_CHANGE E, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
 
 #define LM3559_I2C_NAME  				"lm3559"
 
@@ -178,21 +178,21 @@ void lm3559_enable_flash_mode(enum led_status state)
 	if(state == LM3559_LED_LOW){
 		/* 0001 0001 : 112.5 mA */
 		CDBG("[LM3559_LED_LOW]LM3559_REG_FLASH_BRIGHTNESS \n");
-/*                                                                              */
+/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
 		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_FLASH_BRIGHTNESS, 0x44);
-/*                                                                              */
+/* LGE_CHANGE E, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
 	}
 	else{
 		/*0011 0011 : 225 mA => 0110 0110 : 393.75 mA */
 		CDBG("[LM3559_LED_HIGH]LM3559_REG_FLASH_BRIGHTNESS \n");
-/*                                                                             */
+/* LGE_CHANGE_S, Change flash LED driving current for L1m, 2012-07-24, jinw.kim*/
 #if defined(CONFIG_MACH_MSM8960_L1m)
 		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_FLASH_BRIGHTNESS, 0x88);
 #else
 		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_FLASH_BRIGHTNESS, 0x99);
-		/*                                                                                                           */
+		/* LGE_CHANGE, Reduce flash current from 1237.5mA(0xAA) to 1125mA(0x99) , 2012.12.04, jungryoul.choi@lge.com */
 #endif
-/*                                                                             */
+/* LGE_CHANGE_E, Change flash LED driving current for L1m, 2012-07-24, jinw.kim*/
 	}
 	lm3559_write_reg(lm3559_i2c_client, LM3559_REG_ENABLE, 0x1B);
 }
@@ -201,13 +201,13 @@ void lm3559_config_gpio_on(void)
 {
 	pr_err("%s: Start\n", __func__);
 
-//                                                                                     
+//LGE_CHANGE_S [koh.euije@lge.com] 2013.04.12 Flash is controlled by LM3639 on L9II REV
 #if !defined (CONFIG_BACKLIGHT_LM3639)
 	gpio_request(lm3559_led_flash_pdata->gpio_en, "cam_flash_en");
 	gpio_tlmm_config(GPIO_CFG(lm3559_led_flash_pdata->gpio_en, 0, GPIO_CFG_OUTPUT,
 		GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_direction_output(lm3559_led_flash_pdata->gpio_en, 0);
-//                                                                                     
+//LGE_CHANGE_E [koh.euije@lge.com] 2013.04.12 Flash is controlled by LM3639 on L9II REV
 #endif
 }
 
@@ -215,43 +215,43 @@ void lm3559_config_gpio_off(void)
 {
 	pr_err("%s: Start\n", __func__);
 
-//                                                                                     
+//LGE_CHANGE_S [koh.euije@lge.com] 2013.04.12 Flash is controlled by LM3639 on L9II REV
 #if !defined (CONFIG_BACKLIGHT_LM3639)
 	gpio_direction_input(lm3559_led_flash_pdata->gpio_en);
 	gpio_free(lm3559_led_flash_pdata->gpio_en);
 #endif
-//                                                                                     
+//LGE_CHANGE_E [koh.euije@lge.com] 2013.04.12 Flash is controlled by LM3639 on L9II REV
 
 }
 
 void lm3559_led_enable(void)
 {
 	pr_err("%s: Start\n", __func__);
-//                                                                                     
+//LGE_CHANGE_S [koh.euije@lge.com] 2013.04.12 Flash is controlled by LM3639 on L9II REV
 #if !defined (CONFIG_BACKLIGHT_LM3639)
 	gpio_set_value(lm3559_led_flash_pdata->gpio_en, 1);
 #endif
-//                                                                                     
+//LGE_CHANGE_E [koh.euije@lge.com] 2013.04.12 Flash is controlled by LM3639 on L9II REV
 	lm3559_onoff_state = LM3559_POWER_ON;
 }
 
 void lm3559_led_disable(void)
 {
 	pr_err("%s: Start\n", __func__);
-//                                                                                     
+//LGE_CHANGE_S [koh.euije@lge.com] 2013.04.12 Flash is controlled by LM3639 on L9II REV
 #if !defined (CONFIG_BACKLIGHT_LM3639)
 	gpio_set_value(lm3559_led_flash_pdata->gpio_en, 0);
-#endif        
-//                                                                                     
+#endif
+//LGE_CHANGE_E [koh.euije@lge.com] 2013.04.12 Flash is controlled by LM3639 on L9II REV
 	lm3559_onoff_state = LM3559_POWER_OFF;
 }
 
 int lm3559_flash_set_led_state(int led_state)
 {
 	int rc = 0;
-/*                                                                              */
+/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
 	int batt_temp = 0;
-/*                                                                              */
+/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
 
 	pr_err("%s: led_state = %d\n", __func__, led_state);
 
@@ -265,7 +265,7 @@ int lm3559_flash_set_led_state(int led_state)
 		break;
 	case MSM_CAMERA_LED_HIGH:
 		lm3559_led_enable();
-/*                                                                              */
+/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
 		batt_temp = pm8921_batt_temperature();
 		if(batt_temp > -100) {
 			pr_err("%s: Working on LED_HIGH Flash mode (Battery temperature = %d)\n", __func__, batt_temp);
@@ -274,7 +274,7 @@ int lm3559_flash_set_led_state(int led_state)
 			pr_err("%s: Working on LED_LOW Flash mode (Battery temperature = %d)\n", __func__, batt_temp);
 			lm3559_enable_flash_mode(LM3559_LED_LOW);
 		}
-/*                                                                              */
+/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
 		break;
 	case MSM_CAMERA_LED_INIT:
 		lm3559_config_gpio_on();

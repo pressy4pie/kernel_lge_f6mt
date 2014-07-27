@@ -54,7 +54,7 @@ static irqreturn_t pwrkey_press_irq(int irq, void *_pwrkey)
 	input_report_key(pwrkey->pwr, KEY_POWER, 1);
 	input_sync(pwrkey->pwr);
 
-	/*            */
+	/* LGE_CHANGE */
 	printk("[pmic8xxx-pwrkey] POWER KEY PRESS\n");
 
 	return IRQ_HANDLED;
@@ -74,7 +74,7 @@ static irqreturn_t pwrkey_release_irq(int irq, void *_pwrkey)
 
 	input_report_key(pwrkey->pwr, KEY_POWER, 0);
 	input_sync(pwrkey->pwr);
-    /*            */
+    /* LGE_CHANGE */
     printk("[pmic8xxx-pwrkey] POWER KEY RELEASE\n");
 
 	return IRQ_HANDLED;
@@ -259,7 +259,13 @@ static struct platform_driver pmic8xxx_pwrkey_driver = {
 		.pm	= &pm8xxx_pwr_key_pm_ops,
 	},
 };
-module_platform_driver(pmic8xxx_pwrkey_driver);
+
+static int __devinit pmic8xxx_pwrkey_init(void)
+{
+	return platform_driver_register(&pmic8xxx_pwrkey_driver);
+}
+
+subsys_initcall(pmic8xxx_pwrkey_init);
 
 MODULE_ALIAS("platform:pmic8xxx_pwrkey");
 MODULE_DESCRIPTION("PMIC8XXX Power Key driver");

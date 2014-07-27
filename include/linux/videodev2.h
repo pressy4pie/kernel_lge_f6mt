@@ -1299,8 +1299,8 @@ enum v4l2_colorfx {
 #define V4L2_CID_SPECIAL_EFFECT			(V4L2_CID_BASE+43)
 /* Minimum number of buffer neede by the device */
 
-#define V4L2_CID_NIGHT_MODE			(V4L2_CID_BASE+44)  /*                                                                  */
-#define V4L2_CID_FPS_RANGE			(V4L2_CID_BASE+45)  /*                                                                 */
+#define V4L2_CID_NIGHT_MODE			(V4L2_CID_BASE+44)  /* LGE_CHANGE : 2012-09-26 sungmin.cho@lge.com vt camera night mode */
+#define V4L2_CID_FPS_RANGE			(V4L2_CID_BASE+45)  /* LGE_CHANGE : 2012-09-26 sungmin.cho@lge.com vt camera fps range */
 
 /*  MPEG-class control IDs defined by V4L2 */
 #define V4L2_CID_MPEG_BASE 			(V4L2_CTRL_CLASS_MPEG | 0x900)
@@ -1806,6 +1806,7 @@ enum v4l2_mpeg_vidc_video_h264_au_delimiter {
 	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED = 0,
 	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED = 1
 };
+
 #define V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 23)
 enum v4l2_mpeg_vidc_video_h264_vui_timing_info {

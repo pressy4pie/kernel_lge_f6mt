@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,8 +88,8 @@ struct msm_sensor_reg_t {
 	enum msm_camera_i2c_data_type default_data_type;
 	struct msm_camera_i2c_reg_conf *start_stream_conf;
 	uint8_t start_stream_conf_size;
-	struct msm_camera_i2c_reg_conf *entrance_start_stream_conf;	/*                                                                                              */
-	uint8_t entrance_start_stream_conf_size;					/*                                                                                              */
+	struct msm_camera_i2c_reg_conf *entrance_start_stream_conf;	/*LGE_CHANGE, seprate start_stream becase of hi543 mipi spec, 2013-02-23, kwangsik83.kim@lge.com*/
+	uint8_t entrance_start_stream_conf_size;					/*LGE_CHANGE, seprate start_stream becase of hi543 mipi spec, 2013-02-23, kwangsik83.kim@lge.com*/
 	struct msm_camera_i2c_reg_conf *stop_stream_conf;
 	uint8_t stop_stream_conf_size;
 	struct msm_camera_i2c_reg_conf *group_hold_on_conf;
@@ -137,9 +137,9 @@ struct msm_sensor_fn_t {
 	int32_t (*sensor_set_fps) (struct msm_sensor_ctrl_t *,
 			struct fps_cfg *);
 	int32_t (*sensor_write_exp_gain) (struct msm_sensor_ctrl_t *,
-			uint16_t, uint32_t);
+			uint16_t, uint32_t, int32_t, uint16_t);
 	int32_t (*sensor_write_snapshot_exp_gain) (struct msm_sensor_ctrl_t *,
-			uint16_t, uint32_t);
+			uint16_t, uint32_t, int32_t, uint16_t);
 	int32_t (*sensor_setting) (struct msm_sensor_ctrl_t *,
 			int update_type, int rt);
 	int32_t (*sensor_csi_setting) (struct msm_sensor_ctrl_t *,
@@ -162,11 +162,18 @@ struct msm_sensor_fn_t {
 	void (*sensor_adjust_frame_lines) (struct msm_sensor_ctrl_t *s_ctrl);
 	int32_t (*sensor_get_csi_params)(struct msm_sensor_ctrl_t *,
 		struct csi_lane_params_t *);
-	/*                                                                   */
-	int8_t (*sensor_set_aec_roi) (struct msm_sensor_ctrl_t *, int32_t);
-/*                                                                   */	
-	int8_t (*sensor_set_soc_awb_lock) (struct msm_sensor_ctrl_t *, int32_t); /*                                                                         */
-	int8_t (*sensor_set_soc_aec_lock) (struct msm_sensor_ctrl_t *, int32_t); /*                                                                         */
+	int (*sensor_set_vision_mode)(struct msm_sensor_ctrl_t *s_ctrl,
+			int32_t vision_mode_enable);
+	int (*sensor_set_vision_ae_control)(
+			struct msm_sensor_ctrl_t *s_ctrl, int ae_mode);
+	int32_t (*sensor_read_eeprom)(struct msm_sensor_ctrl_t *);
+	int32_t (*sensor_hdr_update)(struct msm_sensor_ctrl_t *,
+		 struct sensor_hdr_update_parm_t *);
+
+	int8_t (*sensor_set_aec_roi) (struct msm_sensor_ctrl_t *, int32_t); /* LGE_CHANGE, 2012-10-09 sungmin.cho@lge.com vt camera touch aec */
+	int8_t (*sensor_set_soc_awb_lock) (struct msm_sensor_ctrl_t *, int32_t); /*LGE_CHANGE, add awb_lock for soc type, 2013-01-02, kwangsik83.kim@lge.com*/
+	int8_t (*sensor_set_soc_aec_lock) (struct msm_sensor_ctrl_t *, int32_t); /*LGE_CHANGE, add aec_lock for soc type, 2013-01-02, kwangsik83.kim@lge.com*/
+	int8_t (*sensor_get_soc_snapshotdata) (struct msm_sensor_ctrl_t *, struct snapshot_soc_data_cfg *); /* LGE_CHANGE : 2013-05-27 soojong.jin@lge.com Modified EXIF data from V7 */
 };
 
 struct msm_sensor_csi_info {
@@ -199,12 +206,13 @@ struct msm_sensor_ctrl_t {
 	struct msm_sensor_output_reg_addr_t *sensor_output_reg_addr;
 	struct msm_sensor_id_info_t *sensor_id_info;
 	struct msm_sensor_exp_gain_info_t *sensor_exp_gain_info;
-	uint8_t hi543Initcheck;		/*                                                                                                */
-	uint8_t hi707Initcheck;		/*                                                                                                      */
+	uint8_t hi543Initcheck;		/*LGE_CHANGE_E, seprate start_stream becase of hi543 mipi spec, 2013-02-23, kwangsik83.kim@lge.com*/
+	uint8_t hi707Initcheck;		/*LGE_CHANGE_E, seprate start_stream becase of hi707 frame end issue, 2013-02-27, kwangsik83.kim@lge.com*/
 	struct msm_sensor_reg_t *msm_sensor_reg;
 	struct msm_sensor_v4l2_ctrl_info_t *msm_sensor_v4l2_ctrl_info;
 	uint16_t num_v4l2_ctrl;
 	uint8_t is_csic;
+	int8_t vision_mode_flag;
 
 	uint16_t curr_line_length_pclk;
 	uint16_t curr_frame_length_lines;

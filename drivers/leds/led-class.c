@@ -20,13 +20,16 @@
 #include <linux/ctype.h>
 #include <linux/leds.h>
 #include "leds.h"
+#if defined (CONFIG_BACKLIGHT_LM3639)
+#include "../video/backlight/lm3639_bl.h"
+#endif
 
 #define LED_BUFF_SIZE 50
 
 static struct class *leds_class;
-/*                                                         */
+/* LGE_CHANGE_S, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 #ifdef CONFIG_LGE_PM8038_KPJT
-static int playing_pattern = 0; //                               
+static int playing_pattern = 0; // LGE_ADD [younglae.kim@lge.com]
 
 extern void change_led_pattern(int pattern, int pattern_r_on, int pattern_g_on, int pattern_b_on);	
 extern void	make_blink_led_pattern(int red, int green, int blue, int delay_on,int delay_off,int on);
@@ -34,12 +37,51 @@ extern void pattern_test(int on);
 extern void make_pwm_led_pattern(int patterns[]);
 #else
 #endif
-/*                                                         */
+/* LGE_CHANGE_E, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 static void led_update_brightness(struct led_classdev *led_cdev)
 {
 	if (led_cdev->brightness_get)
 		led_cdev->brightness = led_cdev->brightness_get(led_cdev);
 }
+
+
+#if defined (CONFIG_BACKLIGHT_LM3639)
+struct lm3639_reg_data lm3639_reg_d =
+{
+	.addr = 0x05,
+	.value = 0x00,
+};
+
+static ssize_t led_reg_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+
+	lm3639_reg_read_(&lm3639_reg_d);
+
+	return snprintf(buf, LED_BUFF_SIZE, "addr=0x%x,value=0x%x\n", lm3639_reg_d.addr, lm3639_reg_d.value);
+}
+
+static ssize_t led_reg_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+
+	unsigned int value, addr;
+	sscanf(buf, "%x,%x", &addr, &value);
+
+	if(addr == 0xFFFF)
+	{
+		lm3639_reg_d.addr = (char)value;
+		printk("%s:%d, setting reg_addr=0x%x\n", __func__, __LINE__, lm3639_reg_d.addr);
+		return size;
+	}
+	lm3639_reg_d.addr = (char)addr;
+	lm3639_reg_d.value = (char)value;
+
+	lm3639_reg_write_(&lm3639_reg_d);
+
+	return size;
+}
+#endif
 
 static ssize_t led_brightness_show(struct device *dev, 
 		struct device_attribute *attr, char *buf)
@@ -113,8 +155,43 @@ static ssize_t led_max_brightness_show(struct device *dev,
 	return snprintf(buf, LED_BUFF_SIZE, "%u\n", led_cdev->max_brightness);
 }
 
+#if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS)
+static int lge_thm_status = 0;
+static ssize_t thermald_status_show(struct device *dev,
+                struct device_attribute *attr, char *buf)
+{
+        return sprintf(buf, "%d\n",lge_thm_status);
+
+}
+
+static ssize_t thermald_status_store(struct device *dev,
+                struct device_attribute *attr, const char *buf, size_t size)
+{
+        struct led_classdev *led_cdev = dev_get_drvdata(dev);
+        unsigned long state = 0;
+        int rc = 1;
+        if (strncmp(buf, "0", 1) == 0)
+                lge_thm_status = 0;
+        else if (strncmp(buf, "1", 1) == 0)
+	{
+                state = LED_FULL;
+                led_cdev->max_brightness = state;
+                led_set_brightness(led_cdev, led_cdev->brightness);
+
+                lge_thm_status = 1;
+	}
+        return rc;
+}
+#endif
+
 static struct device_attribute led_class_attrs[] = {
+#if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS)
+	__ATTR(thermald_status, 0644, thermald_status_show, thermald_status_store),
+#endif
 	__ATTR(brightness, 0644, led_brightness_show, led_brightness_store),
+#if defined (CONFIG_BACKLIGHT_LM3639)
+	__ATTR(reg, 0644, led_reg_show, led_reg_store),
+#endif
 	__ATTR(max_brightness, 0644, led_max_brightness_show,
 			led_max_brightness_store),
 #ifdef CONFIG_LEDS_TRIGGERS
@@ -235,7 +312,7 @@ int led_classdev_register(struct device *parent, struct led_classdev *led_cdev)
 }
 EXPORT_SYMBOL_GPL(led_classdev_register);
 
-/*                                                         */
+/* LGE_CHANGE_S, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 #ifdef CONFIG_LGE_PM8038_KPJT
 static ssize_t get_pattern(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -419,7 +496,7 @@ int led_pattern_sysfs_register()
 EXPORT_SYMBOL_GPL(led_pattern_sysfs_register);
 #else
 #endif
-/*                                                         */
+/* LGE_CHANGE_E, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 
 /**
  * led_classdev_unregister - unregisters a object of led_properties class.

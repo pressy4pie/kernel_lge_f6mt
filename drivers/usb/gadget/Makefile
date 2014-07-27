@@ -38,12 +38,7 @@ obj-$(CONFIG_USB_MSM_72K)	+= msm72k_udc.o
 # LGE android usb framework
 # 2012-09-08, sungho.jung@lge.com
 #
-obj-$(CONFIG_USB_G_LGE_ANDROID)	+= u_lgeusb.o
-
-ifeq ($(TARGET_CARRIER), TRF)
-	EXTRA_CFLAGS += -DLGE_TETHERING_BLOCK
-endif
-
+obj-$(CONFIG_USB_LGE_ANDROID)	+= u_lgeusb.o
 #
 # USB gadget drivers
 #

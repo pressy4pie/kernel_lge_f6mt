@@ -48,7 +48,7 @@ static struct dsi_cmd_desc tx13d107vm_display_on_set[] = {
 }; 
 
 static struct dsi_cmd_desc tx13d107vm_display_off_set[] = {
-        {DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_off), display_off},
+        {DTYPE_DCS_WRITE, 1, 0, 0, 20, sizeof(display_off), display_off},
 }; 
 
 static int mipi_tx13d107vm_lcd_on(struct platform_device *pdev)

@@ -415,13 +415,6 @@ config PM8921_BMS
 	help
 	  Say Y here to enable support for pm8921 chip bms subdevice
 
-config LGE_PM
-	tristate "PM8921 LGE Feature"
-	depends on MFD_PM8921_CORE
-	default n
-	help
-	  Say Y here to enable support for pm8921 chip lge feature
-
 config LGE_PM_435V_BATT
 	bool "LGE 4.35V Battery Feature"
 	help

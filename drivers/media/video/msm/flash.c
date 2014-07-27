@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,11 +18,21 @@
 #include <linux/pmic8058-pwm.h>
 #include <linux/hrtimer.h>
 #include <linux/export.h>
+#include <linux/timer.h>
+#include <linux/workqueue.h>
 #include <mach/pmic.h>
 #include <mach/camera.h>
 #include <mach/gpio.h>
 #include "msm_camera_i2c.h"
 
+struct flash_work {
+	struct work_struct my_work;
+	int    x;
+};
+struct flash_work *work;
+static struct timer_list flash_timer;
+static int timer_state;
+static struct workqueue_struct *flash_wq;
 struct i2c_client *sx150x_client;
 struct timer_list timer_flash;
 static struct msm_camera_sensor_info *sensor_data;
@@ -32,20 +42,20 @@ enum msm_cam_flash_stat{
 	MSM_CAM_FLASH_ON,
 };
 
-/*           
-                                 
+/* LGE_CHANGE
+ * 2011-09-01, seojin.lee@lge.com
  */
 #ifdef CONFIG_LEDS_AS364X
 extern int as3647_flash_set_led_state(int state);
 #endif
-/*                                                                 */
+/* LGE_CHANGE_S L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
 #ifdef CONFIG_MSM_CAMERA_FLASH_LM3559
 extern int lm3559_flash_set_led_state(int state);
 #endif
 #if defined (CONFIG_MSM_CAMERA_FLASH_LM3639)
 extern int lm3639_flash_set_led_state(int led_state);
 #endif
-/*                                                                 */
+/* LGE_CHANGE_E L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
 
 static struct i2c_client *sc628a_client;
 
@@ -231,7 +241,7 @@ int msm_camera_flash_current_driver(
 	CDBG("msm_camera_flash_led_pmic8058: return %d\n", rc);
 #endif /* CONFIG_LEDS_PMIC8058 */
 
-  /*            */
+  /* LGE_CHANGE */
 	pr_err("[%s]::%d\n", __func__, led_state);
 #ifdef CONFIG_LEDS_AS364X
 	rc = as3647_flash_set_led_state(led_state);
@@ -296,6 +306,23 @@ int msm_camera_flash_led(
 	}
 
 	return rc;
+}
+
+static void flash_wq_function(struct work_struct *work)
+{
+	if (tps61310_client) {
+		i2c_client.client = tps61310_client;
+		i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
+		msm_camera_i2c_write(&i2c_client, 0x01,
+				0x46, MSM_CAMERA_I2C_BYTE_DATA);
+	}
+	return;
+}
+
+void flash_timer_callback(unsigned long data)
+{
+	queue_work(flash_wq, (struct work_struct *)work );
+	mod_timer(&flash_timer, jiffies + msecs_to_jiffies(10000));
 }
 
 int msm_camera_flash_external(
@@ -403,6 +430,11 @@ error:
 				sc628a_client = NULL;
 			}
 			if (tps61310_client) {
+				if (timer_state) {
+					del_timer(&flash_timer);
+					kfree((void *)work);
+					timer_state = 0;
+				}
 				i2c_del_driver(&tps61310_i2c_driver);
 				tps61310_client = NULL;
 			}
@@ -428,6 +460,11 @@ error:
 				i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
 				rc = msm_camera_i2c_write(&i2c_client, 0x01,
 					0x00, MSM_CAMERA_I2C_BYTE_DATA);
+				if (timer_state) {
+					del_timer(&flash_timer);
+					kfree((void *)work);
+					timer_state = 0;
+				}
 			}
 			gpio_set_value_cansleep(external->led_en, 0);
 			gpio_set_value_cansleep(external->led_flash_en, 0);
@@ -449,7 +486,13 @@ error:
 				i2c_client.client = tps61310_client;
 				i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
 				rc = msm_camera_i2c_write(&i2c_client, 0x01,
-					0x86, MSM_CAMERA_I2C_BYTE_DATA);
+					0x46, MSM_CAMERA_I2C_BYTE_DATA);
+				flash_wq = create_workqueue("my_queue");
+				work = (struct flash_work *)kmalloc(sizeof(struct flash_work), GFP_KERNEL);
+				INIT_WORK( (struct work_struct *)work, flash_wq_function );
+				setup_timer(&flash_timer, flash_timer_callback, 0);
+				mod_timer(&flash_timer, jiffies + msecs_to_jiffies(10000));
+				timer_state = 1;
 			}
 		}
 		break;
@@ -777,7 +820,7 @@ int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
 	sensor_data = sdata;
 	switch (flash_info->flashtype) {
 	case LED_FLASH:
-/*                                                                 */
+/* LGE_CHANGE_S L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
 #if defined (CONFIG_MSM_CAMERA_FLASH_LM3559)
 		rc = lm3559_flash_set_led_state(flash_info->ctrl_data.led_state);
 		CDBG("%s: lm3559_flash_set_led_state rc = %d\n", __func__, rc);
@@ -788,7 +831,7 @@ int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
 		rc = msm_camera_flash_set_led_state(sdata->flash_data,
 			flash_info->ctrl_data.led_state);
 #endif
-/*                                                                 */
+/* LGE_CHANGE_E L9II Camera bringup 2013-03-11 jinsang.yun@lge.com */
 			break;
 	case STROBE_FLASH:
 		rc = msm_strobe_flash_ctrl(sdata->strobe_flash_data,

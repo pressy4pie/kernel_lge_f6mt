@@ -47,18 +47,17 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 
-//                                                            
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+// LGE_CHANE_S [younglae.kim@lge.com] 2013-05-01, add for L9II
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
 #define GPIO_IRRC_PWM               3
 #define GP_CLK_ID					0
 #define GPIO_FUNCTION				2
-#define GPIO_IRRC_LDO_EN			38
 #else
 #define GPIO_IRRC_PWM               37
 #define GP_CLK_ID					2
 #define GPIO_FUNCTION				5
 #endif
-//                                              
+// LGE_CHANE_E [younglae.kim@lge.com] 2013-05-01
 
 #define D_INV 0             /* QCT support invert bit for msm8960 */
 #define REG_WRITEL(value, reg)	writel(value, (MSM_CLK_CTL_BASE+reg))
@@ -91,6 +90,8 @@ static struct msm_xo_voter *irrc_clock;
 static int irrc_clock_init(void) 
 { 
 	int rc; 
+
+	printk(KERN_INFO "%s entry\n",__func__);
 	/*Vote for XO clock*/ 
 	irrc_clock = msm_xo_get(MSM_XO_TCXO_D0, "pmic_xoadc"); 
 
@@ -98,6 +99,7 @@ static int irrc_clock_init(void)
 		rc = PTR_ERR(irrc_clock); 
 		printk(KERN_ERR "%s: Couldn't get TCXO_D0 vote for irrc(%d)\n", __func__, rc); 
 	}
+	printk(KERN_INFO "%s exit\n",__func__);
 	return rc; 
 } 
 
@@ -108,6 +110,8 @@ static int irrc_pwm_set(int enable,int PWM_CLK, int duty)
 	int N_VAL=1;
 	int D_VAL=1;
 
+	printk(KERN_INFO "%s entry\n",__func__);
+	
 	N_VAL = (9600+PWM_CLK)/(PWM_CLK*2);
 	D_VAL = (N_VAL*duty+50)/100;
 	if (D_VAL==0)
@@ -166,25 +170,32 @@ static int irrc_pwm_set(int enable,int PWM_CLK, int duty)
 			GPn_NS_REG(GP_CLK_ID));
 	}
 
+	printk(KERN_INFO "%s exit\n",__func__);
+	
 	return 0;
 }
 
 
 static void irrc_pwmoff_work_func(struct work_struct *work)
 {
+	printk(KERN_INFO "%s entry\n",__func__);
 	irrc_pwm_set(0,38,30);
-	msm_xo_mode_vote(irrc_clock, MSM_XO_MODE_OFF); 	
+	msm_xo_mode_vote(irrc_clock, MSM_XO_MODE_OFF);
+	printk(KERN_INFO "%s exit\n",__func__);
 }
 
 
 static void irrc_gpio_off_work_func(struct work_struct *work)
 {
+	printk(KERN_INFO "%s entry\n",__func__);
 	gpio_set_value(GPIO_IRRC_PWM, 0);
+	printk(KERN_INFO "%s exit\n",__func__);
 }
 
 
 static int irrc_pwmon(int PWM_CLK, int duty)
 {
+	printk(KERN_INFO "%s entry\n",__func__);
 	if((PWM_CLK==0)||(duty==100)){
 		printk(KERN_INFO "no frequency signal!\n");
 		cancel_delayed_work_sync(&ts->input_GPIO_off_work);
@@ -196,11 +207,13 @@ static int irrc_pwmon(int PWM_CLK, int duty)
 		printk(KERN_INFO "Out of range ! \n");
 	}
 	else{
+		printk(KERN_INFO "available frequency signal!\n");
 		cancel_delayed_work_sync(&ts->input_PWM_off_work);
 		gpio_tlmm_config(GPIO_CFG(GPIO_IRRC_PWM, GPIO_FUNCTION, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA), GPIO_CFG_ENABLE);
 		irrc_pwm_set(1,PWM_CLK,duty);
     	gpio_set=0;
 	}
+	printk(KERN_INFO "%s exit\n",__func__);
 	return 0;
 }
 
@@ -212,6 +225,8 @@ static long IRRC_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int duty;
 	
 	struct irrc_compr_params test;
+
+	printk(KERN_INFO "%s entry\n",__func__);
 
 	rc = copy_from_user(&test, (void __user *)arg, sizeof(test));
     printk(KERN_INFO "IRRC_ioctl freqeuncy = %d, duty = %d\n",test.frequency,test.duty);
@@ -241,27 +256,33 @@ static long IRRC_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		rc = -EINVAL;
 	}
 
+	printk(KERN_INFO "%s exit\n",__func__);
+	
 	return rc;
 }
 
 static int IRRC_open(struct inode *inode, struct file *file)
 {
+	printk(KERN_INFO "%s returns 0\n",__func__);
 	return 0;
 }
 
 static int IRRC_release(struct inode *inode, struct file *file)
 {
+	printk(KERN_INFO "%s returns 0\n",__func__);
 	return 0;
 }
 
 static ssize_t IRRC_write(struct file *file, const char __user *buf,
 	size_t count, loff_t *pos)
 {
+	printk(KERN_INFO "%s returns 0\n",__func__);
 	return 0;
 }
 
 int IRRCpcm_fsync(struct file *file, loff_t a, loff_t b, int datasync)
 {
+	printk(KERN_INFO "%s returns 0\n",__func__);
 	return 0;
 }
 
@@ -323,27 +344,10 @@ static int android_irrc_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&ts->input_PWM_off_work, irrc_pwmoff_work_func);
 	INIT_DELAYED_WORK(&ts->input_GPIO_off_work, irrc_gpio_off_work_func);
 
-//                                                                 
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
-	nRet = gpio_request(GPIO_IRRC_LDO_EN, "irrc_ldo_en");
-	if(nRet < 0) {
-		printk("GPIO_IRRC_LDO_EN(%d) request fail(%d)\n", GPIO_IRRC_LDO_EN, nRet);
-		goto err_3;
-	}
-	gpio_direction_output(GPIO_IRRC_LDO_EN, 1);
-#endif
-//                                               
-
 	INFO_MSG("Android IRRC Initialization was done\n");
 
 	return 0;
 
-//                                                                 
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
-err_3:
-	destroy_workqueue(ts->workqueue);
-#endif
-//                                               
 err_2:
 	kfree(ts);
 err_1:
@@ -356,6 +360,7 @@ static int android_irrc_remove(struct platform_device *pdev)
 	misc_deregister(&IRRC_pcm_misc);
 	kfree(ts);
 
+	printk(KERN_INFO "%s returns 0\n",__func__);
 	return 0;
 }
 
@@ -363,19 +368,20 @@ static int android_irrc_remove(struct platform_device *pdev)
 static int android_irrc_suspend(struct platform_device *pdev,
 		pm_message_t state)
 {
-	printk("[IRRC][%s] \n", __func__);
+	printk("[IRRC][%s] returns 0\n", __func__);
 	return 0;
 }
 
 static int android_irrc_resume(struct platform_device *pdev)
 {
-	printk("[IRRC][%s] \n", __func__);
+	printk("[IRRC][%s] returns 0\n", __func__);
 	return 0;
 }
 #endif
 
 static void android_irrc_shutdown(struct platform_device *pdev)
 {
+	printk(KERN_INFO "%s do nothing!!\n",__func__);
 }
 
 static struct platform_driver android_irrc_driver = {

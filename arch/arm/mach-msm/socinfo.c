@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@ enum {
 	HW_PLATFORM_LIQUID  = 9,
 	/* Dragonboard platform id is assigned as 10 in CDT */
 	HW_PLATFORM_DRAGON	= 10,
+	HW_PLATFORM_QRD	= 11,
 	HW_PLATFORM_INVALID
 };
 
@@ -47,7 +48,8 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_SVLTE_SURF] = "SLVTE_SURF",
 	[HW_PLATFORM_MTP] = "MTP",
 	[HW_PLATFORM_LIQUID] = "Liquid",
-	[HW_PLATFORM_DRAGON] = "Dragon"
+	[HW_PLATFORM_DRAGON] = "Dragon",
+	[HW_PLATFORM_QRD] = "QRD",
 };
 
 enum {
@@ -234,6 +236,7 @@ static enum msm_cpu cpu_of_id[] = {
 	[117] = MSM_CPU_8930,
 	[118] = MSM_CPU_8930,
 	[119] = MSM_CPU_8930,
+	[179] = MSM_CPU_8930,
 
 	/* 8627 IDs */
 	[120] = MSM_CPU_8627,
@@ -255,7 +258,6 @@ static enum msm_cpu cpu_of_id[] = {
 	[127] = MSM_CPU_8625,
 	[128] = MSM_CPU_8625,
 	[129] = MSM_CPU_8625,
-	[137] = MSM_CPU_8625,
 
 	/* 8064 MPQ ID */
 	[130] = MSM_CPU_8064,
@@ -280,6 +282,7 @@ static enum msm_cpu cpu_of_id[] = {
 	[143] = MSM_CPU_8930AA,
 	[144] = MSM_CPU_8930AA,
 	[160] = MSM_CPU_8930AA,
+	[180] = MSM_CPU_8930AA,
 
 	/* 8226 IDs */
 	[145] = MSM_CPU_8226,
@@ -289,6 +292,16 @@ static enum msm_cpu cpu_of_id[] = {
 
 	/* 8064AB IDs */
 	[153] = MSM_CPU_8064AB,
+
+	/* 8930AB IDs */
+	[154] = MSM_CPU_8930AB,
+	[155] = MSM_CPU_8930AB,
+	[156] = MSM_CPU_8930AB,
+	[157] = MSM_CPU_8930AB,
+	[181] = MSM_CPU_8930AB,
+
+	/* 8064AA IDs */
+	[172] = MSM_CPU_8064AA,
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -301,7 +314,7 @@ static struct socinfo_v1 dummy_socinfo = {
 	.format = 1,
 	.version = 1,
 };
-/*                                            */
+/*LGE_UPDATE_S, donghyuk79.park, 20121102 -->[*/
 #ifdef CONFIG_LGE_PM
 u16 *poweron_st = 0;
 uint16_t power_on_status_info_get(void)
@@ -329,7 +342,7 @@ uint32_t battery_info_get(void)
 EXPORT_SYMBOL(battery_info_get);
 #endif
 #endif
-/*                                 */
+/*LGE_UPDATE_E,donghyuk79.park <--]*/
 
 uint32_t socinfo_get_id(void)
 {
@@ -347,11 +360,11 @@ char *socinfo_get_build_id(void)
 	return (socinfo) ? socinfo->v1.build_id : NULL;
 }
 
-/*           
-                                         
-                                    
-                                 
-                                                                  
+/* LGE_CHANGE
+ * MSM register base address : 0x00700000
+ * QFPROM_CORR_PTE_ROW0_LSB register
+ * 2012-09-19 sungho.jung@lge.com
+ * implement the userspace interface for reading soc serial number
 */
 #if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8930)
 #define SOCINFO_SERIAL_NUM_ADDR    0x007040B8
@@ -490,9 +503,9 @@ socinfo_show_build_id(struct sys_device *dev,
 	return snprintf(buf, PAGE_SIZE, "%-.32s\n", socinfo_get_build_id());
 }
 
-/*           
-                                                                  
-                                  
+/* LGE_CHANGE
+ * implement the userspace interface for reading soc serial number
+ * 2012-01-10 jaeseong.gim@lge.com
  */
 #if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8930)
 static ssize_t
@@ -671,9 +684,9 @@ static struct sysdev_attribute socinfo_v1_files[] = {
 	_SYSDEV_ATTR(id, 0444, socinfo_show_id, NULL),
 	_SYSDEV_ATTR(version, 0444, socinfo_show_version, NULL),
 	_SYSDEV_ATTR(build_id, 0444, socinfo_show_build_id, NULL),
-/*           
-                                                                  
-                                  
+/* LGE_CHANGE
+ * implement the userspace interface for reading soc serial number
+ * 2012-01-10 jaeseong.gim@lge.com
  */
 #if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8930)
 	_SYSDEV_ATTR(serial_number, 0444, socinfo_show_serial_number, NULL),

@@ -76,7 +76,7 @@ static struct gpiomux_setting gsbi9 = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-//                                                  
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [S]
 static struct gpiomux_setting gsbi6 = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_8MA,
@@ -114,27 +114,7 @@ static struct gpiomux_setting bt_wakeup_suspend_cfg = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 #endif
-//                                                  
-
-//                                                                       
-#ifdef CONFIG_LGE_IRRC // GSPAPA_IRRC
-// gspapa.kim gpio change, gpio_35,36 -> gpio_35,34
-// gpio 35
-static struct gpiomux_setting gsbi8_irrc_active = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-// gpio_34
-static struct gpiomux_setting gsbi8_irrc_suspend = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-#endif
-//                                                                       
-
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [E]
 
 static struct gpiomux_setting gsbi10 = {
 	.func = GPIOMUX_FUNC_2,
@@ -185,8 +165,7 @@ static struct gpiomux_setting audio_auxpcm[] = {
 		.pull = GPIOMUX_PULL_NONE,
 	},
 };
-//                                                                       
-#ifndef CONFIG_LGE_IRRC // GSPAPA_IRRC
+
 #ifdef CONFIG_ANDROID_SW_IRRC
 static struct gpiomux_setting irrc_tx[] = {
 	{
@@ -194,42 +173,35 @@ static struct gpiomux_setting irrc_tx[] = {
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_NONE,
 	},
-/*             
-                                                     
+/* LGE_CHANGE S
+	* IRRC porting	* 2013-02-15, choonghyun.jeon@lge.com
 */
 	{
-//                                                             
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+// LGE_CHANGE_S [younglae.kim@lge.com] 2013-05-01, add for L9II
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
 		.func = GPIOMUX_FUNC_2,
 #else
 		.func = GPIOMUX_FUNC_5,
 #endif
-//                                               
+// LGE_CHANGE_E [younglae.kim@lge.com] 2013-05-01
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_NONE,
 	},
 };
-/*#else
-static struct gpiomux_setting irrc_tx = {
+#endif
+
+/* LGE_START, MYUNGWON.KIM
+static struct gpiomux_setting audio_mbhc = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};*/
-#endif
-#endif
-//                                                                       
-/*                        
-                                            
-                           
-                        
-                           
-  
+	.pull = GPIOMUX_PULL_NONE,
+};
 
-                                                  
-                           
-                        
-                           
-  
+static struct gpiomux_setting audio_spkr_boost = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
 */
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static struct gpiomux_setting gpio_eth_config = {
@@ -245,7 +217,7 @@ static struct gpiomux_setting slimbus = {
 	.pull = GPIOMUX_PULL_KEEPER,
 };
 
-//                                                  
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [S]
 static struct gpiomux_setting rfkill_active_bt_test = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv  = GPIOMUX_DRV_6MA,
@@ -256,7 +228,7 @@ static struct gpiomux_setting rfkill_suspend_bt_test = {
 	.drv  = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-//                                                  
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [E]
 #ifndef CONFIG_MMC_MSM_SDC4_SUPPORT
 
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
@@ -442,13 +414,7 @@ static struct gpiomux_setting hdmi_active_5_cfg = {
 static struct gpiomux_setting sitar_reset = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_6MA,
-//                                                                
-#ifdef CONFIG_MACH_LGE_L9II_OPEN_EU
-	.pull = GPIOMUX_PULL_UP,
-#else	
 	.pull = GPIOMUX_PULL_NONE,
-#endif	
-//                                                                
 	.dir = GPIOMUX_OUT_LOW,
 };
 #ifdef CONFIG_FM_RADIO_MI2S_ENABLE
@@ -483,29 +449,7 @@ static struct msm_gpiomux_config msm8960_ethernet_configs[] = {
 };
 #endif
 
-//                                                                       
-#ifdef CONFIG_LGE_IRRC // GSPAPA_IRRC
-// gspapa.kim gpio change, gpio_35,36 -> gpio_35,34
-static struct msm_gpiomux_config lge_irrc_configs[] = {
-	{
-		.gpio = 35, /*RxD*/
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi8_irrc_suspend,
-			[GPIOMUX_ACTIVE] = &gsbi8_irrc_active,
-		}
-	},
-	{
-		.gpio = 34, /*TxD*/
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi8_irrc_suspend,
-			[GPIOMUX_ACTIVE] = &gsbi8_irrc_active,
-		}
-	},
-};
-#endif
-//                                                                       
-
-//                                                                             
+// LGE_CHANGE_S taegyun.an@lge.com 2013.03.17 sensor gpio for FX3 verizon model
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
 static struct msm_gpiomux_config fx3q_sensor_configs[] = {
 	{
@@ -529,7 +473,7 @@ static struct msm_gpiomux_config fx3q_sensor_configs[] = {
 	},
 };
 #endif
-//                                                                             
+// LGE_CHANGE_E taegyun.an@lge.com 2013.03.17 sensor gpio for FX3 verizon model
 
 static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 #ifndef DISABLE_GSBI1_SPI
@@ -611,14 +555,14 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 	{
 		.gpio      = 95,	/* GSBI9 I2C QUP SDA */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi9,	//                  
+			[GPIOMUX_SUSPENDED] = &gsbi9,	//hyunho.koh@lge.com
 			[GPIOMUX_ACTIVE] = &gsbi9,
 		},
 	},
 	{
 		.gpio      = 96,	/* GSBI12 I2C QUP SCL */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi9,		//                  
+			[GPIOMUX_SUSPENDED] = &gsbi9,		//hyunho.koh@lge.com
 			[GPIOMUX_ACTIVE] = &gsbi9,
 		},
 	},
@@ -642,7 +586,7 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 	},
 };
 
-//                                                  
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [S]
 static struct msm_gpiomux_config gsbi6_uart_configs[] __initdata = {
 	{
 		.gpio	   = 26,	/* GSBI6 UART */
@@ -673,7 +617,7 @@ static struct msm_gpiomux_config gsbi6_uart_configs[] __initdata = {
 		},
 	}
 };			
-//                                                  
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [E]
 
 static struct msm_gpiomux_config msm8960_slimbus_config[] __initdata = {
 	{
@@ -759,18 +703,16 @@ static struct msm_gpiomux_config msm8960_audio_codec_configs[] __initdata = {
 	},
 };
 
-//                                                                       
-#ifndef CONFIG_LGE_IRRC // GSPAPA_IRRC
 #ifdef CONFIG_ANDROID_SW_IRRC
 static struct msm_gpiomux_config msm8930_irrc_tx_configs[] __initdata = {
 	{
-//                                                             
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+// LGE_CHANGE_S [younglae.kim@lge.com] 2013-05-01, add for L9II
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
 		.gpio = 3,
 #else
 		.gpio = 37,
 #endif
-//                                               
+// LGE_CHANGE_E [younglae.kim@lge.com] 2013-05-01
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &irrc_tx[0],
 			[GPIOMUX_ACTIVE] = &irrc_tx[1],
@@ -778,27 +720,25 @@ static struct msm_gpiomux_config msm8930_irrc_tx_configs[] __initdata = {
 	},
 };
 #endif
-#endif 
-//                                                                       
 
-/*                        
-                                                                            
-  
-             
-               
-                                     
-    
-   
-  
+/* LGE_START, MYUNGWON.KIM
+static struct msm_gpiomux_config msm8960_audio_mbhc_configs[] __initdata = {
+	{
+		.gpio = 37,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_mbhc,
+		},
+	},
+};
 
-                                                                            
-  
-             
-               
-                                           
-    
-   
-  
+static struct msm_gpiomux_config msm8960_audio_spkr_configs[] __initdata = {
+	{
+		.gpio = 15,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_spkr_boost,
+		},
+	},
+};
 */
 static struct msm_gpiomux_config msm8960_audio_auxpcm_configs[] __initdata = {
 	{
@@ -871,7 +811,7 @@ static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 };
 #endif /* CONFIG_MMC_MSM_SDC4_SUPPORT */
 
-//                                                  
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [S]
 static struct msm_gpiomux_config bt_rfkill_interface[] = {
 	{
 		.gpio = 77,
@@ -902,11 +842,11 @@ static struct msm_gpiomux_config msm8960_bt_wakeup_configs[] __initdata = {
 		},
 	},
 };
-#endif //                     
-//                                                  
+#endif // CONFIG_LGE_BLUESLEEP
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [E]
 
 
-/*                                   */
+/* garam.kim@lge.com [START] for NFC */
 #if defined(CONFIG_LGE_NFC)
 static struct gpiomux_setting nfc_pn544_ven_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -950,7 +890,7 @@ static struct msm_gpiomux_config msm8930_nfc_configs[] __initdata = {
 	},
 };
 #endif
-/*                                 */ 
+/* garam.kim@lge.com [END] for NFC */ 
 
 #if defined (CONFIG_TOUCHSCREEN_ATMEL_TSADCC)
 static struct msm_gpiomux_config msm8960_atmel_configs[] __initdata = {
@@ -1229,7 +1169,7 @@ static struct msm_gpiomux_config msm_sitar_config[] __initdata = {
 };
 
 
-#if defined (CONFIG_NFC_BCM43341) /*                    */
+#if defined (CONFIG_NFC_BCM43341) /* hyunho.koh@lge.com */
 static struct gpiomux_setting nfc_bcm43341_ven_cfg = { // REG_PU
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -1277,7 +1217,7 @@ static struct msm_gpiomux_config apq8064_bcm43341_nfc_configs[] __initdata = {
 };
 #endif
 
-//                                                                                     
+// LGE_CHANGE_S, 2013-04-02, cheolyong.yu@lge.com, GPIO 48, 55 set pull down -> no pull
 #if (defined (CONFIG_MACH_LGE_FX3_VZW) && defined (CONFIG_SWITCH_FSA8008)) \
 	|| ( defined(CONFIG_MACH_LGE_FX3Q_TMUS) && defined(CONFIG_SWITCH_FSA8008))
 static struct gpiomux_setting fsa8008_earpol_detect = {
@@ -1312,9 +1252,9 @@ static struct msm_gpiomux_config fsa8008_ear_key_int_config[] __initdata = {
 	}
 };
 #endif
-//                                                                                     
+// LGE_CHANGE_E, 2013-04-02, cheolyong.yu@lge.com, GPIO 48, 55 set pull down -> no pull
 
-//                                                             
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II REV. DSV On/Off
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 static struct gpiomux_setting dsv_en_cfg = {
 		.func = GPIOMUX_FUNC_GPIO,
@@ -1331,8 +1271,8 @@ static struct msm_gpiomux_config msm_dsv_en_config[] __initdata = {
 	}
 };
 #endif	
-//                                                             
-//                                                       
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II REV. DSV On/Off
+//LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
 #if defined (CONFIG_BACKLIGHT_LM3639)
 static struct gpiomux_setting lcd_bl_en_cfg = {
 		.func = GPIOMUX_FUNC_GPIO,
@@ -1342,23 +1282,23 @@ static struct gpiomux_setting lcd_bl_en_cfg = {
 
 static struct msm_gpiomux_config msm_lcd_bl_en_config[] __initdata = {
 	{
-//                                                                
+//LGE_CHANGE_S [koh.euije@lge.com]2013.04.30 change gpio for Rev.B
 #ifdef CONFIG_MACH_LGE_L9II_OPEN_EU_REV_A
 		.gpio      = 3, 
 #else
 		.gpio      = 2, 
 #endif		
-//                                                                  
+//LGE_CHANGE_E [koh.euije@lge.com]2013.04.30 change gpio for Rev.B		
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &lcd_bl_en_cfg,
 		},
 	}
 };
 #endif
-//                                                       
+//LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
 
 
-#if defined (CONFIG_MACH_LGE_L9II_OPEN_EU)
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 static struct gpiomux_setting vibrator_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -1434,28 +1374,22 @@ int __init msm8930_init_gpiomux(void)
 	msm_gpiomux_install(msm8960_audio_codec_configs,
 			ARRAY_SIZE(msm8960_audio_codec_configs));
 
-//                                               
+// LGE_CHANGE_S [younglae.kim@lge.com] 2013-05-01
 #ifdef CONFIG_ANDROID_SW_IRRC
 	msm_gpiomux_install(msm8930_irrc_tx_configs,
 			ARRAY_SIZE(msm8930_irrc_tx_configs));
-#elif defined (CONFIG_LGE_IRRC)
-	msm_gpiomux_install(lge_irrc_configs,
-			ARRAY_SIZE(lge_irrc_configs));
-/*#else
-	msm_gpiomux_install(msm8930_irrc_tx_configs,
-			ARRAY_SIZE(msm8930_irrc_tx_configs));*/
 #endif
-//                                               
+// LGE_CHANGE_E [younglae.kim@lge.com] 2013-05-01
 
-//                                          
+//LGE_START, myungwon.kim, Not Use mbhc gpio
 //	msm_gpiomux_install(msm8960_audio_mbhc_configs,
 //			ARRAY_SIZE(msm8960_audio_mbhc_configs));
-//                                                
+//LGE_END, myungwon.kim, Not Use Not Use mbhc gpio
 
-//                                               
+//LGE_START, myungwon.kim, Not Use Spk_boost_gpio
 //	msm_gpiomux_install(msm8960_audio_spkr_configs,
 //			ARRAY_SIZE(msm8960_audio_spkr_configs));
-//                                             
+//LGE_END, myungwon.kim, Not Use Spk_boost_gpio
 
 	msm_gpiomux_install(msm8960_audio_auxpcm_configs,
 			ARRAY_SIZE(msm8960_audio_auxpcm_configs));
@@ -1468,7 +1402,7 @@ int __init msm8930_init_gpiomux(void)
 			ARRAY_SIZE(wcnss_5wire_interface));
 #endif /* CONFIG_MMC_MSM_SDC4_SUPPORT */
 
-//                                                  
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [S]
   	msm_gpiomux_install(bt_rfkill_interface,
 		  	ARRAY_SIZE(bt_rfkill_interface));
 	msm_gpiomux_install(gsbi6_uart_configs,
@@ -1481,7 +1415,7 @@ int __init msm8930_init_gpiomux(void)
 	msm_gpiomux_install(msm8960_bt_wakeup_configs,
 			ARRAY_SIZE(msm8960_bt_wakeup_configs));
 #endif
-//                                                  
+//LG_BTUI : FX3_BT_bringup - kukdong.bae@lge.com [E]
 
 #ifndef CONFIG_FM_RADIO_MI2S_ENABLE
 	if (machine_is_msm8930_mtp() || machine_is_msm8930_fluid() ||
@@ -1517,25 +1451,25 @@ int __init msm8930_init_gpiomux(void)
 				ARRAY_SIZE(msm8930_mhl_configs));
 #endif
 
-/*                                   */
+/* garam.kim@lge.com [START] for NFC */
 #if defined(CONFIG_LGE_NFC)
 	msm_gpiomux_install(msm8930_nfc_configs,
 			ARRAY_SIZE(msm8930_nfc_configs));
 #endif
-/*                                 */ 
+/* garam.kim@lge.com [END] for NFC */ 
 
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
 	msm_gpiomux_install(fx3q_sensor_configs,
 					ARRAY_SIZE(fx3q_sensor_configs));
 #endif
 
-#if defined (CONFIG_NFC_BCM43341) /*                    */
+#if defined (CONFIG_NFC_BCM43341) /* hyunho.koh@lge.com */
 		msm_gpiomux_install(apq8064_bcm43341_nfc_configs,
 				ARRAY_SIZE(apq8064_bcm43341_nfc_configs));
 		pr_err(KERN_ERR "apq8064_bcm43341_nfc_configs CONFIG_NFC_BCM43341\n");
 #endif
 
-//                                                                                     
+// LGE_CHANGE_S, 2013-04-02, cheolyong.yu@lge.com, GPIO 48, 55 set pull down -> no pull
 #if (defined (CONFIG_MACH_LGE_FX3_VZW) && defined (CONFIG_SWITCH_FSA8008) ) \
 	|| ( defined(CONFIG_MACH_LGE_FX3Q_TMUS) && defined(CONFIG_SWITCH_FSA8008))
 	msm_gpiomux_install(fsa8008_earpol_detect_config,
@@ -1543,7 +1477,7 @@ int __init msm8930_init_gpiomux(void)
 	msm_gpiomux_install(fsa8008_ear_key_int_config,
 			ARRAY_SIZE(fsa8008_ear_key_int_config));
 #endif
-//                                                                                     
+// LGE_CHANGE_E, 2013-04-02, cheolyong.yu@lge.com, GPIO 48, 55 set pull down -> no pull
 
 	msm_gpiomux_install(msm8960_mdp_vsync_configs,
 			ARRAY_SIZE(msm8960_mdp_vsync_configs));
@@ -1553,19 +1487,19 @@ int __init msm8930_init_gpiomux(void)
 
 	msm_gpiomux_install(msm_sitar_config, ARRAY_SIZE(msm_sitar_config));
 
-//                                                             
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II REV. DSV On/Off
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 	msm_gpiomux_install(msm_dsv_en_config, ARRAY_SIZE(msm_dsv_en_config));
 #endif        
-//                                                             
-//                                                       
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II REV. DSV On/Off
+//LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
 #if defined (CONFIG_BACKLIGHT_LM3639)
 	msm_gpiomux_install(msm_lcd_bl_en_config, ARRAY_SIZE(msm_lcd_bl_en_config));
 #endif
-//                                                       
+//LGE_CHANGE_E [koh.euije@lge.com] Backlight for L9II REV
 
 
-#if defined (CONFIG_MACH_LGE_L9II_OPEN_EU)
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 	msm_gpiomux_install(gpio2_vibrator_configs, ARRAY_SIZE(gpio2_vibrator_configs));
 #endif
 

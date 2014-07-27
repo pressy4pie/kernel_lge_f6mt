@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,9 +51,9 @@
 
 #define SCM_IO_DISABLE_PMIC_ARBITER	1
 
-#ifdef CONFIG_LGE_HANDLE_PANIC
+#ifdef CONFIG_LGE_CRASH_HANDLER
 /* 
-                                     
+ * Magic number for LGE Error handler
  */
 #define LGE_ERROR_HANDLE_MAGIC_NUM        0xA97F2C46
 /*
@@ -61,11 +61,6 @@
  */
 #define LGE_ERROR_HANDLE_MAGIC_ADDR     0x14
 void *lge_error_handle_cookie_addr;
-#endif
-#ifdef CONFIG_MSM_RESTART_V2
-#define use_restart_v2()	1
-#else
-#define use_restart_v2()	0
 #endif
 
 static int restart_mode;
@@ -111,7 +106,7 @@ static void set_dload_mode(int on)
 #ifdef CONFIG_LGE_HIDDEN_RESET
 skip_dload_magic:
 #endif
-#ifdef CONFIG_LGE_HANDLE_PANIC
+#ifdef CONFIG_LGE_CRASH_HANDLER
 		__raw_writel(on ? LGE_ERROR_HANDLE_MAGIC_NUM : 0,  lge_error_handle_cookie_addr);
 #endif
 		mb();
@@ -135,7 +130,6 @@ static int dload_set(const char *val, struct kernel_param *kp)
 	}
 
 	set_dload_mode(download_mode);
-
 	return 0;
 }
 #else
@@ -157,11 +151,7 @@ static void __msm_power_off(int lower_pshold)
 	pm8xxx_reset_pwr_off(0);
 
 	if (lower_pshold) {
-		if (!use_restart_v2())
-			__raw_writel(0, PSHOLD_CTL_SU);
-		else
-			__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
-
+		__raw_writel(0, PSHOLD_CTL_SU);
 		mdelay(10000);
 		printk(KERN_ERR "Powering off has failed\n");
 	}
@@ -214,7 +204,7 @@ static irqreturn_t resout_irq_handler(int irq, void *dev_id)
 		;
 	return IRQ_HANDLED;
 }
-#ifdef CONFIG_LGE_HANDLE_PANIC
+#ifdef CONFIG_LGE_CRASH_HANDLER
 static int subsys_crash_magic=0;
 #define SUBSYS_NAME_MAX_LENGTH 40
 
@@ -245,8 +235,9 @@ void lge_set_kernel_crash_magic(void)
 }
 #endif
 
-static void msm_restart_prepare(const char *cmd)
+void msm_restart(char mode, const char *cmd)
 {
+
 #ifdef CONFIG_MSM_DLOAD_MODE
 
 	/* This looks like a normal reboot at this point. */
@@ -258,21 +249,24 @@ static void msm_restart_prepare(const char *cmd)
 	/* Write download mode flags if restart_mode says so */
 	if (restart_mode == RESTART_DLOAD) {
 		set_dload_mode(1);
-#ifdef CONFIG_LGE_HANDLE_PANIC
+#ifdef CONFIG_LGE_CRASH_HANDLER
 // replace to lge_set_kernel_crash_magic()
         writel(0x6d63c421, restart_reason);
         goto reset;
 #endif
-    }
+	}
 
 	/* Kill download mode if master-kill switch is set */
 	if (!download_mode)
 		set_dload_mode(0);
 #endif
 
+	printk(KERN_NOTICE "Going down for restart now\n");
+
 	pm8xxx_reset_pwr_off(1);
 
-#ifdef CONFIG_LGE_HANDLE_PANIC
+/* LGE_CHANGE */
+#ifdef CONFIG_LGE_CRASH_HANDLER
 	if(in_panic==1) {
 		lge_set_kernel_crash_magic();
 	} else {
@@ -281,88 +275,61 @@ static void msm_restart_prepare(const char *cmd)
 				__raw_writel(0x77665500, restart_reason);
 			} else if (!strncmp(cmd, "recovery", 8)) {
 				__raw_writel(0x77665502, restart_reason);
-			/* PC Sync B&R : Add restart reason */
-			} else if (!strncmp(cmd, "--bnr_recovery", 14)) {
-//                                                                         
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
-                                __raw_writel(0x77665503, restart_reason);
-#else
-                                __raw_writel(0x77665555, restart_reason);
-#endif
-//                                                                         
+				/* PC Sync B&R : Add restart reason */
+				} else if (!strncmp(cmd, "--bnr_recovery", 14)) {
+				// [LGE_CHANGE_S] byungjung.jang@lge.com 2013.06.04 Backup & Restore (BNR) Mode
+					__raw_writel(0x77665503, restart_reason);
+				// [LGE_CHANGE_E] byungjung.jang@lge.com 2013.06.04 Backup & Restore (BNR) Mode
 			} else if (!strncmp(cmd, "oem-", 4)) {
 				unsigned long code;
 				code = simple_strtoul(cmd + 4, NULL, 16) & 0xff;
 				__raw_writel(0x6f656d00 | code, restart_reason);
 #ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
-			/*                                                   
-                                     
-    */
-			} else if (!strncmp(cmd, "battery", 7)) {
-				__raw_writel(0x77665510, restart_reason);
+				/* LGE_CHANGE: For detecting reboot by remove battery
+				 * 2012-01-30, bongkyu.kim@lge.com
+				 */
+				} else if (!strncmp(cmd, "battery", 7)) {
+					__raw_writel(0x77665510, restart_reason);
 #endif
 			} else {
 				__raw_writel(0x77665501, restart_reason);
 			}
+		} else {
+			__raw_writel(0x77665501, restart_reason);
 		}
 	}
 
 reset:
-	return;
 	
-#else
+#else /* QCT Original */
 	if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			__raw_writel(0x77665500, restart_reason);
 		} else if (!strncmp(cmd, "recovery", 8)) {
 			__raw_writel(0x77665502, restart_reason);
-//                                                                         
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
-		} else if (!strncmp(cmd, "--bnr_recovery", 14)) {
-            __raw_writel(0x77665503, restart_reason);
-#endif
-//                                                                         
 		} else if (!strncmp(cmd, "oem-", 4)) {
 			unsigned long code;
 			code = simple_strtoul(cmd + 4, NULL, 16) & 0xff;
 			__raw_writel(0x6f656d00 | code, restart_reason);
-#ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
-		/*                                                   
-                                    
-   */
-		} else if (!strncmp(cmd, "battery", 7)) {
-			__raw_writel(0x77665510, restart_reason);
-#endif
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}
+	} else {
+		__raw_writel(0x77665501, restart_reason);
 	}
 #endif
-}
+	__raw_writel(0, msm_tmr0_base + WDT0_EN);
+	if (!(machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())) {
+		mb();
+		__raw_writel(0, PSHOLD_CTL_SU); /* Actually reset the chip */
+		mdelay(5000);
+		pr_notice("PS_HOLD didn't work, falling back to watchdog\n");
+	}
 
-void msm_restart(char mode, const char *cmd)
-{
-	printk(KERN_NOTICE "Going down for restart now\n");
-
-	msm_restart_prepare(cmd);
-
-	if (!use_restart_v2()) {
-		__raw_writel(0, msm_tmr0_base + WDT0_EN);
-		if (!(machine_is_msm8x60_fusion() ||
-		      machine_is_msm8x60_fusn_ffa())) {
-			mb();
-			 /* Actually reset the chip */
-			__raw_writel(0, PSHOLD_CTL_SU);
-			mdelay(5000);
-			pr_notice("PS_HOLD didn't work, falling back to watchdog\n");
-		}
-
-		__raw_writel(1, msm_tmr0_base + WDT0_RST);
-		__raw_writel(5*0x31F3, msm_tmr0_base + WDT0_BARK_TIME);
-		__raw_writel(0x31F3, msm_tmr0_base + WDT0_BITE_TIME);
-		__raw_writel(1, msm_tmr0_base + WDT0_EN);
-	} else
-		__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
+	__raw_writel(1, msm_tmr0_base + WDT0_RST);
+	__raw_writel(5*0x31F3, msm_tmr0_base + WDT0_BARK_TIME);
+	__raw_writel(0x31F3, msm_tmr0_base + WDT0_BITE_TIME);
+	__raw_writel(1, msm_tmr0_base + WDT0_EN);
 
 	mdelay(10000);
 	printk(KERN_ERR "Restarting has failed\n");
@@ -392,7 +359,7 @@ static int __init msm_restart_init(void)
 #ifdef CONFIG_MSM_DLOAD_MODE
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	dload_mode_addr = MSM_IMEM_BASE + DLOAD_MODE_ADDR;
-#ifdef CONFIG_LGE_HANDLE_PANIC
+#ifdef CONFIG_LGE_CRASH_HANDLER
 	lge_error_handle_cookie_addr = MSM_IMEM_BASE + LGE_ERROR_HANDLE_MAGIC_ADDR;
 #endif
 	set_dload_mode(download_mode);
@@ -401,7 +368,7 @@ static int __init msm_restart_init(void)
 	restart_reason = MSM_IMEM_BASE + RESTART_REASON_ADDR;
 	pm_power_off = msm_power_off;
 
-#ifdef CONFIG_LGE_HANDLE_PANIC
+#ifdef CONFIG_LGE_CRASH_HANDLER
 	__raw_writel(0x6d63ad00, restart_reason);
 #endif
 	return 0;

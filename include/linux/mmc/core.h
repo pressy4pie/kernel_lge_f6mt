@@ -96,11 +96,9 @@ struct mmc_command {
  */
 
 	unsigned int		cmd_timeout_ms;	/* in milliseconds */
-/*            */
-/* Set this flag only for blocking bkops request */
-#ifndef BKOPS_UPDATE    
-	bool			bkops_busy;
-#endif
+	/* Set this flag only for commands which can be HPIed */
+	bool			ignore_timeout;
+
 	struct mmc_data		*data;		/* data segment associated with cmd */
 	struct mmc_request	*mrq;		/* associated request */
 };
@@ -144,6 +142,7 @@ struct mmc_async_req;
 
 extern int mmc_stop_bkops(struct mmc_card *);
 extern int mmc_read_bkops_status(struct mmc_card *);
+extern bool mmc_card_is_prog_state(struct mmc_card *);
 extern struct mmc_async_req *mmc_start_req(struct mmc_host *,
 					   struct mmc_async_req *, int *);
 extern int mmc_interrupt_hpi(struct mmc_card *);
@@ -156,15 +155,11 @@ extern void mmc_start_bkops(struct mmc_card *card, bool from_exception);
 extern void mmc_start_delayed_bkops(struct mmc_card *card);
 extern void mmc_start_idle_time_bkops(struct work_struct *work);
 extern void mmc_bkops_completion_polling(struct work_struct *work);
-/*            */
-#ifndef BKOPS_UPDATE
 extern int __mmc_switch(struct mmc_card *, u8, u8, u8, unsigned int, bool,
 			bool);
-#else
-extern int __mmc_switch(struct mmc_card *, u8, u8, u8, unsigned int, bool);
-#endif
-
 extern int mmc_switch(struct mmc_card *, u8, u8, u8, unsigned int);
+extern int mmc_switch_ignore_timeout(struct mmc_card *, u8, u8, u8,
+				     unsigned int);
 extern int mmc_send_ext_csd(struct mmc_card *card, u8 *ext_csd);
 
 #define MMC_ERASE_ARG		0x00000000
@@ -206,10 +201,7 @@ extern int mmc_flush_cache(struct mmc_card *);
 extern int mmc_flush_cache(struct mmc_card *);
 
 extern int mmc_detect_card_removed(struct mmc_host *host);
-/*            */
-#ifndef BKOPS_UPDATE
-extern void mmc_blk_init_bkops_statistics(struct mmc_card *card);
-#endif
+
 /**
  *	mmc_claim_host - exclusively claim a host
  *	@host: mmc host to claim

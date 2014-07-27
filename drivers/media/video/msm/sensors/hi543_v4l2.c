@@ -12,7 +12,7 @@
  */
 
 #include <linux/module.h>
-/*                                                    */
+/*LGE_CHANGE, temp code, 11-16, kwangsik83.kim@lge.com*/
 #include <mach/board_lge.h>
 #include "msm_sensor.h"
 #define SENSOR_NAME "hi543"
@@ -23,13 +23,13 @@
 
 DEFINE_MUTEX(hi543_mut);
 
-/*                                                      */
+/*LGE CHANGE_S, temp code, 11-15, kwangsik83.kim@lge.com*/
 extern void subpm_set_gpio(int onoff, int type);
 extern int32_t msm_sensor_enable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf);
 extern int32_t msm_sensor_disable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf);
 
 extern unsigned int system_rev;
-/*                                                      */
+/*LGE CHANGE_E, temp code, 11-15, kwangsik83.kim@lge.com*/
 
 static struct msm_sensor_ctrl_t hi543_s_ctrl;
 
@@ -46,7 +46,7 @@ static struct msm_camera_i2c_reg_conf hi543_start_settings[] = {
 	//{0x6012, 0x00}, 
 };
 
-/*                                                                                                */
+/*LGE_CHANGE_S, seprate start_stream becase of hi543 mipi spec, 2013-02-23, kwangsik83.kim@lge.com*/
 static struct msm_camera_i2c_reg_conf hi543_entrance_start_settings[] = {
 	{0x6010, 0x03}, 
 	{0x5201, 0x02}, 
@@ -59,7 +59,7 @@ static struct msm_camera_i2c_reg_conf hi543_entrance_start_settings[] = {
 	{0x0100, 0x01}, 
 	{0x6012, 0x00}, 	
 };
-/*                                                                                                */
+/*LGE_CHANGE_E, seprate start_stream becase of hi543 mipi spec, 2013-02-23, kwangsik83.kim@lge.com*/
 
 
 static struct msm_camera_i2c_reg_conf hi543_stop_settings[] = {
@@ -105,13 +105,13 @@ static struct msm_camera_i2c_reg_conf hi543_prev_settings[] = {
 	{0x034E, 0x03}, //Y_output_size_h
 	{0x034F, 0xC0}, //Y_output_size_l 960
 
-	/*                                                            */
+	/* LGE_CHANGE_S, 2013-05-09, Sensor BNR, dongeob.choi@lge.com */
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS)
 	{0x4013, 0x07},
 #else
 	{0x4013, 0x03},
 #endif
-	/*                                                            */
+	/* LGE_CHANGE_E, 2013-05-09, Sensor BNR, dongeob.choi@lge.com */
 
 //	{0x0380, 0x00}, 
 //	{0x0381, 0x01}, 
@@ -157,9 +157,9 @@ static struct msm_camera_i2c_reg_conf hi543_snap_settings[] = {
 	{0x034E, 0x07}, //Y_output_size_h
 	{0x034F, 0x80}, //Y_output_size_l 1920
 
-	/*                                                            */
+	/* LGE_CHANGE_S, 2013-05-09, Sensor BNR, dongeob.choi@lge.com */
 	{0x4013, 0x03},
-	/*                                                            */
+	/* LGE_CHANGE_E, 2013-05-09, Sensor BNR, dongeob.choi@lge.com */
 
 //	{0x0380, 0x00}, 
 //	{0x0381, 0x01}, 
@@ -216,13 +216,13 @@ static struct msm_camera_i2c_reg_conf hi543_video_settings[] = {
 	{0x034E, 0x04}, //Y_output_size_h
 	{0x034F, 0x40}, //Y_output_size_l 1088
 
-	/*                                                            */
+	/* LGE_CHANGE_S, 2013-05-09, Sensor BNR, dongeob.choi@lge.com */
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS)
 	{0x4013, 0x07},
 #else
 	{0x4013, 0x03},
 #endif
-	/*                                                            */
+	/* LGE_CHANGE_E, 2013-05-09, Sensor BNR, dongeob.choi@lge.com */
 
 //	{0x0380, 0x00}, 
 //	{0x0381, 0x01}, 
@@ -245,7 +245,7 @@ static struct msm_camera_i2c_reg_conf hi543_video_settings[] = {
 
 //init setting
 static struct msm_camera_i2c_reg_conf hi543_recommend_settings[] = {
-/*                                                                              */
+/* LGE_CHANGE_S, modify sensor initial setting, 2013-1-23, dongeob.choi@lge.com */
 //start// 
 	{0x0100, 0x00}, 
 	{0x0100, 0x00}, 
@@ -259,7 +259,7 @@ static struct msm_camera_i2c_reg_conf hi543_recommend_settings[] = {
 	{0x0100, 0x00}, 
 	{0x0106, 0x01}, 
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
-	{0x0101, 0x00}, /*                                                                               */
+	{0x0101, 0x00}, /*LGE_CHANGE_S, main camera rotation 180 degree, 2013-02-06, soojong.jin@lge.com */
 #else
       {0x0101, 0x03}, //20130118 X-Y Flip 'on' for ADPC
 #endif
@@ -336,7 +336,7 @@ static struct msm_camera_i2c_reg_conf hi543_recommend_settings[] = {
 	{0x0200, 0x05}, 
 	{0x0201, 0x2f}, 
 #else
-	/*                                        */
+	/* 130409, AWB fail, dongeob.choi@lge.com */
 	{0x0200, 0x01},    //0x05
 	{0x0201, 0x34}, 	// 0x2f
 #endif
@@ -362,15 +362,15 @@ static struct msm_camera_i2c_reg_conf hi543_recommend_settings[] = {
 	{0x5217, 0x0e}, // 20130118 ADPC Y offset 
 	{0x5218, 0x06}, // 20130118 ADPC X offset
 	
-	/*                                                                      */
-#if 0			   /*                                                      */
+	/*LGE_CHANGE_S, Auto Flicker Detection, 2013-2-26, dongeob.choi@lge.com */
+#if 0			   /* 130226, Auto Flicker Detection, dongeob.choi@lge.com */
 	{0x0340, 0x07}, //Frame_length_lines_h
 	{0x0341, 0xC3}, //Frame_length_lines_l 1987
 #else
 	{0x0340, 0x07}, //Frame_length_lines_h
 	{0x0341, 0xe5}, //Frame_length_lines_l 1987
 #endif
-	/*                                                                      */
+	/*LGE_CHANGE_E, Auto Flicker Detection, 2013-2-26, dongeob.choi@lge.com */
 
 	{0x0342, 0x0B}, //Line_length_pck_h
 	{0x0343, 0x1C}, //Line_length_pck_l 2844
@@ -401,7 +401,7 @@ static struct msm_camera_i2c_reg_conf hi543_recommend_settings[] = {
 	{0x1087, 0x00},
 	{0x2300, 0x00}, 
 	{0xf010, 0x3f},	
-	{0x6011, 0x0c}, //                                                                                                            
+	{0x6011, 0x0c}, // set continuous mode, 2013-03-14, continuous mode : 0x0d, non-continuous mode : 0x0c, kwangsik83.kim@lge.com
 	{0x6013, 0x30}, //33},
 	{0x0801, 0x37},
 	{0x0805, 0x37},
@@ -413,7 +413,7 @@ static struct msm_camera_i2c_reg_conf hi543_recommend_settings[] = {
 	{0x0803, 0x48},
 	{0x6012, 0x08},	
 
-/*                                                                           */
+/* LGE_CHANGE_E, chg sensor initial setting, 2013-1-23, dongeob.choi@lge.com */
 };
 
 static struct v4l2_subdev_info hi543_subdev_info[] = {
@@ -446,7 +446,7 @@ static struct msm_camera_i2c_conf_array hi543_confs[] = {
 
 static struct msm_sensor_output_info_t hi543_dimensions[] = {
 	#if 0
-	/*                                                                 */
+	/* LGE_CHANGE, ZSL PREVIEW, SNAPSHOT, 11-15, kwangsik83.kim@lge.com*/
 	{
 		.x_output = 0x0A00,	//2560
 		.y_output = 0x0780,	//1920
@@ -456,7 +456,7 @@ static struct msm_sensor_output_info_t hi543_dimensions[] = {
 		.op_pixel_clk = 169600000,//169600000,
 		.binning_factor = 1,
 	}, 
-	/*                                                                                 */
+	/* LGE_CHANGE, Non ZSL PREVIEW, HD Recording Preview, 11-15, kwangsik83.kim@lge.com*/
 	{
 		.x_output = 0x0500,		//1280
 		.y_output = 0x03C0,		//960
@@ -466,7 +466,7 @@ static struct msm_sensor_output_info_t hi543_dimensions[] = {
 		.op_pixel_clk = 169600000,
 		.binning_factor = 1,
 	},
-	/*                                                                 */
+	/* LGE_CHANGE, FHD Recording Preview, 11-15, kwangsik83.kim@lge.com*/
 	{	
 		.x_output = 0x0790,	//1936
 		.y_output = 0x0448, //1096 no mulitple of 16
@@ -478,39 +478,39 @@ static struct msm_sensor_output_info_t hi543_dimensions[] = {
 	},
 	#else
 
-	/*                                                                 */
-	/*                                                                      */
+	/* LGE_CHANGE, ZSL PREVIEW, SNAPSHOT, 11-15, kwangsik83.kim@lge.com*/
+	/*LGE_CHANGE_S, Auto Flicker Detection, 2013-2-26, dongeob.choi@lge.com */
 	{
 		.x_output = 0x0A00,	//2560
 		.y_output = 0x0780,	//1920
 		.line_length_pclk = 0x0B1C,
-		.frame_length_lines = 0x7e5, //                                                                                      
+		.frame_length_lines = 0x7e5, //  0x07C3((0x07C3*30)/29.5)  /* 130226, Auto Flicker Detection, dongeob.choi@lge.com */
 		.vt_pixel_clk = 169600000,//169600000,
 		.op_pixel_clk = 169600000,//169600000,
 		.binning_factor = 1,
 	},
 
-	/*                                                                                 */
+	/* LGE_CHANGE, Non ZSL PREVIEW, HD Recording Preview, 11-15, kwangsik83.kim@lge.com*/
 	{
 		.x_output = 0x0500,		//1280
 		.y_output = 0x03C0,		//960
 		.line_length_pclk = 0x0B1C,
-		.frame_length_lines = 0x7e5, //                                                                                      
+		.frame_length_lines = 0x7e5, //  0x07C3((0x07C3*30)/29.5)  /* 130226, Auto Flicker Detection, dongeob.choi@lge.com */
 		.vt_pixel_clk = 169600000,
 		.op_pixel_clk = 169600000,
 		.binning_factor = 1,
 	},
-	/*                                                                 */
+	/* LGE_CHANGE, FHD Recording Preview, 11-15, kwangsik83.kim@lge.com*/
 	{	
 		.x_output = 0x0790,//0x0790, //1936
 		.y_output = 0x0440,//0x0448, //1096 no mulitple of 16
 		.line_length_pclk = 0x0B1C,
-		.frame_length_lines = 0x7e5, //                                                                                      
+		.frame_length_lines = 0x7e5, //  0x07C3((0x07C3*30)/29.5)  /* 130226, Auto Flicker Detection, dongeob.choi@lge.com */
 		.vt_pixel_clk = 169600000,
 		.op_pixel_clk = 169600000,
 		.binning_factor = 1,
 	},
-	/*                                                                      */
+	/*LGE_CHANGE_E, Auto Flicker Detection, 2013-2-26, dongeob.choi@lge.com */
 	#endif
 };
 
@@ -534,9 +534,9 @@ static enum msm_camera_vreg_name_t hi543_veg_seq[] = {
 };
 
 
-/*                                */
+/*kwangsik83.kim@lge.com temp code*/
 #if 1
-/*                                                                 */
+/* LGE_CHANGE_S, add digital gain, 2013-1-14, dongeob.choi@lge.com */
 static struct msm_sensor_exp_gain_info_t hi543_exp_gain_info = {
 	.coarse_int_time_addr = 0x0202,
 	.global_gain_addr = 0x0204,	//0x0205
@@ -546,19 +546,19 @@ static struct msm_sensor_exp_gain_info_t hi543_exp_gain_info = {
 	.digital_gain_addr_b = 0x0214,
 	.vert_offset = 4,
 };
-/*                                                                 */
+/* LGE_CHANGE_E, add digital gain, 2013-1-14, dongeob.choi@lge.com */
 
 static inline uint8_t hi543_byte(uint16_t word, uint8_t offset)
 {
 	return word >> (offset * BITS_PER_BYTE);
 }
 
-/*                                                                 */
+/* LGE_CHANGE_S, add digital gain, 2013-1-14, dongeob.choi@lge.com */
 static int32_t hi543_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
-						uint16_t gain, uint32_t line)
+						uint16_t gain, uint32_t line, int32_t luma_avg, uint16_t fgain) //TEMP_FX3Q
 {
         uint32_t fl_lines;
-/*                                                                              */      
+/*LGE_CHANGE_S, change single byte read mode, 2013-05-09, kwangsik83.kim@lge.com*/      
         uint16_t fl_lines_tmp[2];
         uint16_t ex_lines_tmp[2];
         uint16_t nDigitaGain = 0;
@@ -567,7 +567,7 @@ static int32_t hi543_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
         uint8_t Again; 
 
         fl_lines = s_ctrl->curr_frame_length_lines;
-//        fl_lines = (fl_lines * s_ctrl->fps_divider) / Q10;
+        fl_lines = (fl_lines * s_ctrl->fps_divider) / Q10;	/*LGE_CHANGE, apply to multifly fps_divider, 2013-05-23, kwangsik83.kim@lge.com*/
 //        offset = s_ctrl->sensor_exp_gain_info->vert_offset;
 
         msm_camera_i2c_read(s_ctrl->sensor_i2c_client, s_ctrl->sensor_output_reg_addr->frame_length_lines,&fl_lines_tmp[0], MSM_CAMERA_I2C_BYTE_DATA);
@@ -589,7 +589,7 @@ static int32_t hi543_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
         fl_lines = fl_lines_tmp[1];
 
 	//	pr_err("%s write %d\n", __func__, fl_lines_tmp[1]);
-/*                                                                              */
+/*LGE_CHANGE_E, change single byte read mode, 2013-05-09, kwangsik83.kim@lge.com*/
 	
 	if ((gain >> 8) == 0){
 		Again = 0x00;
@@ -650,7 +650,7 @@ static int32_t hi543_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
 	s_ctrl->func_tbl->sensor_group_hold_off(s_ctrl);
 	return 0;
 }
-/*                                                                 */
+/* LGE_CHANGE_E, add digital gain, 2013-1-14, dongeob.choi@lge.com */
 
 
 #if 0
@@ -760,7 +760,7 @@ static int32_t hi543_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 }
 
 
-/*                                                    */
+/*LGE CHANGE, temp code, 11-15, kwangsik83.kim@lge.com*/
 //delay * 1000
 static struct msm_cam_clk_info cam_clk_info[] = {
 	{"cam_clk", MSM_SENSOR_MCLK_24HZ, 12},
@@ -771,7 +771,7 @@ int32_t HI543_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	int32_t rc = 0;
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	CDBG("%s: %d\n", __func__, __LINE__);
-	pr_err("%s: E: %s\n", __func__, data->sensor_name); /*                                                              */
+	pr_err("%s: E: %s\n", __func__, data->sensor_name); /* LGE_CHANGE, For debugging, 2012-07-03, sunkyoo.hwang@lge.com */
 	s_ctrl->reg_ptr = kzalloc(sizeof(struct regulator *)
 			* data->sensor_platform_info->num_vreg, GFP_KERNEL);
 	if (!s_ctrl->reg_ptr) {
@@ -827,7 +827,7 @@ int32_t HI543_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		goto enable_clk_failed;
 	}
 	
-	pr_err("[clk : %ld]\n", s_ctrl->clk_rate);	/*                                                               */
+	pr_err("[clk : %ld]\n", s_ctrl->clk_rate);	/* LGE_CHANGE, For debugging, 2012-09-18, kwangsik83.kim@lge.com */
 	
 
 	//[XSHUTDOWN]
@@ -839,7 +839,7 @@ int32_t HI543_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		data->sensor_platform_info->i2c_conf->use_i2c_mux)
 		msm_sensor_enable_i2c_mux(data->sensor_platform_info->i2c_conf);
 	
-	pr_err("%s: X\n", __func__); /*                                                              */
+	pr_err("%s: X\n", __func__); /* LGE_CHANGE, For debugging, 2012-07-03, sunkyoo.hwang@lge.com */
 
 	return rc;
 
@@ -873,7 +873,7 @@ int32_t HI543_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	CDBG("%s\n", __func__);
-	pr_err("%s: E: %s\n", __func__, data->sensor_name); /*                                                              */
+	pr_err("%s: E: %s\n", __func__, data->sensor_name); /* LGE_CHANGE, For debugging, 2012-07-03, sunkyoo.hwang@lge.com */
 
 	//[i2c]
 	if (data->sensor_platform_info->i2c_conf &&
@@ -885,7 +885,7 @@ int32_t HI543_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	if (data->sensor_platform_info->ext_power_ctrl != NULL)
 		data->sensor_platform_info->ext_power_ctrl(0);
 	
-	msleep(15); /*                                                               */
+	msleep(15); /* LGE_CHANGE, For debugging, 2012-09-18, kwangsik83.kim@lge.com */
 	
 	msm_cam_clk_enable(&s_ctrl->sensor_i2c_client->client->dev,
 		cam_clk_info, s_ctrl->cam_clk, ARRAY_SIZE(cam_clk_info), 0);
@@ -910,16 +910,16 @@ int32_t HI543_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	msm_camera_request_gpio_table(data, 0);
 	kfree(s_ctrl->reg_ptr);
 
-	/*                                                                                                */
+	/*LGE_CHANGE_S, seprate start_stream becase of hi543 mipi spec, 2013-02-23, kwangsik83.kim@lge.com*/
 	s_ctrl->hi543Initcheck = 1;
 	pr_err("%s %d\n", __func__, s_ctrl->hi543Initcheck);
-	/*                                                                                                */
+	/*LGE_CHANGE_E, seprate start_stream becase of hi543 mipi spec, 2013-02-23, kwangsik83.kim@lge.com*/
 	
-	pr_err("%s: X\n", __func__); /*                                                              */
+	pr_err("%s: X\n", __func__); /* LGE_CHANGE, For debugging, 2012-07-03, sunkyoo.hwang@lge.com */
 
 	return 0;
 }
-/*                                                      */
+/*LGE CHANGE_E, temp code, 11-15, kwangsik83.kim@lge.com*/
 
 
 int32_t hi543_sensor_i2c_probe(struct i2c_client *client,
@@ -997,27 +997,27 @@ static struct msm_sensor_fn_t hi543_func_tbl = {
 	.sensor_group_hold_on = msm_sensor_group_hold_on,
 	.sensor_group_hold_off = msm_sensor_group_hold_off,
 	.sensor_set_fps = msm_sensor_set_fps,
-	.sensor_write_exp_gain = hi543_sensor_write_exp_gain1,	//                             
-	.sensor_write_snapshot_exp_gain = hi543_sensor_write_exp_gain1,	//                             
+	.sensor_write_exp_gain = hi543_sensor_write_exp_gain1,	// kwangsik83.kim@lge.com 11-09
+	.sensor_write_snapshot_exp_gain = hi543_sensor_write_exp_gain1,	// kwangsik83.kim@lge.com 11-09
 	.sensor_setting = msm_sensor_setting,
 	.sensor_csi_setting = msm_sensor_setting1,
 	.sensor_set_sensor_mode = msm_sensor_set_sensor_mode,
 	.sensor_mode_init = msm_sensor_mode_init,
 	.sensor_get_output_info = msm_sensor_get_output_info,
 	.sensor_config = msm_sensor_config,
-	.sensor_power_up = HI543_sensor_power_up, //                                                      
-	.sensor_power_down = HI543_sensor_power_down, //                                                       
+	.sensor_power_up = HI543_sensor_power_up, // kwangsik83.kim@lge.com temp code msm_sensor_power_up,
+	.sensor_power_down = HI543_sensor_power_down, //kwangsik83.kim@lge.com temp code msm_sensor_power_down,
 	.sensor_adjust_frame_lines = msm_sensor_adjust_frame_lines1,
 	.sensor_get_csi_params = msm_sensor_get_csi_params,
-	.sensor_match_id = hi543_sensor_match_id,				//                             
+	.sensor_match_id = hi543_sensor_match_id,				// kwangsik83.kim@lge.com 11-09
 };
 
 static struct msm_sensor_reg_t hi543_regs = {
 	.default_data_type = MSM_CAMERA_I2C_BYTE_DATA,
 	.start_stream_conf = hi543_start_settings,
 	.start_stream_conf_size = ARRAY_SIZE(hi543_start_settings),
-	.entrance_start_stream_conf = hi543_entrance_start_settings,					/*                                                                                              */
-	.entrance_start_stream_conf_size = ARRAY_SIZE(hi543_entrance_start_settings),   /*                                                                                              */
+	.entrance_start_stream_conf = hi543_entrance_start_settings,					/*LGE_CHANGE, seprate start_stream becase of hi543 mipi spec, 2013-02-23, kwangsik83.kim@lge.com*/
+	.entrance_start_stream_conf_size = ARRAY_SIZE(hi543_entrance_start_settings),   /*LGE_CHANGE, seprate start_stream becase of hi543 mipi spec, 2013-02-23, kwangsik83.kim@lge.com*/
 	.stop_stream_conf = hi543_stop_settings,
 	.stop_stream_conf_size = ARRAY_SIZE(hi543_stop_settings),
 	.group_hold_on_conf = hi543_groupon_settings,
@@ -1033,7 +1033,7 @@ static struct msm_sensor_reg_t hi543_regs = {
 };
 
 static struct msm_sensor_ctrl_t hi543_s_ctrl = {
-	.hi543Initcheck = 1,					/*                                                                                              */
+	.hi543Initcheck = 1,					/*LGE_CHANGE, seprate start_stream becase of hi543 mipi spec, 2013-02-23, kwangsik83.kim@lge.com*/
 	.msm_sensor_reg = &hi543_regs,
 	.sensor_i2c_client = &hi543_sensor_i2c_client,
 	.sensor_i2c_addr = 0x40,
@@ -1041,7 +1041,7 @@ static struct msm_sensor_ctrl_t hi543_s_ctrl = {
 	.sensor_id_info = &hi543_id_info,
 	.vreg_seq = hi543_veg_seq,
 	.num_vreg_seq = ARRAY_SIZE(hi543_veg_seq),
-	.sensor_exp_gain_info = &hi543_exp_gain_info,		//                             
+	.sensor_exp_gain_info = &hi543_exp_gain_info,		// kwangsik83.kim@lge.com 11-09
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
 //	.csic_params = &hi543_csi_params_array[0],
 //	.csi_params = &hi543_csi2_params_array[0],

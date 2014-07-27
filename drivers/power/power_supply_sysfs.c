@@ -49,8 +49,35 @@
 	.show = block_charging_show_property,				\
 	.store = block_charging_store_property,				\
 }
+#ifdef CONFIG_MACH_LGE_FX3_VZW
+#define CHARGING_TIMER_ATTR(_name)					\
+{									\
+	.attr = { .name = #_name, .mode = 0644 },			\
+	.show = charging_timer_show_property,				\
+	.store = charging_timer_store_property,				\
+}
+#endif
 #endif
 /* [END] */
+
+
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+/* BEGIN : dukwung.kim@lge.com 2013-07-01 power off charging mode flag */
+#define OFF_BATT_ATTR(_name)						\
+{									\
+	.attr = { .name = #_name, .mode = 0664 },			\
+	.show = off_batt_show_property,				\
+	.store = off_batt_store_property,				\
+}
+/* END : dukwung.kim@lge.com 2013-07-01 power off charging mode flag */
+
+#define ACC_CABLE_TYPE_ATTR(_name)						\
+{									\
+	.attr = { .name = #_name, .mode = 0664 },			\
+	.show = acc_cable_type_show_property,				\
+}
+
+#endif
 
 #define POWER_SUPPLY_ATTR(_name)					\
 {									\
@@ -208,6 +235,87 @@ out:
 	return ret;
 }
 
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+static ssize_t acc_cable_type_show_property(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	ssize_t ret;
+	struct power_supply *psy = dev_get_drvdata(dev);
+	const ptrdiff_t off = attr - power_supply_attrs;
+	union power_supply_propval value;
+
+	ret = psy->get_property(psy, off, &value);
+
+	if (ret < 0) {
+		if (ret != -ENODEV)
+			dev_err(dev, "driver failed to report `%s' property\n",
+					attr->attr.name);
+		return ret;
+	}
+	if (off == POWER_SUPPLY_PROP_ACC_CABLE_TYPE)
+		return sprintf(buf, "%d %d %d\n",4, 6, 13);
+
+	return 0;
+}
+#endif
+
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+
+/* BEGIN : dukwung.kim@lge.com 2013-07-01 power off charging mode flag */
+static ssize_t off_batt_show_property(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	ssize_t ret;
+	struct power_supply *psy = dev_get_drvdata(dev);
+	const ptrdiff_t off = attr - power_supply_attrs;
+	union power_supply_propval value;
+
+	static char *off_batt[] = {
+		"NORMAL", "OFF",
+	};
+
+	ret = psy->get_property(psy, off, &value);
+
+	if (ret < 0) {
+		if (ret != -ENODEV)
+			dev_err(dev, "driver failed to report `%s' property\n",
+					attr->attr.name);
+		return ret;
+	}
+	if (off == POWER_SUPPLY_PROP_OFF_BATT)
+		return sprintf(buf, "[%s]\n", off_batt[value.intval]);
+
+	return 0;
+
+}
+
+extern int off_batt_set(struct off_batt_info_type*);
+
+static ssize_t off_batt_store_property(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret = -EINVAL;
+	struct off_batt_info_type info;
+
+	if (sscanf(buf, "%d", &info.mode) != 1)
+	{
+		if(info.mode == 300 ) //off mode
+		{
+			printk(KERN_ERR " off_batt");
+			goto out;
+		}
+	}
+	off_batt_set(&info);
+	ret = count;
+out:
+	return ret;
+}
+#endif
+
+
 extern void batt_block_charging_set(int);
 static ssize_t block_charging_show_property(struct device *dev,
 		struct device_attribute *attr,
@@ -254,6 +362,55 @@ static ssize_t block_charging_store_property(struct device *dev,
 out:
 	return ret;
 }
+
+#ifdef CONFIG_MACH_LGE_FX3_VZW
+extern void stop_chg_upon_expiry_set(int);
+static ssize_t charging_timer_show_property(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	ssize_t ret;
+	struct power_supply *psy = dev_get_drvdata(dev);
+	const ptrdiff_t off = attr - power_supply_attrs;
+	union power_supply_propval value;
+
+	static char *chg_timer_mode[] = {
+		"CONTINUE CHARGING", "NORMAL",
+	};
+
+	ret = psy->get_property(psy, off, &value);
+
+	if (ret < 0) {
+		if (ret != -ENODEV)
+			dev_err(dev, "driver failed to report `%s' property\n",
+					attr->attr.name);
+		return ret;
+	}
+	if (off == POWER_SUPPLY_PROP_STOP_CHG_UPON_EXPIRY)
+		return sprintf(buf, "[%s] \n", chg_timer_mode[value.intval]);
+
+	return 0;
+}
+
+static ssize_t charging_timer_store_property(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret = -EINVAL;
+	int on;
+
+	if(sscanf(buf, "%d", &on) != 1)
+	{
+		printk("%s:Too many argument\n",__func__);
+		goto out;
+	}
+	printk("%s:stop charging=%d\n",__func__,on);
+	stop_chg_upon_expiry_set(on);
+	ret = count;
+out:
+	return ret;
+}
+#endif
 #endif
 /* [END] */
 /* Must be in the same order as POWER_SUPPLY_PROP_* */
@@ -312,11 +469,24 @@ static struct device_attribute power_supply_attrs[] = {
 	PSEUDO_BATT_ATTR(pseudo_batt),
 	BLOCK_CHARGING_ATTR(block_charging),
 	POWER_SUPPLY_ATTR(ext_pwr),
+#ifdef CONFIG_MACH_LGE_FX3_VZW
+	CHARGING_TIMER_ATTR(charging_timer),
+#endif
 #endif
 #ifdef CONFIG_LGE_PM_VZW_FAST_CHG
 	POWER_SUPPLY_ATTR(vzw_chg),
 #endif
 /* [END] */
+
+
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+
+/* BEGIN : dukwung.kim@lge.com 2013-07-01 power off charging mode flag */
+
+	OFF_BATT_ATTR(off_batt),
+	ACC_CABLE_TYPE_ATTR(acc_cable_type),
+#endif
+
 };
 
 static struct attribute *
@@ -430,7 +600,6 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 		line = strchr(prop_buf, '\n');
 		if (line)
 			*line = 0;
-
 		attrname = kstruprdup(attr->attr.name, GFP_KERNEL);
 		if (!attrname) {
 			ret = -ENOMEM;

@@ -5,7 +5,7 @@
  * Copyright (C) 2008 by David Brownell
  * Copyright (C) 2008 by Nokia Corporation
  * Copyright (C) 2009 by Samsung Electronics
- * Copyright (c) 2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011 The Linux Foundation. All rights reserved.
  * Author: Michal Nazarewicz (mina86@mina86.com)
  *
  * This software is distributed under the terms of the GNU General
@@ -81,6 +81,7 @@ static unsigned int no_acm_tty_ports;
 static unsigned int no_acm_sdio_ports;
 static unsigned int no_acm_smd_ports;
 static unsigned int nr_acm_ports;
+static unsigned int no_acm_hsic_sports;
 
 static struct acm_port_info {
 	enum transport_type	transport;
@@ -101,6 +102,8 @@ static inline struct f_acm *port_to_acm(struct gserial *p)
 static int acm_port_setup(struct usb_configuration *c)
 {
 	int ret = 0;
+	int port_idx=0;
+	int i=0;
 
 	pr_debug("%s: no_acm_tty_ports:%u no_acm_sdio_ports: %u nr_acm_ports:%u\n",
 			__func__, no_acm_tty_ports, no_acm_sdio_ports,
@@ -112,13 +115,33 @@ static int acm_port_setup(struct usb_configuration *c)
 		ret = gsdio_setup(c->cdev->gadget, no_acm_sdio_ports);
 	if (no_acm_smd_ports)
 		ret = gsmd_setup(c->cdev->gadget, no_acm_smd_ports);
+	if (no_acm_hsic_sports) {
+		port_idx = ghsic_data_setup(no_acm_hsic_sports,
+				USB_GADGET_SERIAL);
+		if (port_idx < 0)
+			return port_idx;
 
+		for (i = 0; i < nr_acm_ports; i++) {
+			if (gacm_ports[i].transport ==
+					USB_GADGET_XPORT_HSIC) {
+				gacm_ports[i].client_port_num = port_idx;
+				port_idx++;
+			}
+		}
+
+		/*clinet port num is same for data setup and ctrl setup*/
+		ret = ghsic_ctrl_setup(no_acm_hsic_sports, USB_GADGET_SERIAL);
+		if (ret < 0)
+			return ret;
+		return 0;
+	}
 	return ret;
 }
 
 static int acm_port_connect(struct f_acm *acm)
 {
 	unsigned port_num;
+	int ret=0;
 
 	port_num = gacm_ports[acm->port_num].client_port_num;
 
@@ -136,6 +159,21 @@ static int acm_port_connect(struct f_acm *acm)
 		break;
 	case USB_GADGET_XPORT_SMD:
 		gsmd_connect(&acm->port, port_num);
+		break;
+	case USB_GADGET_XPORT_HSIC:
+		ret = ghsic_ctrl_connect(&acm->port, port_num);
+		if (ret) {
+			pr_err("%s: ghsic_ctrl_connect failed: err:%d\n",
+					__func__, ret);
+			return ret;
+		}
+		ret = ghsic_data_connect(&acm->port, port_num);
+		if (ret) {
+			pr_err("%s: ghsic_data_connect failed: err:%d\n",
+					__func__, ret);
+			ghsic_ctrl_disconnect(&acm->port, port_num);
+			return ret;
+		}
 		break;
 	default:
 		pr_err("%s: Un-supported transport: %s\n", __func__,
@@ -166,6 +204,10 @@ static int acm_port_disconnect(struct f_acm *acm)
 	case USB_GADGET_XPORT_SMD:
 		gsmd_disconnect(&acm->port, port_num);
 		break;
+	case USB_GADGET_XPORT_HSIC:
+		ghsic_ctrl_disconnect(&acm->port, port_num);
+		ghsic_data_disconnect(&acm->port, port_num);
+		break;
 	default:
 		pr_err("%s: Un-supported transport:%s\n", __func__,
 				xport_to_str(acm->transport));
@@ -179,11 +221,9 @@ static int acm_port_disconnect(struct f_acm *acm)
 /* notification endpoint uses smallish and infrequent fixed-size messages */
 
 #define GS_LOG2_NOTIFY_INTERVAL		5	/* 1 << 5 == 32 msec */
-#ifdef CONFIG_USB_G_LGE_ANDROID
-#define GS_NOTIFY_MAXPACKET		16	/* For LG host driver */
+#define GS_NOTIFY_MAXPACKET		16
+#ifdef CONFIG_USB_LGE_ANDROID
 #define GS_DESC_NOTIFY_MAXPACKET		64	/* For acm_hs_notify_desc */
-#else
-#define GS_NOTIFY_MAXPACKET		10	/* notification + 2 bytes */
 #endif
 
 /* interface and class descriptors: */
@@ -301,7 +341,7 @@ static struct usb_endpoint_descriptor acm_hs_notify_desc = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
 	.wMaxPacketSize =	cpu_to_le16(GS_DESC_NOTIFY_MAXPACKET),
 #else
 	.wMaxPacketSize =	cpu_to_le16(GS_NOTIFY_MAXPACKET),
@@ -604,27 +644,17 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 	struct usb_ep			*ep = acm->notify;
 	struct usb_request		*req;
 	struct usb_cdc_notification	*notify;
-#ifndef CONFIG_USB_G_LGE_ANDROID
-	const unsigned			len = sizeof(*notify) + length;
-#endif
 	void				*buf;
 	int				status;
-
-#ifdef CONFIG_USB_G_LGE_ANDROID
 	unsigned char noti_buf[GS_NOTIFY_MAXPACKET];
 
 	memset(noti_buf, 0, GS_NOTIFY_MAXPACKET);
-#endif
 
 	req = acm->notify_req;
 	acm->notify_req = NULL;
 	acm->pending = false;
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
 	req->length = GS_NOTIFY_MAXPACKET;
-#else
-	req->length = len;
-#endif
 	notify = req->buf;
 	buf = notify + 1;
 
@@ -634,12 +664,9 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 	notify->wValue = cpu_to_le16(value);
 	notify->wIndex = cpu_to_le16(acm->ctrl_id);
 	notify->wLength = cpu_to_le16(length);
-#ifdef CONFIG_USB_G_LGE_ANDROID
 	memcpy(noti_buf, data, length);
 	memcpy(buf, noti_buf, GS_NOTIFY_MAXPACKET);
-#else
 	memcpy(buf, data, length);
-#endif
 
 	/* ep_queue() can complete immediately if it fills the fifo... */
 	spin_unlock(&acm->lock);
@@ -703,9 +730,9 @@ static void acm_connect(struct gserial *port)
 	acm_notify_serial_state(acm);
 }
 
-/*                
-                
-                                 
+/* LGE_MERGE_START
+ * Fix DTR event
+ * 2013-1-18, sungho.jung@lge.com
  */
 
 unsigned int acm_get_dtr(struct gserial *port)
@@ -758,7 +785,7 @@ unsigned int acm_send_ring_indicator(struct gserial *port, unsigned int yes)
 	return acm_notify_serial_state(acm);
 
 }
-/*               */
+/* LGE_MERGE_END */
 
 static void acm_disconnect(struct gserial *port)
 {
@@ -997,15 +1024,15 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 	acm->transport = gacm_ports[port_num].transport;
 
 	acm->port.connect = acm_connect;
-/*                
-                
-                                 
+/* LGE_MERGE_START
+ * Fix DTR event
+ * 2013-1-18, sungho.jung@lge.com
  */
 	acm->port.get_dtr = acm_get_dtr;
 	acm->port.get_rts = acm_get_rts;
 	acm->port.send_carrier_detect = acm_send_carrier_detect;
 	acm->port.send_ring_indicator = acm_send_ring_indicator;
-/*               */
+/* LGE_MERGE_END */
 	acm->port.disconnect = acm_disconnect;
 	acm->port.send_break = acm_send_break;
 	acm->port.send_modem_ctrl_bits = acm_send_modem_ctrl_bits;
@@ -1032,7 +1059,7 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 /**
  * acm_init_port - bind a acm_port to its transport
  */
-static int acm_init_port(int port_num, const char *name)
+static int acm_init_port(int port_num, const char *name, const char *port_name)
 {
 	enum transport_type transport;
 
@@ -1058,6 +1085,13 @@ static int acm_init_port(int port_num, const char *name)
 	case USB_GADGET_XPORT_SMD:
 		gacm_ports[port_num].client_port_num = no_acm_smd_ports;
 		no_acm_smd_ports++;
+		break;
+	case USB_GADGET_XPORT_HSIC:
+		ghsic_ctrl_set_port_name(port_name, name);
+		ghsic_data_set_port_name(port_name, name);
+
+		/*client port number will be updated in acm_port_setup*/
+		no_acm_hsic_sports++;
 		break;
 	default:
 		pr_err("%s: Un-supported transport transport: %u\n",

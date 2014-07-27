@@ -26,9 +26,9 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 	/* DSIPHY_REGULATOR_CTRL */
 	{0x03, 0x0a, 0x04, 0x00, 0x20},	/* Fixed values */
 
-	/* DSIPHY_TIMING_CTRL */ 
-	{0x66, 0x26, 0x1B, 0x00, 0x1E, 0x93, 0x1E, 0x8E,
-	0x1E, 0x03, 0x04, 0xa0},
+	/* DSIPHY_TIMING_CTRL */
+	{0x7B, 0x1B, 0x12, 0x00, 0x40, 0x49, 0x17, 0x1E,
+	0x1E, 0x03, 0x04, 0xA0},
 
 	/* DSIPHY_CTRL */
 	{0x5f, 0x00, 0x00, 0x10},	/* Fixed values */
@@ -36,8 +36,8 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 	{0xff, 0x00, 0x06, 0x00},	/* Fixed values */
 
 	/* DSIPHY_PLL_CTRL */
-	{0x00, 0xA4, 0x01, 0x1A, 0x00, 0x50, 0x48, 0x63,
-	0x41, 0x0f, 0x03, 0x00, 0x14, 0x03, 0x00, 0x02,
+	{0x00, 0x9E, 0x31, 0xD9, 0x00, 0x50, 0x48, 0x63,
+	0x41, 0x0F, 0x03, 0x00, 0x14, 0x03, 0x00, 0x02,
 	0x00, 0x20, 0x00, 0x01 },
 };
 
@@ -54,12 +54,12 @@ static int __init mipi_video_tx13d107vm_hd_pt_init(void)
 
 	/* QCT Limitation :
 	 * All proch values must be a multiple of 4. 2011.01.20 */
-	pinfo.lcdc.h_back_porch = 134;
-	pinfo.lcdc.h_front_porch = 40;
-	pinfo.lcdc.h_pulse_width = 6;
+	pinfo.lcdc.h_back_porch = 132;
+	pinfo.lcdc.h_front_porch = 44;
+	pinfo.lcdc.h_pulse_width = 8;
 	pinfo.lcdc.v_back_porch = 7;
-	pinfo.lcdc.v_front_porch = 9;
-	pinfo.lcdc.v_pulse_width = 4;        
+	pinfo.lcdc.v_front_porch = 13;
+	pinfo.lcdc.v_pulse_width = 4;
 
 	pinfo.lcdc.border_clr = 0;	/* blk */
 	pinfo.lcdc.underflow_clr = 0xff;	/* blue */
@@ -86,9 +86,9 @@ static int __init mipi_video_tx13d107vm_hd_pt_init(void)
 	pinfo.mipi.dlane_swap = 0x00;
 
 	pinfo.mipi.t_clk_post = 0x22;
-	pinfo.mipi.t_clk_pre = 0x35; 
-	pinfo.clk_rate = 421200000;
-	pinfo.mipi.frame_rate = 60;        
+	pinfo.mipi.t_clk_pre = 0x35;
+	pinfo.clk_rate = 430960000;
+	pinfo.mipi.frame_rate = 61;
 
 	pinfo.mipi.stream = 0; /* dma_p */
 	pinfo.mipi.mdp_trigger = DSI_CMD_TRIGGER_NONE;

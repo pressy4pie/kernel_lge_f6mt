@@ -25,6 +25,8 @@
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
 #include <linux/export.h>
+#include <linux/bug.h>
+#include <linux/ratelimit.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -208,7 +210,7 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_soc_dai_driver *codec_dai_drv = codec_dai->driver;
 	int ret = 0;
 
-	/*            */
+	/* LGE_CHANGE */
 	printk("%s - %s \n",__func__,rtd->dai_link->name);
 	pm_runtime_get_sync(cpu_dai->dev);
 	pm_runtime_get_sync(codec_dai->dev);
@@ -444,7 +446,7 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_codec *codec = rtd->codec;
     
-	/*            */
+	/* LGE_CHANGE */
 	printk("%s - %s \n",__func__,rtd->dai_link->name);
 
 	mutex_lock_nested(&rtd->pcm_mutex, rtd->pcm_subclass);
@@ -862,7 +864,7 @@ static inline int be_connect(struct snd_soc_pcm_runtime *fe,
 	list_add(&dpcm_params->list_be, &fe->dpcm[stream].be_clients);
 	list_add(&dpcm_params->list_fe, &be->dpcm[stream].fe_clients);
 
-	/*                        */
+	/* LGE_CHANGE: enable log */
 	printk("  connected new DSP %s path %s %s %s\n",
 			stream ? "capture" : "playback",  fe->dai_link->name,
 			stream ? "<-" : "->", be->dai_link->name);
@@ -1654,8 +1656,10 @@ int soc_dpcm_fe_dai_trigger(struct snd_pcm_substream *substream, int cmd)
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
-	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		fe->dpcm[stream].state = SND_SOC_DPCM_STATE_STOP;
+		break;
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		fe->dpcm[stream].state = SND_SOC_DPCM_STATE_PAUSED;
 		break;
 	}
 
@@ -1769,8 +1773,13 @@ static int soc_dpcm_be_dai_hw_free(struct snd_soc_pcm_runtime *fe, int stream)
 		if ((be->dpcm[stream].state != SND_SOC_DPCM_STATE_HW_PARAMS) &&
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_PREPARE) &&
 			(be->dpcm[stream].state != SND_SOC_DPCM_STATE_HW_FREE) &&
-			(be->dpcm[stream].state != SND_SOC_DPCM_STATE_PAUSED) &&
-		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_STOP))
+		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_PAUSED) &&
+		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_STOP) &&
+		    !((be->dpcm[stream].state == SND_SOC_DPCM_STATE_START) &&
+		      ((fe->dpcm[stream].state != SND_SOC_DPCM_STATE_START) &&
+			(fe->dpcm[stream].state != SND_SOC_DPCM_STATE_PAUSED) &&
+			(fe->dpcm[stream].state !=
+						SND_SOC_DPCM_STATE_SUSPEND))))
 			continue;
 
 		dev_dbg(be->dev, "dpcm: hw_free BE %s\n",
@@ -2027,8 +2036,10 @@ int soc_dpcm_runtime_update(struct snd_soc_dapm_widget *widget)
 
 		paths = fe_path_get(fe, SNDRV_PCM_STREAM_PLAYBACK, &list);
 		if (paths < 0) {
-			dev_warn(fe->dev, "%s no valid %s route from source to sink\n",
+			fe_path_put(&list);
+			pr_warn_ratelimited("%s no valid %s route from source to sink\n",
 					fe->dai_link->name,  "playback");
+			WARN_ON(1);
 			ret = paths;
 			goto out;
 		}
@@ -2058,7 +2069,8 @@ capture:
 
 		paths = fe_path_get(fe, SNDRV_PCM_STREAM_CAPTURE, &list);
 		if (paths < 0) {
-			dev_warn(fe->dev, "%s no valid %s route from source to sink\n",
+			fe_path_put(&list);
+			pr_warn_ratelimited("%s no valid %s route from source to sink\n",
 					fe->dai_link->name,  "capture");
 			ret = paths;
 			goto out;
@@ -2434,8 +2446,10 @@ int soc_dpcm_fe_dai_open(struct snd_pcm_substream *fe_substream)
 	fe->dpcm[stream].runtime = fe_substream->runtime;
 
 	if (fe_path_get(fe, stream, &list) <= 0) {
-		dev_warn(fe->dev, "asoc: %s no valid %s route from source to sink\n",
+		fe_path_put(&list);
+		pr_warn_ratelimited("asoc: %s no valid %s route from source to sink\n",
 			fe->dai_link->name, stream ? "capture" : "playback");
+			fe_path_put(&list);
 			return -EINVAL;
 	}
 

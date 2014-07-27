@@ -47,8 +47,8 @@ typedef unsigned int            UINT32;
  */
 extern eMFSRet_t MFS_ISC_update(const char* fw_path);
 
-/*                                                
-                                                                                
+/* [LGE_CHANGE_S] 20130205 mystery184.kim@lge.com 
+  * mms134s f/w upgrade initialize porting : add i2c function pointer interface 
   */
 extern void assign_fp_read_func(int (*touch_i2c_read_func) (unsigned char *buf, unsigned char reg, int len));
 extern void assign_fp_read_len_func(int (*touch_i2c_read_len_func) (unsigned char *buf, int len));
@@ -58,7 +58,7 @@ extern int (*ts_i2c_read)(unsigned char *buf, unsigned char reg, int len);
 extern int (*ts_i2c_write)(unsigned char *buf, unsigned char reg, int len);
 extern int (*ts_i2c_read_len)(unsigned char *buf, int len);
 
-/*                                                        */
+/* [LGE_CHANGE_E] mms134s f/w upgrade initialize porting  */
 
 
 #endif //__MMS100S_ISC_Updater_H__

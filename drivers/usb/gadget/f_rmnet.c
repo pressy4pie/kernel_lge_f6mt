@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -256,7 +256,7 @@ static int rmnet_gport_setup(void)
 			return ret;
 	}
 
-/*            */
+/* LGE_CHANGE */
 #if defined(CONFIG_USB_CI13XXX_MSM_HSIC)
 	if (no_data_hsic_ports) {
 		port_idx = ghsic_data_setup(no_data_hsic_ports,
@@ -339,7 +339,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 			return ret;
 		}
 		break;
-/*            */
+/* LGE_CHANGE */
 #if defined(CONFIG_USB_CI13XXX_MSM_HSIC)
 	case USB_GADGET_XPORT_HSIC:
 		ret = ghsic_ctrl_connect(&dev->port, port_num);
@@ -379,7 +379,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 			return ret;
 		}
 		break;
-/*            */
+/* LGE_CHANGE */
 #if defined(CONFIG_USB_CI13XXX_MSM_HSIC)
 	case USB_GADGET_XPORT_HSIC:
 		ret = ghsic_data_connect(&dev->port, port_num);
@@ -426,7 +426,7 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 	case USB_GADGET_XPORT_SMD:
 		gsmd_ctrl_disconnect(&dev->port, port_num);
 		break;
-/*            */
+/* LGE_CHANGE */
 #if defined(CONFIG_USB_CI13XXX_MSM_HSIC)
 	case USB_GADGET_XPORT_HSIC:
 		ghsic_ctrl_disconnect(&dev->port, port_num);
@@ -449,7 +449,7 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 	case USB_GADGET_XPORT_BAM2BAM:
 		gbam_disconnect(&dev->port, port_num, dxport);
 		break;
-/*            */
+/* LGE_CHANGE */
 #if defined(CONFIG_USB_CI13XXX_MSM_HSIC)
 	case USB_GADGET_XPORT_HSIC:
 		ghsic_data_disconnect(&dev->port, port_num);
@@ -503,8 +503,6 @@ static void frmnet_suspend(struct usb_function *f)
 		break;
 	case USB_GADGET_XPORT_HSIC:
 		break;
-	case USB_GADGET_XPORT_HSUART:
-		break;
 	case USB_GADGET_XPORT_NONE:
 		break;
 	default:
@@ -531,8 +529,6 @@ static void frmnet_resume(struct usb_function *f)
 		gbam_resume(&dev->port, port_num, dxport);
 		break;
 	case USB_GADGET_XPORT_HSIC:
-		break;
-	case USB_GADGET_XPORT_HSUART:
 		break;
 	case USB_GADGET_XPORT_NONE:
 		break;
@@ -999,7 +995,7 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 			goto fail;
 	}
 
-	pr_info("%s: RmNet(%d) %s Speed, IN:%s OUT:%s\n",
+	pr_debug("%s: RmNet(%d) %s Speed, IN:%s OUT:%s\n",
 			__func__, dev->port_num,
 			gadget_is_dualspeed(cdev->gadget) ? "dual" : "full",
 			dev->port.in->name, dev->port.out->name);
@@ -1101,7 +1097,8 @@ static void frmnet_cleanup(void)
 	no_data_hsuart_ports = 0;
 }
 
-static int frmnet_init_port(const char *ctrl_name, const char *data_name)
+static int frmnet_init_port(const char *ctrl_name, const char *data_name,
+		const char *port_name)
 {
 	struct f_rmnet			*dev;
 	struct rmnet_ports		*rmnet_port;
@@ -1138,9 +1135,10 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 		rmnet_port->ctrl_xport_num = no_ctrl_smd_ports;
 		no_ctrl_smd_ports++;
 		break;
-/*            */
+/* LGE_CHANGE */
 #if defined(CONFIG_USB_CI13XXX_MSM_HSIC)
 	case USB_GADGET_XPORT_HSIC:
+		ghsic_ctrl_set_port_name(port_name, ctrl_name);
 		rmnet_port->ctrl_xport_num = no_ctrl_hsic_ports;
 		no_ctrl_hsic_ports++;
 		break;
@@ -1167,9 +1165,10 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 		rmnet_port->data_xport_num = no_data_bam2bam_ports;
 		no_data_bam2bam_ports++;
 		break;
-/*            */
+/* LGE_CHANGE */
 #if defined(CONFIG_USB_CI13XXX_MSM_HSIC)
 	case USB_GADGET_XPORT_HSIC:
+		ghsic_data_set_port_name(port_name, data_name);
 		rmnet_port->data_xport_num = no_data_hsic_ports;
 		no_data_hsic_ports++;
 		break;

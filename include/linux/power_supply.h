@@ -137,10 +137,24 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_PSEUDO_BATT,
 	POWER_SUPPLY_PROP_BLOCK_CHARGING,
 	POWER_SUPPLY_PROP_EXT_PWR_CHECK,
+#ifdef CONFIG_MACH_LGE_FX3_VZW
+	POWER_SUPPLY_PROP_STOP_CHG_UPON_EXPIRY,
+#endif
 #endif
 /* [END] */
 #ifdef CONFIG_LGE_PM_VZW_FAST_CHG
 	POWER_SUPPLY_PROP_VZW_CHG_STATE,
+#endif
+
+
+
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+
+/* BEGIN : dukwung.kim@lge.com 2013-07-01 power off charging mode flag */
+	POWER_SUPPLY_PROP_OFF_BATT,
+	POWER_SUPPLY_PROP_ACC_CABLE_TYPE,
+/* END : dukwung.kim@lge.com 2013-07-01 power off charging mode flag */
+
 #endif
 };
 

@@ -20,16 +20,6 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
-/*             
-  
-                                        
-                                             
-  
-                                  
- */
-#include "sreadahead_prof.h"
-/*             */
-
 const struct file_operations generic_ro_fops = {
 	.llseek		= generic_file_llseek,
 	.read		= do_sync_read,
@@ -384,17 +374,6 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 
 	ret = rw_verify_area(READ, file, pos, count);
 	if (ret >= 0) {
-
-/*             
-  
-                                        
-                                             
-  
-                                  
- */
-	sreadahead_prof( file, count, *pos);
-/*              */
-
 
 		count = ret;
 		if (file->f_op->read)
@@ -753,16 +732,6 @@ static ssize_t do_readv_writev(int type, struct file *file,
 	ret = rw_verify_area(type, file, pos, tot_len);
 	if (ret < 0)
 		goto out;
-
-/*             
-  
-                                        
-                                             
-  
-                                  
- */
-	if( type == READ) sreadahead_prof( file, tot_len, *pos);
-/*              */
 
 	fnv = NULL;
 	if (type == READ) {

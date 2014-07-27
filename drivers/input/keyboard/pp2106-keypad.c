@@ -32,6 +32,10 @@
 
 static const char *kbd_name = "pp2106"; 
 
+#if defined(CONFIG_HALLIC_S5712ACDL1)
+extern int hall_ic_on;
+#endif
+
 enum kbd_inevents {
 	PP2106_IN_KEYPRESS        = 1,
 	PP2106_IN_KEYRELEASE      = 0,
@@ -205,11 +209,17 @@ static void pp2106_fetchkeys(struct work_struct *work)
 
 	pr_debug("Keypad : row <0x%x>, column <0x%x>, keycode <<%d>>\n", 
 			key_row, key_col, scancode);
-
+#if defined(CONFIG_HALLIC_S5712ACDL1)
+	if ((hall_ic_on == 0) && scancode) {
+		input_report_key(pp2106_kbd_dev, scancode, keystate);
+		input_sync(pp2106_kbd_dev);
+	}
+#else
 	if (scancode) {
 		input_report_key(pp2106_kbd_dev, scancode, keystate);
 		input_sync(pp2106_kbd_dev);
 	}
+#endif
 }
 
 struct input_dev *qwerty_get_input_dev(void)

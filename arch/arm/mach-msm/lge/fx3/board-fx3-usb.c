@@ -12,9 +12,8 @@
  */
 
 #include <linux/platform_device.h>
-#include <linux/gpio.h>
 #include <linux/io.h>
-#include <linux/usb/android.h>
+#include <linux/gpio.h>
 #include <linux/msm_ssbi.h>
 #include <linux/regulator/msm-gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
@@ -24,12 +23,13 @@
 #else
 #include <linux/usb/msm_hsusb.h>
 #endif
+#include <linux/usb/android.h>
 #include <mach/usbdiag.h>
 #include <mach/socinfo.h>
 #include <mach/rpm.h>
 #include <mach/gpio.h>
-#include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
+#include <mach/msm_bus.h>
 
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -40,14 +40,6 @@
 #ifdef CONFIG_USB_MSM_OTG_72K
 static struct msm_otg_platform_data msm_otg_pdata;
 #else
-static int hsusb_phy_init_seq[] = {
-	0x44, 0x80, /* set VBUS valid threshold
-			and disconnect valid threshold */
-	0x68, 0x81, /* update DC voltage level */
-	0x24, 0x82, /* set preemphasis and rise/fall time */
-	0x13, 0x83, /* set source impedance adjusment */
-	-1};
-
 #ifdef CONFIG_MSM_BUS_SCALING
 /* Bandwidth requests (zero) if no vote placed */
 static struct msm_bus_vectors usb_init_vectors[] = {
@@ -87,6 +79,14 @@ static struct msm_bus_scale_pdata usb_bus_scale_pdata = {
 };
 #endif
 
+static int hsusb_phy_init_seq[] = {
+	0x44, 0x80, /* set VBUS valid threshold
+			and disconnect valid threshold */
+	0x6C, 0x81, /* update DC voltage level */
+	0x24, 0x82, /* set preemphasis and rise/fall time */
+	0x33, 0x83, /* set source impedance adjusment */
+	-1};
+
 #define MSM_MPM_PIN_USB1_OTGSESSVLD	40
 static struct msm_otg_platform_data msm_otg_pdata = {
 #ifdef CONFIG_USB_OTG
@@ -96,13 +96,16 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 #endif
 	.otg_control		= OTG_PMIC_CONTROL,
 	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
-	.pmic_id_irq		= PM8038_USB_ID_IN_IRQ(PM8038_IRQ_BASE),
 	.power_budget		= 750,
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table	= &usb_bus_scale_pdata,
 #endif
+#ifdef CONFIG_FB_MSM_HDMI_MHL_8334
+	.mhl_dev_name		= "sii8334",
+#endif
 	.mpm_otgsessvld_int	= MSM_MPM_PIN_USB1_OTGSESSVLD,
 };
+#endif
 
 #define PID_MAGIC_ID		0x71432909
 #define SERIAL_NUM_MAGIC_ID	0x61945374
@@ -157,7 +160,7 @@ out:
 }
 
 static struct android_usb_platform_data android_usb_pdata = {
-    .update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
+	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
 };
 
 static struct platform_device android_usb_device = {
@@ -168,7 +171,6 @@ static struct platform_device android_usb_device = {
 	},
 };
 
-#endif
 
 #ifdef CONFIG_LGE_USB_DIAG_DISABLE
 static struct platform_device lg_diag_cmd_device = {
@@ -188,7 +190,7 @@ static struct platform_device lg_diag_event_device = {
 };
 #endif
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
 static int get_factory_cable(void)
 {
 	struct chg_cable_info info;
@@ -221,11 +223,11 @@ static int get_factory_cable(void)
 		res = 0;
 		break;
 	}
-	/*                                                   
-                                  
-                            
-                                
-  */
+	/* FIXME : boot mode not set. (250-36-0 Manual Test.)
+	 * 2012-09-20 sungho.jung@lge.com
+	 * if boot mode is factory,
+	 * cable must be factory cable.
+	 */
 #if 1
 	boot_mode = lge_get_boot_mode();
 	printk(KERN_INFO "[USB] boot_mode : LGE %d \n", boot_mode);
@@ -278,7 +280,7 @@ static struct platform_device *usb_devices[] __initdata = {
 	&msm_device_hsusb_host,
 #endif
     &android_usb_device,
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
     &lge_android_usb_device,
 #endif
 #ifdef CONFIG_LGE_USB_DIAG_DISABLE
@@ -290,6 +292,10 @@ static struct platform_device *usb_devices[] __initdata = {
 void __init lge_add_usb_devices(void)
 {
 	android_usb_pdata.swfi_latency = 100; // msm_rpmrs_levels[0].latency_us; original data is 1.
+	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8038) {
+		msm_otg_pdata.pmic_id_irq =
+				PM8038_USB_ID_IN_IRQ(PM8038_IRQ_BASE);
+	}
 	msm_otg_pdata.phy_init_seq = hsusb_phy_init_seq;
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;
 	platform_add_devices(usb_devices, ARRAY_SIZE(usb_devices));

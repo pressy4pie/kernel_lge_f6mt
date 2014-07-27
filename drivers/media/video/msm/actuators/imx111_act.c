@@ -282,14 +282,14 @@ int32_t imx111_actuator_init_table(
 			/ (a_ctrl->set_info.total_steps - 1) + a_ctrl->step_position_table[1];
 	}
 
-/*                                                                   */
+/* LGE_CHANGE_S, revert to original, 2012-04-27, sungmin.woo@lge.com */
 	printk("Actuator Clibration table: start(%d),macro(%d) ==============\n",
 	act_start, act_macro);
 
 	for (step_index = 0; step_index < a_ctrl->set_info.total_steps; step_index++)
 		printk("step_position_table[%d]= %d\n",step_index,
 		a_ctrl->step_position_table[step_index]);
-/*                                                                   */
+/* LGE_CHANGE_E, revert to original, 2012-04-27, sungmin.woo@lge.com */
 
 	a_ctrl->curr_step_pos = 0;
 	a_ctrl->curr_region_index = 0;
@@ -362,16 +362,16 @@ static int32_t imx111_act_probe(
 		(struct v4l2_subdev *)sdev);
 }
 
-/*                                                                        */
+/* LGE_CHANGE_S, Actuator noise fix when exit, 2012.02.12 ku.kwon@lge.com */
 int32_t imx111_act_power_down(void *a_info)
 {
 	int32_t rc = 0;
 	rc = imx111_act_t.func_tbl.actuator_power_down(&imx111_act_t);
 	return rc;
 }
-/*                                                                        */
+/* LGE_CHANGE_E, Actuator noise fix when exit, 2012.02.12 ku.kwon@lge.com */
 
-/*                                                                       */
+/* LGE_CHANGE_S, Noise fix using h/w damping, 2012.04.16 ku.kwon@lge.com */
 #define IMX111_ACT_STOP_POS 10
 int32_t imx111_actuator_af_power_down(
 	struct msm_actuator_ctrl_t *a_ctrl)
@@ -451,7 +451,7 @@ int32_t imx111_actuator_move_focus(
 	else
 		return msm_actuator_move_focus(a_ctrl, dir, num_steps);
 }
-/*                                                                       */
+/* LGE_CHANGE_E, Noise fix using h/w damping, 2012.04.16 ku.kwon@lge.com */
 
 static struct msm_actuator_ctrl_t imx111_act_t = {
 	.i2c_driver = &imx111_act_i2c_driver,
@@ -461,9 +461,9 @@ static struct msm_actuator_ctrl_t imx111_act_t = {
 		.a_init_table = imx111_i2c_add_driver_table,
 		.a_create_subdevice = imx111_act_probe,
 		.a_config = imx111_act_config,
-/*                                                                        */
+/* LGE_CHANGE_S, Actuator noise fix when exit, 2012.02.12 ku.kwon@lge.com */
 		.a_power_down = imx111_act_power_down,
-/*                                                                        */
+/* LGE_CHANGE_E, Actuator noise fix when exit, 2012.02.12 ku.kwon@lge.com */
 	},
 
 	.i2c_client = {
@@ -498,14 +498,14 @@ static struct msm_actuator_ctrl_t imx111_act_t = {
 		.actuator_init_focus = NULL,
 		//.actuator_init_table = msm_actuator_init_table,
 		.actuator_init_table = imx111_actuator_init_table, //kyungh@qualcomm.com  2012.04.02 for AF calibration
-		.actuator_move_focus = imx111_actuator_move_focus,		/*                                                                     */
+		.actuator_move_focus = imx111_actuator_move_focus,		/* LGE_CHANGE, Noise fix using h/w damping, 2012.04.16 ku.kwon@lge.com */
 		.actuator_write_focus = msm_actuator_write_focus,
 		.actuator_i2c_write = imx111_wrapper_i2c_write,
-		.actuator_set_default_focus = imx111_actuator_set_default_focus,	/*                                                                     */
-		.actuator_power_down = imx111_actuator_af_power_down,	/*                                                                     */
+		.actuator_set_default_focus = imx111_actuator_set_default_focus,	/* LGE_CHANGE, Noise fix using h/w damping, 2012.04.16 ku.kwon@lge.com */
+		.actuator_power_down = imx111_actuator_af_power_down,	/* LGE_CHANGE, Noise fix using h/w damping, 2012.04.16 ku.kwon@lge.com */
 	},
 
-/*                                                                      */
+/* LGE_CHANGE S, CTS Fix for testParameters, 2012-03-01 ku.kwon@lge.com */
 	.get_info = {
 		.focal_length_num = 320,
 		.focal_length_den = 100,
@@ -520,7 +520,7 @@ static struct msm_actuator_ctrl_t imx111_act_t = {
 		.ver_view_angle_num = 467,
 		.ver_view_angle_den = 10,
 	},
-/*                                                                      */
+/* LGE_CHANGE E, CTS Fix for testParameters, 2012-03-01 ku.kwon@lge.com */
 
 };
 

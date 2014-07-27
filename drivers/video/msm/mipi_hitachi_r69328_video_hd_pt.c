@@ -76,10 +76,10 @@ static int __init mipi_video_hitachi_r69328_hd_pt_init(void)
 	pinfo.bl_max = 0xFF;
 	pinfo.bl_min = 0;
 #else
-//                                                         
+//LGE_CHANGE_S [koh.euije@lge.com] 2013.04.10 change bl max
 //	pinfo.bl_max = 0x7F;
 	pinfo.bl_max = 0xFF;
-//                                                         
+//LGE_CHANGE_E [koh.euije@lge.com] 2013.04.10 change bl max
 
 #ifdef CONFIG_MACH_MSM8960_L2S
 	pinfo.bl_default = 0x28;

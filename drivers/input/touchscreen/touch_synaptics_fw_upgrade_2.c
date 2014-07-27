@@ -237,9 +237,9 @@ static int RMI4Init(struct synaptics_fw_data *fw, struct synaptics_ts_data *ts)
 static int RMI4ReadBootloadID(struct synaptics_fw_data *fw, struct synaptics_ts_data *ts)
 {
 	int ret;
-//                                                                                      
+// LGE_CHANGE_S [hoseong.han@lge.com] 2013-04-18 L9II WBT INTERNAL_TEST WBT_12 TD 477822
 	char uData[2] = {0};
-//                                              
+// LGE_CHANGE_E [hoseong.han@lge.com] 2013-04-18
 
 	ret = SynaReadRegister(ts->client,
 			fw->m_uF34ReflashQuery_BootID, (unsigned char *)uData, 2);
@@ -409,9 +409,9 @@ static int RMI4EnableFlashing(struct synaptics_fw_data *fw, struct synaptics_ts_
 static int RMI4ReadConfigInfo(struct synaptics_fw_data *fw, struct synaptics_ts_data *ts)
 {
 	int ret;
-//                                                                                     
+// LGE_CHANGE_S [hoseong.han@lge.com] 2013-04-18 L9II WBT INTERNAL_TEST WBT_12 TD477823
 	u8 uData[2] = {0};
-//                                              
+// LGE_EHCNAG_E [hoseong.han@lge.com] 2013-0418 
 
 	ret = SynaReadRegister(ts->client, fw->m_uF34ReflashQuery_ConfigBlockSize, &uData[0], 2);
 	if (ret < 0) {
@@ -968,7 +968,7 @@ static int RMI4ReadFirmwareHeader(struct synaptics_fw_data *fw, struct synaptics
 				checkSumCode, fw->m_bootloadImgID, fw->m_firmwareImgVersion, fw->m_firmwareImgSize, fw->m_configImgSize);
 	}
 
-#if 0 //                                      
+#if 0 //LGE_CHANGE_S sora.jin temporally block
 #if !defined(TEST_WRONG_CHIPSET_FW_FORCE_UPGRADE)
 	/* Check prpoer FW */
 	if (strncmp(ts->fw_info->product_id , &fw->image_bin[16], 10)) {

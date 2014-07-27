@@ -150,10 +150,10 @@ static void __exit lgps3_rfkill_exit(void)
 	platform_driver_unregister(&lgps3_rfkill_driver);
 }
 
-//                                                      
+//[LGE_UPDATE_S] 20121005, sangyeol.lee@lge.com, [START]
 //late_initcall_sync(lgps3_rfkill_init);
 device_initcall(lgps3_rfkill_init);
-//                                                     
+//[LGE_UPDATE_E] 20121005, sangyeol.lee@lge.com,  [END]
 module_exit(lgps3_rfkill_exit);
 
 MODULE_DESCRIPTION("lgps3 rfkill");

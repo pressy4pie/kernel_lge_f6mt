@@ -27,6 +27,7 @@
 
 #define SENSOR_LDO_EN   43
 #define MPUIRQ_GPIO 46
+#define COMPASS_INT 70
 
 extern unsigned int system_rev;
 
@@ -75,10 +76,10 @@ int sensor_power(int on)
 	int rc = -EINVAL;
 	static struct regulator *vreg_vdd;
 
-	/*           
-                                  
-                           
-  */
+	/* LGE_CHANGE
+	 * 2013-1-3, sangyeol.ryu@lge.com
+	 * 1.8V sensor IO power on
+	 */
 /*	static struct regulator *vreg_vio;
 
     vreg_vio = regulator_get(NULL, "8038_lvs2");
@@ -200,14 +201,14 @@ static struct i2c_board_info akm8963_i2c_bdinfo[] = {
 		I2C_BOARD_INFO("akm8963", 0x0D),
 		.flags = I2C_CLIENT_WAKE,
 		.platform_data = &akm_platform_data_8963,
-		.irq = 0,
+		.irq = MSM_GPIO_TO_INT(COMPASS_INT),
 	},
 };
 
 void __init lge_add_sensor_devices(void)
 {
 	gpio_tlmm_config(GPIO_CFG(MPUIRQ_GPIO, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE); //MPU_INT
-	gpio_tlmm_config(GPIO_CFG(49, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE); //PROX_INT
+	gpio_tlmm_config(GPIO_CFG(COMPASS_INT, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE); //COMPASS_INT
 	gpio_tlmm_config(GPIO_CFG(44, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE); //SDA
 	gpio_tlmm_config(GPIO_CFG(45, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE); //SCL
 	

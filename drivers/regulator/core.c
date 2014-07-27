@@ -1672,14 +1672,14 @@ static int _regulator_force_disable(struct regulator_dev *rdev)
 		_notifier_call_chain(rdev, REGULATOR_EVENT_FORCE_DISABLE |
 			REGULATOR_EVENT_DISABLE, NULL);
 	}
-	/*             
-                                                                      
-                                                                               
-                                     
-  */
+	/* LGE_CHANGE_S
+	 * The use_count for enable/disable is looking count of device attach
+	 * If use_count shoud not down in force_disable, this regulator is not enable.
+	 * 2012-08-13, sangwoo2.park@lge.com
+	 */
 	/* decrease our supplies ref count and disable if required */
 	rdev->use_count = 0;
-	/*              */
+	/* LGE_CHANGE_E */
 	return ret;
 }
 

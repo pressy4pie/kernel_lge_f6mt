@@ -12,6 +12,7 @@
 
 #ifndef _ARCH_ARM_MACH_MSM_MDM2_H
 #define _ARCH_ARM_MACH_MSM_MDM2_H
+#include "../../sysmon.h"
 
 struct mdm_vddmin_resource {
 	int rpm_id;
@@ -35,7 +36,22 @@ struct mdm_platform_data {
 	int image_upgrade_supported;
 	struct gpiomux_setting *mdm2ap_status_gpio_run_cfg;
 	int send_shdn;
+	int cascading_ssr;
+	int sysmon_subsys_id_valid;
+	enum subsys_id sysmon_subsys_id;
+	int no_a2m_errfatal_on_ssr;
+	int no_reset_on_first_powerup;
+	int kpd_not_inverted;
+	char *subsys_name;
 };
 
+struct mdm_driver_notif_info {
+	char name[50];
+	struct srcu_notifier_head mdm_driver_notif_rcvr_list;
+	struct list_head list;
+};
+
+struct mdm_driver_notif_info *mdm_driver_register_notifier(
+			const char *name, struct notifier_block *nb);
 #endif
 

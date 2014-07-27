@@ -37,6 +37,14 @@
 #include <linux/input/lge_touch_core.h>
 #include <mach/board_lge.h>
 
+#ifdef CONFIG_LGE_TOUCH_SYNAPTICS_F54
+#include "DS4/RefCode.h"
+#include "DS4/RefCode_PDTScan.h"
+
+struct i2c_client *ds4_i2c_client;
+static int f54_fullrawcap_mode = 0;
+#endif
+
 struct lge_touch_data
 {
 	void*			h_touch;
@@ -1277,6 +1285,18 @@ static void touch_work_func_a(struct work_struct *work)
 	u8 report_enable = 0;
 	int ret = 0;
 
+#ifdef CONFIG_LGE_WORKAROUND_SYNAPTICS
+	if(ts->gf_ctrl.incoming_call && (ts->ts_data.total_num > 1)) {
+		TOUCH_INFO_MSG("call state rebase\n");
+		goto err_out_critical;// out_need_to_rebase;
+	}
+
+	if(ts->gf_ctrl.keyguard && (ts->ts_data.total_num > 1)) {
+		TOUCH_INFO_MSG("Keyguard ghost state rebase\n");
+		goto err_out_critical;// out_need_to_rebase;
+	}
+#endif // CONFIG_LGE_WORKAROUND_SYNAPTICS
+
 	ret = touch_work_pre_proc(ts);
 	if (ret == -EIO)
 		goto err_out_critical;
@@ -2265,9 +2285,19 @@ static ssize_t store_keyguard_info(struct lge_touch_data *ts, const char *buf, s
 	sscanf(buf, "%d", &value);
 
 	if(value == KEYGUARD_ENABLE)
+	{
 		ts->gf_ctrl.stage = GHOST_STAGE_1 | GHOST_STAGE_2 | GHOST_STAGE_4;
+		#ifdef CONFIG_LGE_WORKAROUND_SYNAPTICS
+		ts->gf_ctrl.keyguard = KEYGUARD_ENABLE;
+		#endif // CONFIG_LGE_WORKAROUND_SYNAPTICS
+	}
 	else if(value == KEYGUARD_RESERVED)
+	{
 		ts->gf_ctrl.stage &= ~GHOST_STAGE_2;
+		#ifdef CONFIG_LGE_WORKAROUND_SYNAPTICS
+		ts->gf_ctrl.keyguard = KEYGUARD_RESERVED;
+		#endif // CONFIG_LGE_WORKAROUND_SYNAPTICS
+	}
 
 	if (touch_debug_mask & DEBUG_GHOST || touch_debug_mask & DEBUG_BASE_INFO){
 		TOUCH_INFO_MSG("ghost_stage [0x%x]\n", ts->gf_ctrl.stage);
@@ -2343,6 +2373,87 @@ static ssize_t store_accuracy_solution(struct lge_touch_data *ts, const char *bu
 	return count;
 }
 
+#ifdef CONFIG_LGE_TOUCH_SYNAPTICS_F54
+static ssize_t show_f54(struct lge_touch_data *ts, char *buf)
+{
+    int ret = 0;
+
+	if(ts->curr_pwr_state == POWER_ON || ts->curr_pwr_state == POWER_WAKE) {
+		SYNA_PDTScan();
+		SYNA_ConstructRMI_F54();
+		SYNA_ConstructRMI_F1A();
+
+		ret = sprintf(buf, "====== F54 Function Info ======\n");
+
+		switch(f54_fullrawcap_mode)
+		{
+			case 0: ret += sprintf(buf+ret, "fullrawcap_mode = For sensor\n");
+					break;
+			case 1: ret += sprintf(buf+ret, "fullrawcap_mode = For FPC\n");
+					break;
+			case 2: ret += sprintf(buf+ret, "fullrawcap_mode = CheckTSPConnection\n");
+					break;
+			case 3: ret += sprintf(buf+ret, "fullrawcap_mode = Baseline\n");
+					break;
+			case 4: ret += sprintf(buf+ret, "fullrawcap_mode = Delta image\n");
+					break;
+		}
+
+		if (ts->pdata->role->operation_mode)
+			disable_irq(ts->client->irq);
+		else
+			hrtimer_cancel(&ts->timer);
+//#if defined(CONFIG_LGE_TOUCH_GHOST_DETECT_SOLUTION)
+//		if (ts->pdata->role->ghost_detection_enable) {
+//			hrtimer_cancel(&hr_touch_trigger_timer);
+//		}
+//#endif
+		ret += sprintf(buf+ret, "F54_FullRawCap(%d) Test Result: %s", f54_fullrawcap_mode, (F54_FullRawCap(f54_fullrawcap_mode,0) > 0) ? "Pass\n" : "Fail\n" );
+		ret += sprintf(buf+ret, "F54_TxToTxReport() Test Result: %s", (F54_TxToTxReport() > 0) ? "Pass\n" : "Fail\n" );
+		ret += sprintf(buf+ret, "F54_RxToRxReport() Test Result: %s", (F54_RxToRxReport() > 0) ? "Pass\n" : "Fail\n" );
+		ret += sprintf(buf+ret, "F54_TxToGndReport() Test Result: %s", (F54_TxToGndReport() > 0) ? "Pass\n" : "Fail\n" );
+		ret += sprintf(buf+ret, "F54_HighResistance() Test Result: %s", (F54_HighResistance() > 0) ? "Pass\n" : "Fail\n" );
+
+		if (ts->pdata->role->operation_mode)
+			enable_irq(ts->client->irq);
+		else
+			hrtimer_start(&ts->timer, ktime_set(0, ts->pdata->role->report_period), HRTIMER_MODE_REL);
+	}
+	else{
+		ret = sprintf(buf+ret, "state=[suspend]. we cannot use I2C, now. Test Result: Fail\n");
+	}
+
+    return ret;
+}
+static ssize_t store_f54(struct lge_touch_data *ts, const char *buf, size_t count)
+{
+	int ret = 0;
+	ret = sscanf(buf, "%d", &f54_fullrawcap_mode);
+    return count;
+}
+#endif//CONFIG_LGE_TOUCH_SYNAPTICS_F54
+
+#ifdef CONFIG_LGE_WORKAROUND_SYNAPTICS
+static ssize_t store_incoming_call(struct lge_touch_data *ts, const char *buf, size_t count)
+{
+	int value;
+	sscanf(buf, "%d", &value);
+
+	if(value == INCOMIMG_CALL_TOUCH)
+		ts->gf_ctrl.incoming_call = 1;
+	else if(value == INCOMIMG_CALL_RESERVED)
+		ts->gf_ctrl.incoming_call = 0;
+
+	if (touch_debug_mask & DEBUG_GHOST){
+		TOUCH_INFO_MSG("incoming_call = %x\n", ts->gf_ctrl.incoming_call);
+		if(value == INCOMIMG_CALL_RESERVED)
+			TOUCH_INFO_MSG("incoming_call : cleared[%x]\n", ts->gf_ctrl.incoming_call);
+	}
+
+	return count;
+}
+#endif // CONFIG_LGE_WORKAROUND_SYNAPTICS
+
 static LGE_TOUCH_ATTR(platform_data, S_IRUGO | S_IWUSR, show_platform_data, NULL);
 static LGE_TOUCH_ATTR(firmware, S_IRUGO | S_IWUSR, show_fw_info, store_fw_upgrade);
 static LGE_TOUCH_ATTR(fw_ver, S_IRUGO | S_IWUSR, show_fw_ver, NULL);
@@ -2353,6 +2464,12 @@ static LGE_TOUCH_ATTR(keyguard, S_IRUGO | S_IWUSR, NULL, store_keyguard_info);
 static LGE_TOUCH_ATTR(virtualkeys, S_IRUGO | S_IWUSR, show_virtual_key, NULL);
 static LGE_TOUCH_ATTR(jitter, S_IRUGO | S_IWUSR, NULL, store_jitter_solution);
 static LGE_TOUCH_ATTR(accuracy, S_IRUGO | S_IWUSR, NULL, store_accuracy_solution);
+#ifdef CONFIG_LGE_TOUCH_SYNAPTICS_F54
+static LGE_TOUCH_ATTR(f54, S_IRUGO | S_IWUSR, show_f54, store_f54);
+#endif //CONFIG_LGE_TOUCH_SYNAPTICS_F54
+#ifdef CONFIG_LGE_WORKAROUND_SYNAPTICS
+static LGE_TOUCH_ATTR(incoming_call, S_IRUGO | S_IWUSR, NULL, store_incoming_call);
+#endif //CONFIG_LGE_WORKAROUND_SYNAPTICS
 
 static struct attribute *lge_touch_attribute_list[] = {
 	&lge_touch_attr_platform_data.attr,
@@ -2365,6 +2482,12 @@ static struct attribute *lge_touch_attribute_list[] = {
 	&lge_touch_attr_virtualkeys.attr,
 	&lge_touch_attr_jitter.attr,
 	&lge_touch_attr_accuracy.attr,
+	#ifdef CONFIG_LGE_TOUCH_SYNAPTICS_F54
+	&lge_touch_attr_f54.attr,
+    #endif //CONFIG_LGE_TOUCH_SYNAPTICS_F54
+	#ifdef CONFIG_LGE_WORKAROUND_SYNAPTICS
+	&lge_touch_attr_incoming_call.attr,
+	#endif // CONFIG_LGE_WORKAROUND_SYNAPTICS
 	NULL,
 };
 
@@ -2470,6 +2593,9 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 	get_section(&ts->st_info, ts->pdata);
 
 	ts->client = client;
+#ifdef CONFIG_LGE_TOUCH_SYNAPTICS_F54
+	ds4_i2c_client = client;
+#endif
 	i2c_set_clientdata(client, ts);
 
 	/* Specific device probe */
@@ -2731,10 +2857,10 @@ static void touch_early_suspend(struct early_suspend *h)
 
 	touch_power_cntl(ts, ts->pdata->role->suspend_pwr);
 
-/*           
-                                   
-                               
-                                                                         
+/* LGE_CHANGE
+ * 2013-03-29, sangyeol.ryu@lge.com
+ * to improve power consumption
+ * change gpio configs in case of no using touch pins (INT,SDA,SCL,RESET)
  */
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
 	gpio_tlmm_config(GPIO_CFG(11, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
@@ -2757,9 +2883,9 @@ static void touch_late_resume(struct early_suspend *h)
 		return;
 	}
 
-/*           
-                                   
-                                           
+/* LGE_CHANGE
+ * 2013-03-29, sangyeol.ryu@lge.com
+ * init touch gpio pins (INT,SDA,SCL,RESET)
  */
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
 	gpio_tlmm_config(GPIO_CFG(11, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);

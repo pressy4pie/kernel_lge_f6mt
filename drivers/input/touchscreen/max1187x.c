@@ -18,7 +18,14 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/delay.h>
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#elif defined CONFIG_FB
+#include <linux/notifier.h>
+#include <linux/fb.h>
+#endif
+
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/input/mt.h>
@@ -46,26 +53,6 @@
 			} while (0)
 #define debugmask_if(a) (debug_mask & a)
 
-#define ENABLE_IRQ()                            \
-do {                                            \
-	mutex_lock(&ts->irq_mutex);             \
-	if (ts->irq_disabled) {                 \
-		enable_irq(ts->client->irq);    \
-		ts->irq_disabled = 0;           \
-	}                                       \
-	mutex_unlock(&ts->irq_mutex);           \
-} while (0)
-
-#define DISABLE_IRQ()                           \
-do {                                            \
-	mutex_lock(&ts->irq_mutex);             \
-	if (ts->irq_disabled == 0) {            \
-		disable_irq(ts->client->irq);   \
-		ts->irq_disabled = 1;           \
-	}                                       \
-	mutex_unlock(&ts->irq_mutex);           \
-} while (0)
-
 #define NWORDS(a)    (sizeof(a) / sizeof(u16))
 #define BYTE_SIZE(a) ((a) * sizeof(u16))
 #define BYTEH(a)     ((a) >> 8)
@@ -78,60 +65,81 @@ static u16 debug_mask = DEBUG_GET_TOUCH_DATA | DEBUG_BASIC_INFO;
 #ifdef MAX1187X_LOCAL_PDATA
 struct max1187x_pdata local_pdata = { };
 #endif
-
-struct report_reader {
-	u16 report_id;
-	u16 reports_passed;
-	struct semaphore sem;
-	int status;
-};
+u16 tanlist[] = {0, 1144, 2289, 3435, 4583, 5734,
+                        6888, 8047, 9210, 10380, 11556, 12739,
+                        13930, 15130, 16340, 17560, 18792, 20036,
+                        21294, 22566, 23853, 25157, 26478, 27818,
+                        29178, 30559, 31964, 33392, 34846, 36327,
+                        37837, 39377, 40951, 42559, 44204, 45888,
+                        47614, 49384, 51202, 53069, 54990, 56969,
+                        59008, 61112, 63286, 65535};
 
 struct data {
 	struct max1187x_pdata *pdata;
 	struct i2c_client *client;
 	struct input_dev *input_dev;
+	char phys[32];
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
-	u8 early_suspend_registered;
-	struct workqueue_struct *wq;
-	struct work_struct work_irq;
-	atomic_t scheduled_work_irq;
+#elif defined CONFIG_FB
+	struct notifier_block fb_notif;
+#endif
+
+	u8 is_suspended;
+
+	wait_queue_head_t waitqueue_all;
 	u32 irq_receive_time;
-	struct mutex irq_mutex;
+
+	u16 chip_id;
+	u16 config_id;
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+	u16 fw_version;
+	u16 prev_touch_count;	/* Disable the continuous touch log */
+	u8  prev_button_status;
+	u16 prev_button_code;
+	int pwr_state;
+#endif
+
+#if !defined (CONFIG_MACH_LGE_L9II_COMMON)
+	atomic_t irq_processing;
+#endif
 	struct mutex i2c_mutex;
-	struct mutex report_mutex;
-	struct semaphore report_sem;
-	struct report_reader report_readers[MAX_REPORT_READERS];
-	u8 irq_disabled;
-	u8 report_readers_outstanding;
-	u16 rx_report[1000]; /* with header */
+
+	struct semaphore sema_rbcmd;
+	wait_queue_head_t waitqueue_rbcmd;
+	u8 rbcmd_waiting;
+	u8 rbcmd_received;
+	u16 rbcmd_report_id;
+	u16 *rbcmd_rx_report;
+	u16 *rbcmd_rx_report_len;
+
+	wait_queue_head_t waitqueue_report_sysfs;
+	struct rw_semaphore rwsema_report_sysfs;
+	u16 report_sysfs_rx_report[RPT_LEN_MAX];
+	u16 report_sysfs_rx_report_len;
+
+	u16 rx_report[RPT_LEN_MAX]; /* with header */
 	u16 rx_report_len;
-	u16 rx_packet[MAX_WORDS_REPORT + 1]; /* with header */
+	u16 rx_packet[RPT_LEN_PACKET_MAX + 1]; /* with header */
 	u32 irq_count;
 	u16 framecounter;
 	u16 list_finger_ids;
-	u8 got_report;
-	int fw_index;
-	u16 fw_crc16;
-	u16 fw_version[MAX_WORDS_REPORT];
-	u16 touch_config[MAX_WORDS_COMMAND_ALL];
-	char phys[32];
-	u8 fw_responsive;
-	u8 have_fw;
-	u8 have_touchcfg;
 	u8 sysfs_created;
 	u8 is_raw_mode;
-	char debug_string[DEBUG_STRING_LEN_MAX];
+
 	u16 button0:1;
 	u16 button1:1;
 	u16 button2:1;
 	u16 button3:1;
-	u8  prev_button_status;
-	u16 prev_button_code;
-	int pwr_state;
 };
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void early_suspend(struct early_suspend *h);
 static void late_resume(struct early_suspend *h);
+#elif defined CONFIG_FB
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data);
+#endif
 
 static int device_init(struct i2c_client *client);
 static int device_deinit(struct i2c_client *client);
@@ -144,30 +152,32 @@ static int bootloader_set_byte_mode(struct data *ts);
 static int bootloader_erase_flash(struct data *ts);
 static int bootloader_write_flash(struct data *ts, const u8 *image, u16 length);
 
-static int change_touch_rpt(struct i2c_client *client, u16 to);
-static int sreset(struct i2c_client *client);
-static int get_touch_config(struct i2c_client *client);
-static int get_fw_version(struct i2c_client *client);
-static void propagate_report(struct data *ts, int status, u16 *report);
-static int get_report(struct data *ts, u16 report_id, ulong timeout);
-static void release_report(struct data *ts);
+static int process_rbcmd(struct data *ts);
+static int combine_multipacketreport(struct data *ts);
+static int cmd_send(struct data *ts, u16 *buf, u16 len);
+static int rbcmd_send_receive(struct data *ts, u16 *cmd_buf,
+		u16 cmd_len, u16 rpt_id,
+		u16 *rpt_buf, u16 *rpt_len, u16 timeout);
 
-#if MAXIM_TOUCH_REPORT_MODE == 2
+static int process_report_sysfs(struct data *ts);
+
+static u16 max1187x_sqrt(u32 num);
 static u16 binary_search(const u16 *array, u16 len, u16 val);
 static s16 max1187x_orientation(s16 x, s16 y);
-static u16 max1187x_sqrt(u32 num);
-#endif
 
-static u8 bootloader;
 static u8 init_state;
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 static u8 button_state;
-
+/* Disable the continuous touch log */
+u16 x_position[10];
+u16 y_position[10];
+#endif
 /* I2C communication */
 /* debug_mask |= 0x1 for I2C RX communication */
 static int i2c_rx_bytes(struct data *ts, u8 *buf, u16 len)
 {
 	int i, ret, written;
-
+	char debug_string[DEBUG_STRING_LEN_MAX];
 	do {
 		ret = i2c_master_recv(ts->client, (char *) buf, (int) len);
 	} while (ret == -EAGAIN);
@@ -182,15 +192,15 @@ static int i2c_rx_bytes(struct data *ts, u8 *buf, u16 len)
 		pr_info("I2C RX (%d):", len);
 		written = 0;
 		for (i = 0; i < len; i++) {
-			written += snprintf(ts->debug_string + written, 6,
+			written += snprintf(debug_string + written, 6,
 					"0x%02X,", buf[i]);
 			if (written + 6 >= DEBUG_STRING_LEN_MAX) {
-				pr_info("%s", ts->debug_string);
+				pr_info("%s", debug_string);
 				written = 0;
 			}
 		}
 		if (written > 0)
-			pr_info("%s", ts->debug_string);
+			pr_info("%s", debug_string);
 	}
 
 	return len;
@@ -199,6 +209,7 @@ static int i2c_rx_bytes(struct data *ts, u8 *buf, u16 len)
 static int i2c_rx_words(struct data *ts, u16 *buf, u16 len)
 {
 	int i, ret, written;
+	char debug_string[DEBUG_STRING_LEN_MAX];
 
 	do {
 		ret = i2c_master_recv(ts->client,
@@ -216,23 +227,22 @@ static int i2c_rx_words(struct data *ts, u16 *buf, u16 len)
 
 	len = ret/2;
 
-#ifdef __BIG_ENDIAN
 	for (i = 0; i < len; i++)
-		buf[i] = (buf[i] << 8) | (buf[i] >> 8);
-#endif
+		buf[i] = cpu_to_le16(buf[i]);
+
 	if (debugmask_if(1)) {
 		pr_info("I2C RX (%d):", len);
 		written = 0;
 		for (i = 0; i < len; i++) {
-			written += snprintf(ts->debug_string + written,
+			written += snprintf(debug_string + written,
 					8, "0x%04X,", buf[i]);
 			if (written + 8 >= DEBUG_STRING_LEN_MAX) {
-				pr_info("%s", ts->debug_string);
+				pr_info("%s", debug_string);
 				written = 0;
 			}
 		}
 		if (written > 0)
-			pr_info("%s", ts->debug_string);
+			pr_info("%s", debug_string);
 	}
 
 	return len;
@@ -242,6 +252,7 @@ static int i2c_rx_words(struct data *ts, u16 *buf, u16 len)
 static int i2c_tx_bytes(struct data *ts, u8 *buf, u16 len)
 {
 	int i, ret, written;
+	char debug_string[DEBUG_STRING_LEN_MAX];
 
 	do {
 		ret = i2c_master_send(ts->client, (char *) buf, (int) len);
@@ -257,15 +268,15 @@ static int i2c_tx_bytes(struct data *ts, u8 *buf, u16 len)
 		pr_info("I2C TX (%d):", len);
 		written = 0;
 		for (i = 0; i < len; i++) {
-			written += snprintf(ts->debug_string + written, 6,
+			written += snprintf(debug_string + written, 6,
 					"0x%02X,", buf[i]);
 			if (written + 6 >= DEBUG_STRING_LEN_MAX) {
-				pr_info("%s", ts->debug_string);
+				pr_info("%s", debug_string);
 				written = 0;
 			}
 		}
 		if (written > 0)
-			pr_info("%s", ts->debug_string);
+			pr_info("%s", debug_string);
 	}
 
 	return len;
@@ -274,11 +285,11 @@ static int i2c_tx_bytes(struct data *ts, u8 *buf, u16 len)
 static int i2c_tx_words(struct data *ts, u16 *buf, u16 len)
 {
 	int i, ret, written;
+	char debug_string[DEBUG_STRING_LEN_MAX];
 
-#ifdef __BIG_ENDIAN
 	for (i = 0; i < len; i++)
-		buf[i] = (buf[i] << 8) | (buf[i] >> 8);
-#endif
+		buf[i] = cpu_to_le16(buf[i]);
+
 	do {
 		ret = i2c_master_send(ts->client,
 			(char *) buf, (int) (len * 2));
@@ -298,15 +309,15 @@ static int i2c_tx_words(struct data *ts, u16 *buf, u16 len)
 		pr_info("I2C TX (%d):", len);
 		written = 0;
 		for (i = 0; i < len; i++) {
-			written += snprintf(ts->debug_string + written, 8,
+			written += snprintf(debug_string + written, 8,
 					"0x%04X,", buf[i]);
 			if (written + 8 >= DEBUG_STRING_LEN_MAX) {
-				pr_info("%s", ts->debug_string);
+				pr_info("%s", debug_string);
 				written = 0;
 			}
 		}
 		if (written > 0)
-			pr_info("%s", ts->debug_string);
+			pr_info("%s", debug_string);
 	}
 
 	return len;
@@ -318,42 +329,42 @@ static int read_mtp_report(struct data *ts, u16 *buf)
 	int words = 1, words_tx, words_rx;
 	int ret = 0, remainder = 0, offset = 0;
 	u16 address = 0x000A;
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 	if(ts->pwr_state == PWR_SLEEP)
 	{
 		pr_err("Report fail: Power off status");
 		return -EIO;
 	}
+#endif
 
-	mutex_lock(&ts->i2c_mutex);
 	/* read header, get size, read entire report */
 	{
 		words_tx = i2c_tx_words(ts, &address, 1);
 		if (words_tx != 1) {
-			mutex_unlock(&ts->i2c_mutex);
 			pr_err("Report RX fail: failed to set address");
 			return -EIO;
 		}
 
 		if (ts->is_raw_mode == 0) {
 			words_rx = i2c_rx_words(ts, buf, 2);
-			if (words_rx != 2 || BYTEL(buf[0]) > MAX_WORDS_REPORT) {
+			if (words_rx != 2 ||
+					BYTEL(buf[0]) > RPT_LEN_PACKET_MAX) {
 				ret = -EIO;
 				pr_err("Report RX fail: received (%d) " \
 						"expected (%d) words, " \
 						"header (%04X)",
 						words_rx, words, buf[0]);
-				mutex_unlock(&ts->i2c_mutex);
 				return ret;
 			}
 
-			if (buf[1] == 0x0800)
+			if ((((BYTEH(buf[0])) & 0xF) == 0x1)
+				&& buf[1] == 0x0800)
 				ts->is_raw_mode = 1;
 
 			words = BYTEL(buf[0]) + 1;
 
 			words_tx = i2c_tx_words(ts, &address, 1);
 			if (words_tx != 1) {
-				mutex_unlock(&ts->i2c_mutex);
 				pr_err("Report RX fail:" \
 					"failed to set address");
 				return -EIO;
@@ -361,7 +372,6 @@ static int read_mtp_report(struct data *ts, u16 *buf)
 
 			words_rx = i2c_rx_words(ts, &buf[offset], words);
 			if (words_rx != words) {
-				mutex_unlock(&ts->i2c_mutex);
 				pr_err("Report RX fail 0x%X: received (%d) " \
 					"expected (%d) words",
 					address, words_rx, remainder);
@@ -374,30 +384,29 @@ static int read_mtp_report(struct data *ts, u16 *buf)
 			words_rx = i2c_rx_words(ts, buf,
 					(u16) PDATA(i2c_words));
 			if (words_rx != (u16) PDATA(i2c_words) || BYTEL(buf[0])
-					> MAX_WORDS_REPORT) {
+					> RPT_LEN_PACKET_MAX) {
 				ret = -EIO;
 				pr_err("Report RX fail: received (%d) " \
 					"expected (%d) words, header (%04X)",
 					words_rx, words, buf[0]);
-				mutex_unlock(&ts->i2c_mutex);
 				return ret;
 			}
 
-			if (BYTEH(buf[1]) == 0x0801)
+			if ((((BYTEH(buf[0])) & 0xF) == 0x1)
+				&& buf[1] != 0x0800)
 				ts->is_raw_mode = 0;
 
 			words = BYTEL(buf[0]) + 1;
 			remainder = words;
 
-			if (remainder - (u16) PDATA(i2c_words) > 0) {
-				remainder -= (u16) PDATA(i2c_words);
+			if (remainder - (int) PDATA(i2c_words) > 0) {
+				remainder -= (int) PDATA(i2c_words);
 				offset += (u16) PDATA(i2c_words);
 				address += (u16) PDATA(i2c_words);
 			}
 
 			words_tx = i2c_tx_words(ts, &address, 1);
 			if (words_tx != 1) {
-				mutex_unlock(&ts->i2c_mutex);
 				pr_err("Report RX fail: failed to set " \
 					"address 0x%X", address);
 				return -EIO;
@@ -405,7 +414,6 @@ static int read_mtp_report(struct data *ts, u16 *buf)
 
 			words_rx = i2c_rx_words(ts, &buf[offset], remainder);
 			if (words_rx != remainder) {
-				mutex_unlock(&ts->i2c_mutex);
 				pr_err("Report RX fail 0x%X: received (%d) " \
 						"expected (%d) words",
 						address, words_rx, remainder);
@@ -413,64 +421,77 @@ static int read_mtp_report(struct data *ts, u16 *buf)
 			}
 		}
 	}
-	mutex_unlock(&ts->i2c_mutex);
 	return ret;
 }
 
 /* Send command */
 static int send_mtp_command(struct data *ts, u16 *buf, u16 len)
 {
-	u16 tx_buf[MAX_WORDS_COMMAND + 2]; /* with address and header */
+	u16 tx_buf[CMD_LEN_PACKET_MAX + 2]; /* with address and header */
 	u16 packets, words, words_tx;
 	int i, ret = 0;
 
 	/* check basics */
-	if (len < 2) {
-		pr_err("Command too short (%d); 2 words minimum", len);
-		return -EINVAL;
-	}
-
-	if ((buf[1] + 2) != len) {
-		pr_err("Inconsistent command length: " \
-				"expected (%d) given (%d)", (buf[1] + 2), len);
-		return -EINVAL;
-	}
-
-	if (len > MAX_WORDS_COMMAND_ALL) {
-		pr_err("Command too long (%d); maximum (%d) words",
-				len, MAX_WORDS_COMMAND_ALL);
-		return -EINVAL;
+	if (len < 2 || len > CMD_LEN_MAX || (buf[1] + 2) != len) {
+		pr_err("Command length is not valid");
+		ret = -EINVAL;
+		goto err_send_mtp_command;
 	}
 
 	/* packetize and send */
-	packets = len / MAX_WORDS_COMMAND;
-	if (len % MAX_WORDS_COMMAND)
+	packets = len / CMD_LEN_PACKET_MAX;
+	if (len % CMD_LEN_PACKET_MAX)
 		packets++;
 	tx_buf[0] = 0x0000;
 
-	mutex_lock(&ts->i2c_mutex);
 	for (i = 0; i < packets; i++) {
-		words = (i == (packets - 1)) ? (len % MAX_WORDS_COMMAND) : MAX_WORDS_COMMAND;
+		words = (i == (packets - 1)) ? (len % CMD_LEN_PACKET_MAX) : CMD_LEN_PACKET_MAX;
 		tx_buf[1] = (packets << 12) | ((i + 1) << 8) | words;
-		memcpy(&tx_buf[2], &buf[i * MAX_WORDS_COMMAND],
+		memcpy(&tx_buf[2], &buf[i * CMD_LEN_PACKET_MAX],
 			BYTE_SIZE(words));
 		words_tx = i2c_tx_words(ts, tx_buf, words + 2);
 		if (words_tx != (words + 2)) {
-			ret = -1;
 			pr_err("Command TX fail: transmitted (%d) " \
 				"expected (%d) words, packet (%d)",
 				words_tx, words + 2, i);
+			ret = -EIO;
+			goto err_send_mtp_command;
 		}
-		len -= MAX_WORDS_COMMAND;
+		len -= CMD_LEN_PACKET_MAX;
 	}
-	ts->got_report = 0;
-	mutex_unlock(&ts->i2c_mutex);
 
+	return ret;
+
+err_send_mtp_command:
 	return ret;
 }
 
 /* Integer math operations */
-#if MAXIM_TOUCH_REPORT_MODE == 2
+u16 max1187x_sqrt(u32 num)
+{
+	u16 mask = 0x8000;
+	u16 guess = 0;
+	u32 prod = 0;
+
+	if (num < 2)
+		return num;
+
+	while (mask) {
+		guess = guess ^ mask;
+		prod = guess*guess;
+		if (num < prod)
+			guess = guess ^ mask;
+		mask = mask>>1;
+	}
+	if (guess != 0xFFFF) {
+		prod = guess*guess;
+		if ((num - prod) > (prod + 2*guess + 1 - num))
+			guess++;
+	}
+
+	return guess;
+}
+
 /* Returns index of element in array closest to val */
 static u16 binary_search(const u16 *array, u16 len, u16 val)
 {
@@ -507,9 +528,9 @@ static u16 binary_search(const u16 *array, u16 len, u16 val)
 static s16 max1187x_orientation(s16 x, s16 y)
 {
 	u16 sign = 0;
+	s16 angle;
 	u16 len = sizeof(tanlist)/sizeof(tanlist[0]);
 	u32 quotient;
-	s16 angle;
 
 	if (x == y) {
 		angle = 45;
@@ -554,32 +575,20 @@ static s16 max1187x_orientation(s16 x, s16 y)
 		return -angle;
 }
 
-u16 max1187x_sqrt(u32 num)
+/* Returns time difference between time_later and time_earlier.
+ * time is measures in units of jiffies32 */
+u32 time_difference(u32 time_later, u32 time_earlier)
 {
-	u16 mask = 0x8000;
-	u16 guess = 0;
-	u32 prod = 0;
-
-	if (num < 2)
-		return num;
-
-	while (mask) {
-		guess = guess ^ mask;
-		prod = guess*guess;
-		if (num < prod)
-			guess = guess ^ mask;
-		mask = mask>>1;
-	}
-	if (guess != 0xFFFF) {
-		prod = guess*guess;
-		if ((num - prod) > (prod + 2*guess + 1 - num))
-			guess++;
-	}
-
-	return guess;
+	u64	time_elapsed;
+	if (time_later >= time_earlier)
+		time_elapsed = time_later - time_earlier;
+	else
+		time_elapsed = time_later +
+					0x100000000 - time_earlier;
+	return (u32)time_elapsed;
 }
-#endif
 /* Check button state change and seperate touch key report */
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 static void touch_key_report(struct data *ts, u16 button_code, u8 button_status, u16 count)
 {
 	button_state = 1;
@@ -606,110 +615,143 @@ static void touch_key_report(struct data *ts, u16 button_code, u8 button_status,
 	}
 	input_report_key(ts->input_dev, button_code, button_status);
 }
+#endif
+
 /* debug_mask |= 0x4 for touch reports */
-static void process_touch_report(struct data *ts, u16 *buf)
+static int process_report(struct data *ts, u16 *buf)
 {
-	u32 i;
-#ifndef MAX1187X_PROTOCOL_A
-	u32 j;
-#endif
-	u16 x, y, swap_u16, curr_finger_ids;
-//start hoseong.han
-#if MAXIM_TOUCH_REPORT_MODE == 2
+	u32 i, j;
+	u16 x, y, z, swap_u16, curr_finger_ids, tool_type;
+
 	u32 area;
+	s16 swap_s16;
 	u32 major_axis, minor_axis;
-	s16 xsize, ysize, orientation, swap_s16;
+	s16 xsize, ysize, orientation;
+
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+	bool is_ghost_touch = false;
 #endif
-//end hosong.han
 
 	struct max1187x_touch_report_header *header;
 	struct max1187x_touch_report_basic *reportb;
 	struct max1187x_touch_report_extended *reporte;
 
 	header = (struct max1187x_touch_report_header *) buf;
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 	button_state = 0;
+#endif
 
-	if (!ts->input_dev)
-		goto err_process_touch_report_inputdev;
 	if (BYTEH(header->header) != 0x11)
-		goto err_process_touch_report_header;
+		goto process_report_complete;
 
-	if (header->report_id != MAX1187X_TOUCH_REPORT_BASIC &&
-			header->report_id != MAX1187X_TOUCH_REPORT_EXTENDED)
-		goto err_process_touch_report_reportid;
+	if (PDATA(enable_touch_wakeup) == 1) {
+		if (device_may_wakeup(&ts->client->dev)
+				&& ts->is_suspended == 1) {
+			pr_info_if(4, "Received gesture: (0x%04X)\n", buf[3]);
+			if (header->report_id == MAX1187X_REPORT_POWER_MODE
+					&& buf[3] == 0x0102) {
+				pr_info_if(4, "Received touch wakeup report\n");
+				input_report_key(ts->input_dev,	KEY_POWER, 1);
+				input_sync(ts->input_dev);
+				input_report_key(ts->input_dev,	KEY_POWER, 0);
+				input_sync(ts->input_dev);
+			}
+			goto process_report_complete;
+		}
+	}
+
+	if (ts->is_suspended == 1)
+		goto process_report_complete;
+
+	if (header->report_id != MAX1187X_REPORT_TOUCH_BASIC &&
+			header->report_id != MAX1187X_REPORT_TOUCH_EXTENDED)
+		goto process_report_complete;
 
 	if (ts->framecounter == header->framecounter) {
 		pr_err("Same framecounter (%u) encountered at irq (%u)!\n",
 				ts->framecounter, ts->irq_count);
-		goto err_process_touch_report_framecounter;
+		goto err_process_report_framecounter;
 	}
 	ts->framecounter = header->framecounter;
 
-//                                                           
 	if (header->button0 != ts->button0) {
-//                              
-#if 1
-		touch_key_report(ts, ts->pdata->button_code[0], header->button0, header->touch_count);
+// LGE_CHANGE_S - LGE touch spec
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+		touch_key_report(ts, PDATA(button_code0), header->button0, header->touch_count);
 #else
-                input_report_key(ts->input_dev, ts->pdata->button_code[0], header->button0);
+		input_report_key(ts->input_dev, PDATA(button_code0),
+				header->button0);
 #endif
-//             
+// LGE_CHANGE_E
 		input_sync(ts->input_dev);
 		ts->button0 = header->button0;
 	}
+
 	if (header->button1 != ts->button1) {
-//                              
-#if 1
-		touch_key_report(ts, ts->pdata->button_code[1], header->button1, header->touch_count);
+// LGE_CHANGE_S - LGE touch spec
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+		touch_key_report(ts, PDATA(button_code1), header->button1, header->touch_count);
 #else
-                input_report_key(ts->input_dev, ts->pdata->button_code[1], header->button1);
+		input_report_key(ts->input_dev, PDATA(button_code1),
+				header->button1);
 #endif
-//             
+// LGE_CHANGE_E
 		input_sync(ts->input_dev);
 		ts->button1 = header->button1;
 	}
 	if (header->button2 != ts->button2) {
-//                              
-#if 1
-		touch_key_report(ts, ts->pdata->button_code[2], header->button2, header->touch_count);
+// LGE_CHANGE_S - LGE touch spec
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+		touch_key_report(ts, PDATA(button_code2), header->button2, header->touch_count);
 #else
-		input_report_key(ts->input_dev, ts->pdata->button_code[2], header->button2);
+		input_report_key(ts->input_dev, PDATA(button_code2),
+				header->button2);
 #endif
-//             
+// LGE_CHANGE_E
 		input_sync(ts->input_dev);
 		ts->button2 = header->button2;
 	}
 	if (header->button3 != ts->button3) {
-//                              
-#if 1
-		touch_key_report(ts, ts->pdata->button_code[3], header->button3, header->touch_count);
+// LGE_CHANGE_S - LGE touch spec
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+		touch_key_report(ts, PDATA(button_code3), header->button3, header->touch_count);
 #else
-                input_report_key(ts->input_dev, ts->pdata->button_code[3], header->button3);
+		input_report_key(ts->input_dev, PDATA(button_code3),
+				header->button3);
 #endif
-//             
+// LGE_CHANGE_E
 		input_sync(ts->input_dev);
 		ts->button3 = header->button3;
 	}
-//                                              
 
 	if (header->touch_count > 10) {
 		pr_err("Touch count (%u) out of bounds [0,10]!",
 				header->touch_count);
-		goto err_process_touch_report_touchcount;
+		goto err_process_report_touchcount;
 	}
 
 	if (header->touch_count == 0) {
-		if (!button_state)
-			pr_info_if(4, "(TOUCH): Fingers up\n");
-#ifdef MAX1187X_PROTOCOL_A
-		input_mt_sync(ts->input_dev);
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+/* Disable the continuous touch log */
+		j = 1;
 #else
-		for (i = 0; i < MAX1187X_TOUCH_COUNT_MAX; i++) {
-			input_mt_slot(ts->input_dev, i);
-			input_mt_report_slot_state(ts->input_dev,
-						MT_TOOL_FINGER, 0);
-		}
+		pr_info_if(4, "(TOUCH): Finger up (all)\n");
 #endif
+		if (PDATA(linux_touch_protocol) == 0)
+			input_mt_sync(ts->input_dev);
+		else {
+			for (i = 0; i < MAX1187X_TOUCH_COUNT_MAX; i++) {
+				input_mt_slot(ts->input_dev, i);
+				input_mt_report_slot_state(ts->input_dev,
+						MT_TOOL_FINGER, 0);
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+/* Disable the continuous touch log */
+				if (((ts->list_finger_ids & j) != 0) && !button_state)
+					pr_info_if(4, "(TOUCH): Finger is released (%d) X(%d) Y(%d)\n",i,x_position[i],y_position[i]);
+				j <<= 1;
+#endif
+			}
+		}
 		input_sync(ts->input_dev);
 		ts->list_finger_ids = 0;
 	} else {
@@ -719,8 +761,26 @@ static void process_touch_report(struct data *ts, u16 *buf)
 		reporte = (struct max1187x_touch_report_extended *)
 				((u8 *)buf + sizeof(*header));
 		for (i = 0; i < header->touch_count; i++) {
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+			if (header->touch_count > 1 && reportb->z < 300) {
+				reportb++;
+				if (reportb->z < 300 || reportb->z > 10000) {
+					pr_info_if(4, "(TOUCH) Ghost finger is happend. So ignore the touch event\n");
+					is_ghost_touch = true;
+					break;
+				}
+				else
+					 header->touch_count--;
+			}
+#endif
 			x = reportb->x;
 			y = reportb->y;
+			z = reportb->z;
+			if (PDATA(coordinate_settings) & MAX1187X_SWAP_XY) {
+				swap_u16 = x;
+				x = y;
+				y = swap_u16;
+			}
 			if (PDATA(coordinate_settings) & MAX1187X_REVERSE_X) {
 				x = PDATA(panel_margin_xl) + PDATA(lcd_x)
 					+ PDATA(panel_margin_xh) - 1 - x;
@@ -729,154 +789,254 @@ static void process_touch_report(struct data *ts, u16 *buf)
 				y = PDATA(panel_margin_yl) + PDATA(lcd_y)
 					+ PDATA(panel_margin_yh) - 1 - y;
 			}
-			if (PDATA(coordinate_settings) & MAX1187X_SWAP_XY) {
-				swap_u16 = x;
-				x = y;
-				y = swap_u16;
-			}
-			if (reportb->z == 0)
-				reportb->z++;
-			pr_info_if(8, "(TOUCH): (%u) Finger %u: "\
-				"X(%d) Y(%d) Z(%d)",
-				header->framecounter, reportb->finger_id,
-				x, y, reportb->z);
-			curr_finger_ids |= (1<<reportb->finger_id);
-#ifdef MAX1187X_PROTOCOL_A
-			input_report_abs(ts->input_dev,
-				ABS_MT_TRACKING_ID,	reportb->finger_id);
-#else
-			input_mt_slot(ts->input_dev, reportb->finger_id);
-			input_mt_report_slot_state(ts->input_dev,
-					MT_TOOL_FINGER, 1);
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+/* Disable the continuous touch log */
+                        x_position[reportb->finger_id] = x;
+                        y_position[reportb->finger_id] = y;
 #endif
+
+			tool_type = reportb->tool_type;
+			if (tool_type == 1)
+				tool_type = MT_TOOL_PEN;
+			else
+				tool_type = MT_TOOL_FINGER;
+
+			curr_finger_ids |= (1<<reportb->finger_id);
+			if (PDATA(linux_touch_protocol) == 0) {
+				input_report_abs(ts->input_dev,
+				ABS_MT_TRACKING_ID,	reportb->finger_id);
+				input_report_abs(ts->input_dev,
+				ABS_MT_TOOL_TYPE, tool_type);
+			} else {
+				input_mt_slot(ts->input_dev,
+					reportb->finger_id);
+				input_mt_report_slot_state(ts->input_dev,
+						tool_type, 1);
+			}
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_X, x);
 			input_report_abs(ts->input_dev,	ABS_MT_POSITION_Y, y);
-			input_report_abs(ts->input_dev,
-					ABS_MT_PRESSURE, reportb->z);
-			if (header->report_id
-				== MAX1187X_TOUCH_REPORT_EXTENDED) {
-#if MAXIM_TOUCH_REPORT_MODE == 2
-				xsize = (reporte->xpixel - 1)
-					* (s16)(PDATA(lcd_x)/PDATA(num_rows));
-				ysize = (reporte->ypixel - 1)
-					* (s16)(PDATA(lcd_y)/PDATA(num_cols));
-				if (PDATA(coordinate_settings)
-						& MAX1187X_REVERSE_X)
-					xsize = -xsize;
-				if (PDATA(coordinate_settings)
-						& MAX1187X_REVERSE_Y)
-					ysize = -ysize;
-				if (PDATA(coordinate_settings)
-						& MAX1187X_SWAP_XY) {
-					swap_s16 = xsize;
-					xsize = ysize;
-					ysize = swap_s16;
-				}
-				/* Calculate orientation as
-				 * arctan of xsize/ysize) */
-				orientation =
-					max1187x_orientation(xsize, ysize);
-				area = reporte->area
-					* (PDATA(lcd_x)/PDATA(num_rows))
-					* (PDATA(lcd_y)/PDATA(num_cols));
-				/* Major axis of ellipse if hypotenuse
-				 * formed by xsize and ysize */
-				major_axis = xsize*xsize + ysize*ysize;
-				major_axis = max1187x_sqrt(major_axis);
-				/* Minor axis can be reverse calculated
-				 * using the area of ellipse:
-				 * Area of ellipse =
-				 *		pi / 4 * Major axis * Minor axis
-				 * Minor axis =
-				 *		4 * Area / (pi * Major axis)
-				 */
-				minor_axis = (2 * area) / major_axis;
-				minor_axis = (minor_axis<<17) / MAX1187X_PI;
-				pr_info_if(8, "(TOUCH): Finger %u: " \
-					"Orientation(%d) Area(%u) Major_axis(%u) Minor_axis(%u)",
-					reportb->finger_id,	orientation,
-					area, major_axis, minor_axis);
-				input_report_abs(ts->input_dev,
-					ABS_MT_ORIENTATION, orientation);
-				input_report_abs(ts->input_dev,
-						ABS_MT_TOUCH_MAJOR, major_axis);
-				input_report_abs(ts->input_dev,
-						ABS_MT_TOUCH_MINOR, minor_axis);
+			if (PDATA(enable_pressure_shaping) == 1) {
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+				z = max1187x_sqrt(z);
+#else
+				z = (PRESSURE_MAX_SQRT >> 2) + max1187x_sqrt(z);
 #endif
+				if (z > PRESSURE_MAX_SQRT)
+					z = PRESSURE_MAX_SQRT;
+			}
+			input_report_abs(ts->input_dev,
+					ABS_MT_PRESSURE, z);
+
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+/* Disable the continuous touch log */
+			if (ts->prev_touch_count < header->touch_count)
+#endif
+				pr_info_if(4, "(TOUCH): (%u) Finger %u: "\
+				"X(%d) Y(%d) Z(%d) TT(%d)",
+				header->framecounter, reportb->finger_id,
+				x, y, z, tool_type);
+
+			if (header->report_id
+				== MAX1187X_REPORT_TOUCH_EXTENDED) {
+				if (PDATA(max1187x_report_mode) == 2) {
+					if (PDATA(coordinate_settings)
+						& MAX1187X_SWAP_XY) {
+						swap_s16 =
+							reporte->xpixel;
+						reporte->xpixel =
+							reporte->ypixel;
+						reporte->ypixel =
+							swap_s16;
+					}
+					if (PDATA(coordinate_settings)
+							& MAX1187X_REVERSE_X)
+						reporte->xpixel =
+							-reporte->xpixel;
+					if (PDATA(coordinate_settings)
+							& MAX1187X_REVERSE_Y)
+						reporte->ypixel =
+							-reporte->ypixel;
+					area = reporte->area
+						* (PDATA(lcd_x)/
+							PDATA(num_sensor_x))
+						* (PDATA(lcd_y)/
+							PDATA(num_sensor_y));
+					xsize = reporte->xpixel
+					* (s16)(PDATA(lcd_x)/
+						PDATA(num_sensor_x));
+					ysize = reporte->ypixel
+					* (s16)(PDATA(lcd_y)/
+						PDATA(num_sensor_y));
+					pr_info_if(4, "(TOUCH): pixelarea " \
+						"(%u) xpixel (%d) ypixel " \
+						"(%d) xsize (%d) ysize (%d)\n",
+						reporte->area,
+						reporte->xpixel,
+						reporte->ypixel,
+						xsize, ysize);
+
+				if (PDATA(enable_fast_calculation) == 0) {
+					/* Calculate orientation as
+					 * arctan of xsize/ysize) */
+					orientation =
+						max1187x_orientation(
+							xsize, ysize);
+					/* Major axis of ellipse if hypotenuse
+					 * formed by xsize and ysize */
+					major_axis = xsize*xsize + ysize*ysize;
+					major_axis = max1187x_sqrt(major_axis);
+					/* Minor axis can be reverse calculated
+					 * using the area of ellipse:
+					 * Area of ellipse =
+					 *	pi / 4 * Major axis * Minor axis
+					 * Minor axis =
+					 *	4 * Area / (pi * Major axis)
+					 */
+					minor_axis = (2 * area) / major_axis;
+					minor_axis = (minor_axis<<17)
+							/ MAX1187X_PI;
+				} else {
+					if (xsize < 0)
+						xsize = -xsize;
+					if (ysize < 0)
+						ysize = -ysize;
+					orientation = (xsize > ysize) ? 0 : 90;
+					major_axis = (xsize > ysize)
+							? xsize : ysize;
+					minor_axis = (xsize > ysize)
+							? ysize : xsize;
+				}
+					pr_info_if(4, "(TOUCH): Finger %u: " \
+						"Orientation(%d) Area(%u) Major_axis(%u) Minor_axis(%u)",
+						reportb->finger_id,
+						orientation, area,
+						major_axis, minor_axis);
+					input_report_abs(ts->input_dev,
+						ABS_MT_ORIENTATION,
+						orientation);
+					input_report_abs(ts->input_dev,
+							ABS_MT_TOUCH_MAJOR,
+							major_axis);
+					input_report_abs(ts->input_dev,
+							ABS_MT_TOUCH_MINOR,
+							minor_axis);
+
+				}
 				reporte++;
 				reportb = (struct max1187x_touch_report_basic *)
 						((u8 *) reporte);
 			} else {
 				reportb++;
 			}
-#ifdef MAX1187X_PROTOCOL_A
-			input_mt_sync(ts->input_dev);
-#endif
+			if (PDATA(linux_touch_protocol) == 0)
+				input_mt_sync(ts->input_dev);
 		}
-#ifndef MAX1187X_PROTOCOL_A
+
 		i = 0;
 		j = 1;
-		while (ts->list_finger_ids) {
-			if ((ts->list_finger_ids & 1) != 0 &&
-					(curr_finger_ids & j) == 0) {
-				input_mt_slot(ts->input_dev, i);
-				input_mt_report_slot_state(ts->input_dev,
-						MT_TOOL_FINGER, 0);
+		while (i < 10) {
+			if ((ts->list_finger_ids & j) != 0 &&
+					(curr_finger_ids & j) == 0
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+					&& !is_ghost_touch
+#endif
+			) {
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+/* Disable the continuous touch log */
+				pr_info_if(4, "(TOUCH): Finger up (%d) X(%d) Y(%d)\n", i,x_position[i],y_position[i]);
+#else
+				pr_info_if(4, "(TOUCH): Finger up (%d)\n", i);
+#endif
+				if (PDATA(linux_touch_protocol) != 0) {
+					input_mt_slot(ts->input_dev, i);
+					input_mt_report_slot_state(
+							ts->input_dev,
+							MT_TOOL_FINGER, 0);
+				}
 			}
 			i++;
 			j <<= 1;
-			ts->list_finger_ids >>= 1;
 		}
-#endif
+
 		input_sync(ts->input_dev);
 		ts->list_finger_ids = curr_finger_ids;
 	}
-err_process_touch_report_touchcount:
-err_process_touch_report_inputdev:
-err_process_touch_report_header:
-err_process_touch_report_reportid:
-err_process_touch_report_framecounter:
-	return;
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+/* Disable the continuous touch log */
+	ts->prev_touch_count = header->touch_count;
+#endif
+process_report_complete:
+	return 0;
+
+err_process_report_framecounter:
+err_process_report_touchcount:
+	return -EIO;
 }
 
-
-static void max1187x_wfxn_irq(struct work_struct *work)
+/* debug_mask |= 0x20 for irq_handler */
+static irqreturn_t irq_handler_soft(int irq, void *context)
 {
-	struct data *ts = container_of(work, struct data, work_irq);
+	struct data *ts = (struct data *) context;
+	int ret;
+	u32	time_elapsed;
 
-	int read_retval = read_mtp_report(ts, ts->rx_packet);
+	pr_info_if(0x20, "Enter\n");
 
-	u64	time_elapsed = jiffies;
-	if (time_elapsed >= ts->irq_receive_time)
-		time_elapsed = time_elapsed - ts->irq_receive_time;
-	else
-		time_elapsed = time_elapsed +
-					0x100000000 - ts->irq_receive_time;
+	mutex_lock(&ts->i2c_mutex);
 
-	if (read_retval == 0 || time_elapsed > 2 * HZ) {
-		process_touch_report(ts, ts->rx_packet);
-		propagate_report(ts, 0, ts->rx_packet);
+	if (gpio_get_value(ts->pdata->gpio_tirq) != 0)
+		goto irq_handler_soft_complete;
+
+	ret = read_mtp_report(ts, ts->rx_packet);
+
+	time_elapsed = time_difference(jiffies, ts->irq_receive_time);
+
+	/* Verify time_elapsed < 1s */
+	if (ret == 0 && time_elapsed < HZ) {
+		ret = combine_multipacketreport(ts);
+		if (ret == 0)
+			ret = process_report(ts, ts->rx_packet);
+		if (ret == 0)
+			ret = process_rbcmd(ts);
+		if (ret == 0)
+			ret = process_report_sysfs(ts);
 	}
-	atomic_dec(&ts->scheduled_work_irq);
-	/* enable_irq(ts->client->irq); */
+
+irq_handler_soft_complete:
+	mutex_unlock(&ts->i2c_mutex);
+#if !defined (CONFIG_MACH_LGE_L9II_COMMON)
+	atomic_set(&ts->irq_processing, 0);
+#endif
+	pr_info_if(0x20, "Exit\n");
+	return IRQ_HANDLED;
 }
 
-static irqreturn_t irq_handler(int irq, void *context)
+static irqreturn_t irq_handler_hard(int irq, void *context)
 {
 	struct data *ts = (struct data *) context;
 
-	if (atomic_read(&ts->scheduled_work_irq) != 0)
-		return IRQ_HANDLED;
+	pr_info_if(0x20, "Enter\n");
+
+#if !defined (CONFIG_MACH_LGE_L9II_COMMON)
+	if (atomic_read(&ts->irq_processing) == 1)
+		goto irq_handler_hard_complete;
+#endif
 
 	if (gpio_get_value(ts->pdata->gpio_tirq) != 0)
-		return IRQ_HANDLED;
+		goto irq_handler_hard_complete;
 
-	/* disable_irq_nosync(ts->client->irq); */
-	atomic_inc(&ts->scheduled_work_irq);
+#if !defined (CONFIG_MACH_LGE_L9II_COMMON)
+	atomic_set(&ts->irq_processing, 1);
+#endif
+
 	ts->irq_receive_time = jiffies;
 	ts->irq_count++;
 
-	queue_work(ts->wq, &ts->work_irq);
+	pr_info_if(0x20, "Exit\n");
+	return IRQ_WAKE_THREAD;
+
+irq_handler_hard_complete:
+	pr_info_if(0x20, "Exit\n");
 	return IRQ_HANDLED;
 }
 
@@ -941,18 +1101,15 @@ static ssize_t sreset_store(struct device *dev, struct device_attribute *attr,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct data *ts = i2c_get_clientdata(client);
+	u16 cmd_buf[] = {0x00E9, 0x0000};
+	/* Report should be of length + 1 < 10 */
+	u16 rpt_buf[10], rpt_len;
+	int ret;
 
-	DISABLE_IRQ();
-	if (sreset(client) != 0) {
+	ret = rbcmd_send_receive(ts, cmd_buf, 2, 0x01A0,
+			rpt_buf, &rpt_len, 3 * HZ);
+	if (ret)
 		pr_err("Failed to do soft reset.");
-		return count;
-	}
-	if (get_report(ts, 0x01A0, 3000) != 0) {
-		pr_err("Failed to receive system status report");
-		return count;
-	}
-
-	release_report(ts);
 	return count;
 }
 
@@ -982,7 +1139,7 @@ static ssize_t dflt_cfg_show(struct device *dev, struct device_attribute *attr,
 	struct data *ts = i2c_get_clientdata(client);
 
 	return snprintf(buf, PAGE_SIZE, "%u 0x%x 0x%x\n", PDATA(defaults_allow),
-			PDATA(default_chip_config), PDATA(default_chip_id));
+			PDATA(default_config_id), PDATA(default_chip_id));
 }
 
 static ssize_t dflt_cfg_store(struct device *dev,
@@ -992,7 +1149,7 @@ static ssize_t dflt_cfg_store(struct device *dev,
 	struct data *ts = i2c_get_clientdata(client);
 
 	(void) sscanf(buf, "%u 0x%x 0x%x", &PDATA(defaults_allow),
-			&PDATA(default_chip_config), &PDATA(default_chip_id));
+			&PDATA(default_config_id), &PDATA(default_chip_id));
 	return count;
 }
 
@@ -1026,43 +1183,87 @@ static ssize_t fw_ver_show(struct device *dev, struct device_attribute *attr,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct data *ts = i2c_get_clientdata(client);
-	u16 build_number = 0;
-	u8 branch = BYTEL(ts->fw_version[3]) >> 6;
 
-	if (ts->fw_version[1] >= 3)
-		build_number = ts->fw_version[4];
-	return snprintf(
-			buf,
-			PAGE_SIZE,
-			"%u.%u.%u p%u%c "
-				"(CRC16 0x%04X=>0x%04X) Chip ID 0x%02X\n",
-			BYTEH(ts->fw_version[2]),
-			BYTEL(ts->fw_version[2]),
-			build_number,
-			BYTEL(ts->fw_version[3]) & 0x3F,
-			(branch == 0) ? ' ' : (branch - 1 + 'a'),
-			(ts->fw_index != -1) ? \
-			PDATA(fw_mapping[ts->fw_index]).file_codesize \
-			: 0, ts->fw_crc16, BYTEH(ts->fw_version[3]));
+	int ret, count = 0;
+	u16 cmd_buf[2];
+	/* Both reports should be of length + 1 < 100 */
+	u16 rpt_buf[100], rpt_len;
+	u16 cst_info_addr = 0;
+
+	/* Read firmware version */
+	cmd_buf[0] = 0x0040;
+	cmd_buf[1] = 0x0000;
+
+	ret = rbcmd_send_receive(ts, cmd_buf, 2, 0x0140,
+			rpt_buf, &rpt_len, HZ/4);
+
+	if (ret)
+		goto err_fw_ver_show;
+
+	ts->chip_id = BYTEH(rpt_buf[4]);
+	count += snprintf(buf, PAGE_SIZE, "fw_ver (%u.%u.%u) " \
+					"chip_id (0x%02X)\n",
+					BYTEH(rpt_buf[3]),
+					BYTEL(rpt_buf[3]),
+					rpt_buf[5],
+					ts->chip_id);
+
+	/* Read touch configuration */
+	cmd_buf[0] = 0x0002;
+	cmd_buf[1] = 0x0000;
+
+	ret = rbcmd_send_receive(ts, cmd_buf, 2, 0x0102,
+			rpt_buf, &rpt_len, HZ/4);
+
+	if (ret) {
+		pr_err("Failed to receive chip config\n");
+		goto err_fw_ver_show;
+	}
+
+	ts->config_id = rpt_buf[3];
+
+	count += snprintf(buf + count, PAGE_SIZE, "config_id (0x%04X) ",
+					ts->config_id);
+	switch (ts->chip_id) {
+	case 0x55:
+	case 0x57:
+		cst_info_addr = 42;
+		break;
+	case 0x72:
+	case 0x73:
+	case 0x74:
+	case 0x75:
+		cst_info_addr = 58;
+		break;
+	default:
+		break;
+	}
+	if (cst_info_addr != 0)
+		count += snprintf(buf + count, PAGE_SIZE,
+				"customer_info[1:0] (0x%04X, 0x%04X)\n",
+				rpt_buf[cst_info_addr + 1],
+				rpt_buf[cst_info_addr]);
+	return count;
+
+err_fw_ver_show:
+	return count;
 }
-
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 /* Sysfs - for touch firmware version */
 static ssize_t device_fw_ver_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
         struct i2c_client *client = to_i2c_client(dev);
         struct data *ts = i2c_get_clientdata(client);
-        u16 build_number = 0;
 
-	if (ts->fw_version[1] >= 3)
-		build_number = ts->fw_version[4];
-	return snprintf(buf, PAGE_SIZE, "%u\n", build_number);
+	return snprintf(buf, PAGE_SIZE, "%u\n", ts->fw_version);
 }
+#endif
 
 static ssize_t driver_ver_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "3.0.7: Feb 22, 2013\n");
+	return snprintf(buf, PAGE_SIZE, "3.2.3: May 29, 2013\n");
 }
 
 static ssize_t debug_show(struct device *dev, struct device_attribute *attr,
@@ -1087,9 +1288,9 @@ static ssize_t command_store(struct device *dev, struct device_attribute *attr,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct data *ts = i2c_get_clientdata(client);
-	u16 buffer[MAX_WORDS_COMMAND_ALL];
+	u16 buffer[CMD_LEN_MAX];
 	char scan_buf[5];
-	int i;
+	int i, ret;
 
 	count--; /* ignore carriage return */
 	if ((count % 4) != 0) {
@@ -1103,11 +1304,22 @@ static ssize_t command_store(struct device *dev, struct device_attribute *attr,
 			pr_err("bad word (%s)", scan_buf);
 			return -EINVAL;
 		}
-
 	}
-	if (send_mtp_command(ts, buffer, count / 4))
+	ret = cmd_send(ts, buffer, count / 4);
+	if (ret)
 		pr_err("MTP command failed");
 	return ++count;
+}
+
+static int process_report_sysfs(struct data *ts)
+{
+	down_write(&ts->rwsema_report_sysfs);
+	ts->report_sysfs_rx_report_len = ts->rx_report_len;
+	memcpy(ts->report_sysfs_rx_report, ts->rx_report,
+			(ts->rx_report_len + 1)<<1);
+	up_write(&ts->rwsema_report_sysfs);
+	wake_up_interruptible(&ts->waitqueue_report_sysfs);
+	return 0;
 }
 
 static ssize_t report_read(struct file *file, struct kobject *kobj,
@@ -1115,47 +1327,66 @@ static ssize_t report_read(struct file *file, struct kobject *kobj,
 {
 	struct i2c_client *client = kobj_to_i2c_client(kobj);
 	struct data *ts = i2c_get_clientdata(client);
-	int printed, i, offset = 0, payload;
-	int full_packet;
-	int num_term_char;
+	int printed;
+	u32 i, offset = 0;
+	u32 payload, num_term_char, return_len;
 
-	if (get_report(ts, 0xFFFF, 0xFFFFFFFF))
-		return 0;
+	DEFINE_WAIT(wait);
+	prepare_to_wait(&ts->waitqueue_report_sysfs, &wait, TASK_INTERRUPTIBLE);
+	schedule();
+	finish_wait(&ts->waitqueue_report_sysfs, &wait);
+	if (signal_pending(current))
+		goto err_report_read_signal;
 
-	payload = ts->rx_report_len;
-	full_packet = payload;
+	down_read(&ts->rwsema_report_sysfs);
+
+	payload = ts->report_sysfs_rx_report_len;
 	num_term_char = 2; /* number of term char */
-	if (count < (4 * full_packet + num_term_char))
-		return -EIO;
-	if (count > (4 * full_packet + num_term_char))
-		count = 4 * full_packet + num_term_char;
+	return_len = 4 * payload + num_term_char;
+
+	if (count < return_len)
+		goto err_report_read_count;
+
+	if (count > return_len)
+		count = return_len;
 
 	for (i = 1; i <= payload; i++) {
 		printed = snprintf(&buf[offset], PAGE_SIZE, "%04X\n",
-			ts->rx_report[i]);
+			ts->report_sysfs_rx_report[i]);
 		if (printed <= 0)
-			return -EIO;
+			goto err_report_read_snprintf;
 		offset += printed - 1;
 	}
 	snprintf(&buf[offset], PAGE_SIZE, ",\n");
-	release_report(ts);
 
+	up_read(&ts->rwsema_report_sysfs);
 	return count;
+
+err_report_read_count:
+err_report_read_snprintf:
+	up_read(&ts->rwsema_report_sysfs);
+	return -EIO;
+err_report_read_signal:
+	return -ERESTARTSYS;
 }
 
-static DEVICE_ATTR(init, 0644, init_show, init_store);
-static DEVICE_ATTR(sreset, 0644, NULL, sreset_store);
-static DEVICE_ATTR(irq_count, 0644, irq_count_show, irq_count_store);
-static DEVICE_ATTR(dflt_cfg, 0644, dflt_cfg_show, dflt_cfg_store);
-static DEVICE_ATTR(panel, 0644, panel_show, panel_store);
-static DEVICE_ATTR(fw_ver, 0444, fw_ver_show, NULL);
-static DEVICE_ATTR(driver_ver, 0444, driver_ver_show, NULL);
-static DEVICE_ATTR(debug, 0644, debug_show, debug_store);
-static DEVICE_ATTR(command, 0644, NULL, command_store);
+static DEVICE_ATTR(init, S_IRUGO | S_IWUSR, init_show, init_store);
+static DEVICE_ATTR(sreset, S_IWUSR, NULL, sreset_store);
+static DEVICE_ATTR(irq_count, S_IRUGO | S_IWUSR, irq_count_show,
+		irq_count_store);
+static DEVICE_ATTR(dflt_cfg, S_IRUGO | S_IWUSR, dflt_cfg_show, dflt_cfg_store);
+static DEVICE_ATTR(panel, S_IRUGO | S_IWUSR, panel_show, panel_store);
+static DEVICE_ATTR(fw_ver, S_IRUGO, fw_ver_show, NULL);
+static DEVICE_ATTR(driver_ver, S_IRUGO, driver_ver_show, NULL);
+static DEVICE_ATTR(debug, S_IRUGO | S_IWUSR, debug_show, debug_store);
+static DEVICE_ATTR(command, S_IWUSR, NULL, command_store);
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 /* Sysfs - for touch firmware version */
 static DEVICE_ATTR(version, 0444, device_fw_ver_show, NULL);
+#endif
 static struct bin_attribute dev_attr_report = {
-		.attr = {.name = "report", .mode = 0444}, .read = report_read };
+		.attr = {.name = "report", .mode = S_IRUGO},
+		.read = report_read };
 
 static struct device_attribute *dev_attrs[] = {
 		&dev_attr_sreset,
@@ -1166,67 +1397,143 @@ static struct device_attribute *dev_attrs[] = {
 		&dev_attr_driver_ver,
 		&dev_attr_debug,
 		&dev_attr_command,
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 /* Sysfs - for touch firmware version */
 		&dev_attr_version,
+#endif
 		NULL };
 
-/* debug_mask |= 0x8 for all driver INIT */
-static void collect_chip_data(struct data *ts)
+/* Send command to chip.
+ */
+static int cmd_send(struct data *ts, u16 *buf, u16 len)
 {
 	int ret;
 
-	ret = get_report(ts, 0x01A0, 3000);
-	if (ret != 0) {
-		pr_err("Failed to receive system status report");
-		if (PDATA(defaults_allow) == 0)
-			msleep(5000);
-	} else {
-		release_report(ts);
-		ts->fw_responsive = 1;
+	mutex_lock(&ts->i2c_mutex);
+	ret = send_mtp_command(ts, buf, len);
+	mutex_unlock(&ts->i2c_mutex);
+
+	return ret;
+}
+
+/* Send command to chip and expect a report with
+ * id == rpt_id within timeout time.
+ * timeout is measured in jiffies. 1s = HZ jiffies
+ */
+/* debug_mask |= 0x40 for all rbcmd */
+static int rbcmd_send_receive(struct data *ts, u16 *cmd_buf,
+		u16 cmd_len, u16 rpt_id,
+		u16 *rpt_buf, u16 *rpt_len, u16 timeout)
+{
+	int ret;
+	pr_info_if(0x40, "Enter\n");
+	ret = down_interruptible(&ts->sema_rbcmd);
+	if (ret != 0)
+		goto err_rbcmd_send_receive_sema_rbcmd;
+
+	ts->rbcmd_report_id = rpt_id;
+	ts->rbcmd_rx_report = rpt_buf;
+	ts->rbcmd_rx_report_len = rpt_len;
+	ts->rbcmd_received = 0;
+	ts->rbcmd_waiting = 1;
+
+	ret = cmd_send(ts, cmd_buf, cmd_len);
+	if (ret)
+		goto err_rbcmd_send_receive_cmd_send;
+
+	ret = wait_event_interruptible_timeout(ts->waitqueue_rbcmd,
+			ts->rbcmd_received != 0, timeout);
+	if (ret < 0 || ts->rbcmd_received == 0)
+		goto err_rbcmd_send_receive_timeout;
+
+	pr_info_if(0x40, "Received report_ID (0x%04X) " \
+					"report_len (%d)\n",
+					ts->rbcmd_report_id,
+					*ts->rbcmd_rx_report_len);
+
+	ts->rbcmd_waiting = 0;
+	up(&ts->sema_rbcmd);
+	pr_info_if(0x40, "Exit");
+	return 0;
+
+err_rbcmd_send_receive_timeout:
+	pr_info_if(0x40, "Timed out waiting for report_ID (0x%04X)\n",
+				ts->rbcmd_report_id);
+err_rbcmd_send_receive_cmd_send:
+	ts->rbcmd_waiting = 0;
+	up(&ts->sema_rbcmd);
+err_rbcmd_send_receive_sema_rbcmd:
+	pr_info_if(0x40, "Exit\n");
+	return -ERESTARTSYS;
+}
+
+/* debug_mask |= 0x8 for all driver INIT */
+static int read_chip_data(struct data *ts)
+{
+	int ret;
+	u16 loopcounter;
+	u16 cmd_buf[2];
+	/* Both reports should be of length + 1 < 100 */
+	u16 rpt_buf[100], rpt_len;
+
+	/* Read firmware version */
+	cmd_buf[0] = 0x0040;
+	cmd_buf[1] = 0x0000;
+
+	loopcounter = 0;
+	ret = -1;
+	while (loopcounter < MAX_FW_RETRIES && ret != 0) {
+		ret = rbcmd_send_receive(ts, cmd_buf, 2, 0x0140,
+				rpt_buf, &rpt_len, HZ/4);
+		loopcounter++;
 	}
-	DISABLE_IRQ();
-	ret = get_fw_version(ts->client);
-	if (ret < 0)
-		pr_err("Failed to retrieve firmware version");
-	if (ret == 0) {
-		ret = get_report(ts, 0x0140, 100);
-		if (ret != 0)
-			pr_err("Failed to receive firmware version report");
-		if (ret == 0) {
-			memcpy(ts->fw_version, &ts->rx_report[1],
-					BYTE_SIZE(ts->rx_report[2] + 2));
-			release_report(ts);
-			ts->have_fw = 1;
-		}
+
+	if (ret) {
+		pr_err("Failed to receive fw version\n");
+		goto err_read_chip_data;
 	}
-	DISABLE_IRQ();
-	ret = get_touch_config(ts->client);
-	if (ret < 0)
-		pr_err("Failed to retrieve touch config");
-	if (ret == 0) {
-		ret = get_report(ts, 0x0102, 100);
-		if (ret != 0)
-			pr_err("Failed to receive touch config report");
-		if (ret == 0) {
-			memcpy(ts->touch_config, &ts->rx_report[1],
-					BYTE_SIZE(ts->rx_report[2] + 2));
-			release_report(ts);
-			ts->have_touchcfg = 1;
-		}
+
+	ts->chip_id = BYTEH(rpt_buf[4]);
+	pr_info_if(8, "(INIT): fw_ver (%u.%u) " \
+					"chip_id (0x%02X)\n",
+					BYTEH(rpt_buf[3]),
+					BYTEL(rpt_buf[3]),
+					ts->chip_id);
+
+	/* Read touch configuration */
+	cmd_buf[0] = 0x0002;
+	cmd_buf[1] = 0x0000;
+
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+	ts->fw_version = rpt_buf[5];
+#endif
+
+	loopcounter = 0;
+	ret = -1;
+	while (loopcounter < MAX_FW_RETRIES && ret != 0) {
+		ret = rbcmd_send_receive(ts, cmd_buf, 2, 0x0102,
+				rpt_buf, &rpt_len, HZ/4);
+		loopcounter++;
 	}
-	ENABLE_IRQ();
-	pr_info_if(8, "(INIT): firmware responsive: (%u)", ts->fw_responsive);
-	if (ts->fw_responsive) {
-		if (ts->have_fw)
-			pr_info_if(8, "(INIT): firmware version: %u.%u " \
-					"Chip ID: 0x%02X",
-					BYTEH(ts->fw_version[2]),
-					BYTEL(ts->fw_version[2]),
-					BYTEH(ts->fw_version[3]));
-		if (ts->have_touchcfg)
-			pr_info_if(8, "(INIT): configuration ID: 0x%04X",
-					ts->touch_config[2]);
+
+	if (ret) {
+		pr_err("Failed to receive chip config\n");
+		goto err_read_chip_data;
 	}
+
+	ts->config_id = rpt_buf[3];
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+/* use the config)id section to check the touch fw version */
+	if (ts->config_id < 200)
+		ts->fw_version = ts->config_id;
+#endif
+
+	pr_info_if(8, "(INIT): config_id (0x%04X)\n",
+					ts->config_id);
+	return 0;
+
+err_read_chip_data:
+	return ret;
 }
 
 static int device_fw_load(struct data *ts, const struct firmware *fw,
@@ -1261,9 +1568,6 @@ static int device_fw_load(struct data *ts, const struct firmware *fw,
 
 	pr_info_if(8, "(INIT): file_crc16_1 = 0x%04x, chip_crc16_1 = 0x%04x\n",
 			file_crc16_1, chip_crc16_1);
-
-	ts->fw_index = fw_index;
-	ts->fw_crc16 = chip_crc16_1;
 
 	if (file_crc16_1 != chip_crc16_1) {
 		loopcounter = 0;
@@ -1306,81 +1610,48 @@ static int device_fw_load(struct data *ts, const struct firmware *fw,
 	if (ret != 0)
 		return -EIO;
 
-	ts->fw_crc16 = file_crc16_1;
-
-	collect_chip_data(ts);
-	if (ts->have_fw == 0 || ts->have_touchcfg == 0) {
-		pr_err("firmware is unresponsive or inconsistent and "\
-				"no valid configuration is present");
-		return -ENXIO;
-	}
-
 	return 0;
 }
 
-static int is_booting(void)
-{
-	unsigned long long t;
-
-	t = cpu_clock(smp_processor_id());
-	do_div(t, 1000000000);
-	return (t < 30) ? 1 : 0;
-}
-
-#ifdef CONFIG_DOWNLOAD_FEATURE
-static int compare_u16_arrays(u16 *buf1, u16 *buf2, u16 n)
-{
-	int i;
-	for (i = 0; i < n; i++) {
-		if (buf1[i] != buf2[i])
-			return 1;
-	}
-	return 0;
-}
-#endif
-
-u16 calculate_checksum(u16 *buf, u16 n)
-{
-	u16 i, cs = 0;
-	for (i = 0; i < n; i++)
-		cs += buf[i];
-	return cs;
-}
-
-static void check_fw_and_config(struct data *ts)
+static void validate_fw(struct data *ts)
 {
 	const struct firmware *fw;
 	u16 config_id, chip_id;
 	int i, ret;
+	u16 cmd_buf[3];
 
-	collect_chip_data(ts);
-	if ((ts->have_fw == 0 || ts->have_touchcfg == 0) &&
-			PDATA(defaults_allow) == 0) {
-		pr_err("firmware is unresponsive or inconsistent "\
-				"and default selections are disabled");
+	ret = read_chip_data(ts);
+	if (ret && PDATA(defaults_allow) == 0) {
+		pr_err("Firmware is not responsive "\
+				"and default update is disabled\n");
 		return;
 	}
-	config_id = ts->have_touchcfg ? ts->touch_config[2]
-			: PDATA(default_chip_config);
-	chip_id = ts->have_fw ? BYTEH(ts->fw_version[3]) : \
-			PDATA(default_chip_id);
 
-#ifdef FW_DOWNLOAD_FEATURE
+	if (ts->chip_id != 0)
+		chip_id = ts->chip_id;
+	else
+		chip_id = PDATA(default_chip_id);
 
-	for (i = 0; i < PDATA(num_fw_mappings); i++) {
-//                                                                   
-#if 1
+	if (ts->config_id != 0)
+		config_id = ts->config_id;
+	else
+		config_id = PDATA(default_config_id);
+
+	if (PDATA(enable_fw_download) == 1) {
+		for (i = 0; i < PDATA(num_fw_mappings); i++) {
+// LGE_CHANGE_S [hoseong.han@lge.com] 2013-04-13, temporary expedient
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 		if (PDATA(fw_mapping[i]).chip_id == chip_id)
 #else
-		if (PDATA(fw_mapping[i]).config_id == config_id &&
-			PDATA(fw_mapping[i]).chip_id == chip_id)
+			if (PDATA(fw_mapping[i]).config_id == config_id &&
+				PDATA(fw_mapping[i]).chip_id == chip_id)
 #endif 			
-//                                                  
-			break;
-	}
+// LGE_CHANGE_E [hoseong.han@lge.com] 2013-04-13 			
+				break;
+		}
 
-	if (i == PDATA(num_fw_mappings)) {
-		pr_err("FW not found for configID(0x%04X) and chipID(0x%04X)",
+		if (i == PDATA(num_fw_mappings)) {
+			pr_err("FW not found for configID(0x%04X) and chipID(0x%04X)",
 			config_id, chip_id);
 		return;
 	}
@@ -1391,286 +1662,34 @@ static void check_fw_and_config(struct data *ts)
 	ret = request_firmware(&fw, PDATA(fw_mapping[i]).filename,
 					&ts->client->dev);
 
-	if (ret || fw == NULL) {
-		pr_err("firmware request failed (ret = %d, fwptr = %p)",
-			ret, fw);
-		return;
-	}
+		if (ret || fw == NULL) {
+			pr_err("firmware request failed (ret = %d, fwptr = %p)",
+				ret, fw);
+			return;
+		}
 
-	if (device_fw_load(ts, fw, i)) {
+		mutex_lock(&ts->i2c_mutex);
+		disable_irq(ts->client->irq);
+		if (device_fw_load(ts, fw, i)) {
+			release_firmware(fw);
+			pr_err("firmware download failed");
+			enable_irq(ts->client->irq);
+			mutex_unlock(&ts->i2c_mutex);
+			return;
+		}
+
 		release_firmware(fw);
-		pr_err("firmware download failed");
-		return;
+		pr_info_if(8, "(INIT): firmware okay\n");
+		enable_irq(ts->client->irq);
+		mutex_unlock(&ts->i2c_mutex);
+		ret = read_chip_data(ts);
 	}
 
-	release_firmware(fw);
-	pr_info_if(8, "(INIT): firmware download OK");
-
-#endif
-
-	/* configure the chip */
-#ifdef CONFIG_DOWNLOAD_FEATURE
-	u16 reload_touch_config = 0, reload_calib_table = 0,
-		reload_private_config = 0, reload_lookup_x = 0,
-		reload_lookup_y = 0, reload_imagefactor_table = 0;
-	DISABLE_IRQ();
-	ret = get_touch_config(ts->client);
-	if (ret < 0)
-		pr_err("Failed to retrieve touch config");
-	if (ret == 0) {
-		ret = get_report(ts, 0x0102, 100);
-		if (ret != 0)
-			pr_err("Failed to receive touch config report");
-		if (ret == 0) {
-			if (compare_u16_arrays(&ts->rx_report[2],
-				&max1187x_Touch_Configuration_Data[1], 43)
-				!= 0) {
-				pr_info("max1187x_Touch_Configuration_Data "\
-					 "mismatch");
-				reload_touch_config = 1;
-			} else {
-				pr_info("max1187x_Touch_Configuration_Data " \
-					"okay");
-			}
-			release_report(ts);
-		}
-	}
-	u16 mtpdata[] = {0x0000, 0x0000, 0x0000};
-	DISABLE_IRQ();
-	/*Get calibration table*/
-	mtpdata[0] = 0x0011;
-	ret = send_mtp_command(ts, mtpdata, 2);
-	if (ret < 0)
-		pr_err("Failed to retrieve calibration table");
-	if (ret == 0) {
-		ret = get_report(ts, 0x0111, 100);
-		if (ret != 0)
-			pr_err("Failed to receive calibration table report");
-		if (ret == 0) {
-			if (compare_u16_arrays(&ts->rx_report[2],
-				&max1187x_Calibration_Table_Data[1], 51) != 0) {
-				pr_info("max1187x_Calibration_Table_Data "\
-				"mismatch");
-				reload_calib_table = 1;
-			} else {
-				pr_info("max1187x_Calibration_Table_Data "\
-				"okay");
-			}
-			release_report(ts);
-		}
-	}
-
-	DISABLE_IRQ();
-	/*Get private configuration*/
-	mtpdata[0] = 0x0004;
-	ret = send_mtp_command(ts, mtpdata, 2);
-	if (ret < 0)
-		pr_err("Failed to retrieve private config");
-	if (ret == 0) {
-		ret = get_report(ts, 0x0104, 100);
-		if (ret != 0)
-			pr_err("Failed to receive private config report");
-		if (ret == 0) {
-			if (compare_u16_arrays(&ts->rx_report[2],
-				&max1187x_Private_Configuration_Data[1], 24)
-				!= 0) {
-				pr_info("max1187x_Private_Configuration_Data"\
-					" mismatch");
-				reload_private_config = 1;
-			} else {
-				pr_info("max1187x_Private_Configuration_Data"\
-						" okay");
-			}
-			release_report(ts);
-		}
-	}
-
-	DISABLE_IRQ();
-	/*Get Lookup table X*/
-	mtpdata[0] = 0x0031;
-	mtpdata[1] = 0x0001;
-	mtpdata[2] = 0x0000;
-	ret = send_mtp_command(ts, mtpdata, 3);
-	if (ret < 0)
-		pr_err("Failed to retrieve Lookup table X");
-	if (ret == 0) {
-		ret = get_report(ts, 0x0131, 100);
-		if (ret != 0)
-			pr_err("Failed to receive Lookup table X report");
-		if (ret == 0) {
-			if (compare_u16_arrays(&ts->rx_report[3],
-				&max1187x_Lookup_Table_X_Data[3], 8) != 0) {
-				pr_info("max1187x_Lookup_Table_X_Data "\
-				"mismatch");
-				reload_lookup_x = 1;
-			} else {
-				pr_info("max1187x_Lookup_Table_X_Data okay");
-			}
-			release_report(ts);
-		}
-	}
-
-	DISABLE_IRQ();
-	/*Get Lookup table Y*/
-	mtpdata[2] = 0x0001;
-	ret = send_mtp_command(ts, mtpdata, 3);
-	if (ret < 0)
-		pr_err("Failed to retrieve Lookup table Y");
-	if (ret == 0) {
-		ret = get_report(ts, 0x0131, 100);
-		if (ret != 0)
-			pr_err("Failed to receive Lookup table Y report");
-		if (ret == 0) {
-			if (compare_u16_arrays(&ts->rx_report[3],
-				&max1187x_Lookup_Table_Y_Data[3], 8) != 0) {
-				pr_info("max1187x_Lookup_Table_Y_Data "\
-				"mismatch");
-				reload_lookup_y = 1;
-			} else {
-				pr_info("max1187x_Lookup_Table_Y_Data okay");
-			}
-			release_report(ts);
-		}
-	}
-
-#ifdef MAX11871
-	DISABLE_IRQ();
-	/*Get Image Factor Table*/
-	mtpdata[0] = 0x0047;
-	mtpdata[1] = 0x0000;
-	ret = send_mtp_command(ts, mtpdata, 2);
-	if (ret < 0)
-		pr_err("Failed to retrieve Image Factor Table");
-	if (ret == 0) {
-		ret = get_report(ts, 0x0147, 100);
-		if (ret != 0)
-			pr_err("Failed to receive Image Factor Table report");
-		if (ret == 0) {
-			if (ts->rx_report[3] !=
-				calculate_checksum(max1187x_Image_Factor_Table,
-				460)) {
-				pr_info("max1187x_Image_Factor_Table "\
-				"mismatch");
-				reload_imagefactor_table = 1;
-			} else {
-				pr_info("max1187x_Image_Factor_Table okay");
-			}
-			release_report(ts);
-		}
-	}
-#endif
-
-	/*Configuration check has been done
-	 /Now download correct configurations if required*/
-
-	if (reload_touch_config) {
-		DISABLE_IRQ();
-		ret = send_mtp_command(ts, max1187x_Touch_Configuration_Data,
-					44);
-		if (ret < 0)
-			pr_err("Failed to send Touch Config");
-		msleep(100);
-		ENABLE_IRQ();
-	}
-	if (reload_calib_table) {
-		DISABLE_IRQ();
-		ret = send_mtp_command(ts, max1187x_Calibration_Table_Data, 52);
-		if (ret < 0)
-			pr_err("Failed to send Calib Table");
-		msleep(100);
-		ENABLE_IRQ();
-	}
-	if (reload_private_config) {
-		DISABLE_IRQ();
-		ret = send_mtp_command(ts, max1187x_Private_Configuration_Data,
-			25);
-		if (ret < 0)
-			pr_err("Failed to send Private Config");
-		msleep(100);
-		ENABLE_IRQ();
-	}
-	if (reload_lookup_x) {
-		DISABLE_IRQ();
-		ret = send_mtp_command(ts, max1187x_Lookup_Table_X_Data, 11);
-		if (ret < 0)
-			pr_err("Failed to send Lookup Table X");
-		msleep(100);
-		ENABLE_IRQ();
-	}
-	if (reload_lookup_y) {
-		DISABLE_IRQ();
-		ret = send_mtp_command(ts, max1187x_Lookup_Table_Y_Data, 11);
-		if (ret < 0)
-			pr_err("Failed to send Lookup Table Y");
-		msleep(100);
-		ENABLE_IRQ();
-	}
-#ifdef MAX11871
-	if (reload_imagefactor_table) {
-		DISABLE_IRQ();
-		u16 imagefactor_data[104];
-		/*0-59 words*/
-		imagefactor_data[0] = 0x0046;
-		imagefactor_data[1] = 0x003E;
-		imagefactor_data[2] = 0x0000;
-		memcpy(imagefactor_data+3, max1187x_Image_Factor_Table, 60<<1);
-		imagefactor_data[63] = calculate_checksum(imagefactor_data+2,
-				61);
-		send_mtp_command(ts, imagefactor_data, 64);
-		msleep(100);
-		/*60-159 words*/
-		imagefactor_data[0] = 0x0046;
-		imagefactor_data[1] = 0x0066;
-		imagefactor_data[2] = 0x003C;
-		memcpy(imagefactor_data+3, max1187x_Image_Factor_Table+60,
-					100<<1);
-		imagefactor_data[103] = calculate_checksum(imagefactor_data+2,
-					101);
-		send_mtp_command(ts, imagefactor_data, 104);
-		msleep(100);
-		/*160-259 words*/
-		imagefactor_data[0] = 0x0046;
-		imagefactor_data[1] = 0x0066;
-		imagefactor_data[2] = 0x00A0;
-		memcpy(imagefactor_data+3, max1187x_Image_Factor_Table+160,
-					100<<1);
-		imagefactor_data[103] = calculate_checksum(imagefactor_data+2,
-					101);
-		send_mtp_command(ts, imagefactor_data, 104);
-		msleep(100);
-		/*260-359 words*/
-		imagefactor_data[0] = 0x0046;
-		imagefactor_data[1] = 0x0066;
-		imagefactor_data[2] = 0x0104;
-		memcpy(imagefactor_data+3, max1187x_Image_Factor_Table+260,
-					100<<1);
-		imagefactor_data[103] = calculate_checksum(imagefactor_data+2,
-					101);
-		send_mtp_command(ts, imagefactor_data, 104);
-		msleep(100);
-		/*360-459 words*/
-		imagefactor_data[0] = 0x0046;
-		imagefactor_data[1] = 0x0066;
-		imagefactor_data[2] = 0x8168;
-		memcpy(imagefactor_data+3, max1187x_Image_Factor_Table+360,
-					100<<1);
-		imagefactor_data[103] = calculate_checksum(imagefactor_data+2,
-					101);
-		send_mtp_command(ts, imagefactor_data, 104);
-		msleep(100);
-		ENABLE_IRQ();
-	}
-#endif
-	if (reload_touch_config || reload_calib_table ||
-			reload_private_config || reload_lookup_x ||
-			reload_lookup_y || reload_imagefactor_table) {
-		DISABLE_IRQ();
-		sreset(ts->client);
-	}
-#endif
-	ENABLE_IRQ();
-
-	if (change_touch_rpt(ts->client, MAXIM_TOUCH_REPORT_MODE) < 0) {
+	cmd_buf[0] = 0x0018;
+	cmd_buf[1] = 0x0001;
+	cmd_buf[2] = PDATA(max1187x_report_mode);
+	ret = cmd_send(ts, cmd_buf, 3);
+	if (ret) {
 		pr_err("Failed to set up touch report mode");
 		return;
 	}
@@ -1766,10 +1785,10 @@ static struct max1187x_pdata *max1187x_get_platdata_dt(struct device *dev)
 		goto err_max1187x_get_platdata_dt;
 	}
 
-	/* Parse default_chip_config */
-	if (of_property_read_u32(devnode, "default_chip_config",
-		&pdata->default_chip_config)) {
-		pr_err("Failed to get property: default_chip_config\n");
+	/* Parse default_config_id */
+	if (of_property_read_u32(devnode, "default_config_id",
+		&pdata->default_config_id)) {
+		pr_err("Failed to get property: default_config_id\n");
 		goto err_max1187x_get_platdata_dt;
 	}
 
@@ -1834,16 +1853,86 @@ static struct max1187x_pdata *max1187x_get_platdata_dt(struct device *dev)
 	}
 
 	/* Parse row_count */
-	if (of_property_read_u32(devnode, "num_rows",
-		&pdata->num_rows)) {
-		pr_err("Failed to get property: num_rows\n");
+	if (of_property_read_u32(devnode, "num_sensor_x",
+		&pdata->num_sensor_x)) {
+		pr_err("Failed to get property: num_sensor_x\n");
 		goto err_max1187x_get_platdata_dt;
 	}
 
-	/* Parse num_cols */
-	if (of_property_read_u32(devnode, "num_cols",
-		&pdata->num_cols)) {
-		pr_err("Failed to get property: num_cols\n");
+	/* Parse num_sensor_y */
+	if (of_property_read_u32(devnode, "num_sensor_y",
+		&pdata->num_sensor_y)) {
+		pr_err("Failed to get property: num_sensor_y\n");
+		goto err_max1187x_get_platdata_dt;
+	}
+
+	/* Parse button_code0 */
+	if (of_property_read_u32(devnode, "button_code0",
+		&pdata->button_code0)) {
+		pr_err("Failed to get property: button_code0\n");
+		goto err_max1187x_get_platdata_dt;
+	}
+
+	/* Parse button_code1 */
+	if (of_property_read_u32(devnode, "button_code1",
+		&pdata->button_code1)) {
+		pr_err("Failed to get property: button_code1\n");
+		goto err_max1187x_get_platdata_dt;
+	}
+
+	/* Parse button_code2 */
+	if (of_property_read_u32(devnode, "button_code2",
+		&pdata->button_code2)) {
+		pr_err("Failed to get property: button_code2\n");
+		goto err_max1187x_get_platdata_dt;
+	}
+
+	/* Parse button_code3 */
+	if (of_property_read_u32(devnode, "button_code3",
+		&pdata->button_code3)) {
+		pr_err("Failed to get property: button_code3\n");
+		goto err_max1187x_get_platdata_dt;
+	}
+
+	/* Parse linux_touch_protocol */
+	if (of_property_read_u32(devnode, "linux_touch_protocol",
+		&pdata->linux_touch_protocol)) {
+		pr_err("Failed to get property: linux_touch_protocol\n");
+		goto err_max1187x_get_platdata_dt;
+	}
+
+	/* Parse max1187x_report_mode */
+	if (of_property_read_u32(devnode, "max1187x_report_mode",
+		&pdata->max1187x_report_mode)) {
+		pr_err("Failed to get property: max1187x_report_mode\n");
+		goto err_max1187x_get_platdata_dt;
+	}
+
+	/* Parse enable_touch_wakeup */
+	if (of_property_read_u32(devnode, "enable_touch_wakeup",
+		&pdata->enable_touch_wakeup)) {
+		pr_err("Failed to get property: enable_touch_wakeup\n");
+		goto err_max1187x_get_platdata_dt;
+	}
+
+	/* Parse enable_pressure_shaping */
+	if (of_property_read_u32(devnode, "enable_pressure_shaping",
+		&pdata->enable_pressure_shaping)) {
+		pr_err("Failed to get property: enable_pressure_shaping\n");
+		goto err_max1187x_get_platdata_dt;
+	}
+
+	/* Parse enable_fast_calculation */
+	if (of_property_read_u32(devnode, "enable_fast_calculation",
+		&pdata->enable_fast_calculation)) {
+		pr_err("Failed to get property: enable_fast_calculation\n");
+		goto err_max1187x_get_platdata_dt;
+	}
+
+	/* Parse enable_fw_download */
+	if (of_property_read_u32(devnode, "enable_fw_download",
+		&pdata->enable_fw_download)) {
+		pr_err("Failed to get property: enable_fw_download\n");
 		goto err_max1187x_get_platdata_dt;
 	}
 
@@ -1885,13 +1974,28 @@ static int validate_pdata(struct max1187x_pdata *pdata)
 		goto err_validate_pdata;
 	}
 
-	if (pdata->num_rows == 0 || pdata->num_rows > 40) {
-		pr_err("num_rows (%u) out of range!\n", pdata->num_rows);
+	if (pdata->num_sensor_x == 0 || pdata->num_sensor_x > 40) {
+		pr_err("num_sensor_x (%u) out of range!\n",
+				pdata->num_sensor_x);
 		goto err_validate_pdata;
 	}
 
-	if (pdata->num_cols == 0 || pdata->num_cols > 40) {
-		pr_err("num_cols (%u) out of range!\n", pdata->num_cols);
+	if (pdata->num_sensor_y == 0 || pdata->num_sensor_y > 40) {
+		pr_err("num_sensor_y (%u) out of range!\n",
+				pdata->num_sensor_y);
+		goto err_validate_pdata;
+	}
+
+	if (pdata->linux_touch_protocol > 1) {
+		pr_err("linux_touch_protocol (%u) out of range!\n",
+				pdata->linux_touch_protocol);
+		goto err_validate_pdata;
+	}
+
+	if (pdata->max1187x_report_mode == 0 ||
+			pdata->max1187x_report_mode > 2) {
+		pr_err("max1187x_report_mode (%u) out of range!\n",
+				pdata->max1187x_report_mode);
 		goto err_validate_pdata;
 	}
 
@@ -1906,7 +2010,11 @@ static int max1187x_chip_init(struct max1187x_pdata *pdata, int value)
 	int  ret;
 
 	if (value) {
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 		ret = gpio_request(pdata->gpio_tirq, "touch_int"); // Hanz_touch 2013-04-15 touch irq  "max1187x_tirq");
+#else
+		ret = gpio_request(pdata->gpio_tirq, "max1187x_tirq");
+#endif
 		if (ret) {
 			pr_err("GPIO request failed for max1187x_tirq (%d)\n",
 				pdata->gpio_tirq);
@@ -1938,9 +2046,6 @@ static int device_init(struct i2c_client *client)
 	struct max1187x_pdata *pdata = NULL;
 	struct device_attribute **dev_attr = dev_attrs;
 	int ret = 0;
-//                                                
-	int i;
-//                                               
 
 	init_state = 1;
 	dev_info(dev, "(INIT): Start");
@@ -1985,19 +2090,20 @@ static int device_init(struct i2c_client *client)
 	ts->pdata = pdata;
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
-	mutex_init(&ts->irq_mutex);
+
+#if !defined (CONFIG_MACH_LGE_L9II_COMMON)
+	atomic_set(&ts->irq_processing, 0);
+#endif
+
 	mutex_init(&ts->i2c_mutex);
-	mutex_init(&ts->report_mutex);
-	sema_init(&ts->report_sem, 1);
-	ts->fw_index = -1;
-//                                                            
+	sema_init(&ts->sema_rbcmd, 1);
+	init_rwsem(&ts->rwsema_report_sysfs);
 	ts->button0 = 0;
 	ts->button1 = 0;
 	ts->button2 = 0;
 	ts->button3 = 0;
-//                                               
 
-//start hoseong.han
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 	if (ts->pdata->power_func) {
 		ret = ts->pdata->power_func(1);
 		if (ret) {
@@ -2006,17 +2112,10 @@ static int device_init(struct i2c_client *client)
 		}
 	}
 	ts->pwr_state = PWR_ON;
-//end hoseong.han
+#endif
 
-	/* Create singlethread workqueue */
-	ts->wq = create_singlethread_workqueue("max1187x_wq");
-	if (ts->wq == NULL) {
-		pr_err("Not able to create workqueue\n");
-		ret = -ENOMEM;
-		goto err_device_init_memalloc;
-	}
-	INIT_WORK(&ts->work_irq, max1187x_wfxn_irq);
-	atomic_set(&ts->scheduled_work_irq, 0);
+	init_waitqueue_head(&ts->waitqueue_rbcmd);
+	init_waitqueue_head(&ts->waitqueue_report_sysfs);
 
 	pr_info_if(8, "(INIT): Memory allocation OK");
 
@@ -2026,19 +2125,6 @@ static int device_init(struct i2c_client *client)
 		goto err_device_init_gpio;
 	}
 	pr_info_if(8, "(INIT): chip init OK");
-
-	/* Setup IRQ and handler */
-	if (request_irq(client->irq, irq_handler,
-				IRQF_TRIGGER_FALLING, client->name, ts) != 0) {
-			pr_err("Failed to setup IRQ handler");
-			ret = -EIO;
-			goto err_device_init_gpio;
-	}
-	pr_info_if(8, "(INIT): IRQ handler OK");
-
-	/* collect controller ID and configuration ID data from firmware   */
-	/* and perform firmware comparison/download if we have valid image */
-	check_fw_and_config(ts);
 
 	/* allocate and register touch device */
 	ts->input_dev = input_allocate_device();
@@ -2054,14 +2140,14 @@ static int device_init(struct i2c_client *client)
 	ts->input_dev->id.bustype = BUS_I2C;
 	__set_bit(EV_SYN, ts->input_dev->evbit);
 	__set_bit(EV_ABS, ts->input_dev->evbit);
-//                                                            
 	__set_bit(EV_KEY, ts->input_dev->evbit);
-//                                               
-#ifdef MAX1187X_PROTOCOL_A
-	input_set_abs_params(ts->input_dev, ABS_MT_TRACKING_ID, 0, 10, 0, 0);
-#else
-	input_mt_init_slots(ts->input_dev, MAX1187X_TOUCH_COUNT_MAX);
-#endif
+
+	if (PDATA(linux_touch_protocol) == 0)
+		input_set_abs_params(ts->input_dev, ABS_MT_TRACKING_ID,
+				0, MAX1187X_TOUCH_COUNT_MAX, 0, 0);
+	else
+		input_mt_init_slots(ts->input_dev, MAX1187X_TOUCH_COUNT_MAX);
+
 	ts->list_finger_ids = 0;
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X,
 			PDATA(panel_margin_xl),
@@ -2069,34 +2155,76 @@ static int device_init(struct i2c_client *client)
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y,
 			PDATA(panel_margin_yl),
 			PDATA(panel_margin_yl) + PDATA(lcd_y), 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_MT_PRESSURE, 0, 0xFF, 0, 0);
-#if MAXIM_TOUCH_REPORT_MODE == 2
-	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR,
-			0, max(PDATA(lcd_x), PDATA(lcd_x)), 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MINOR,
-			0, min(PDATA(lcd_x), PDATA(lcd_x)), 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_MT_ORIENTATION, -90, 90, 0, 0);
-#endif
-//                                                            
-	for (i = 0; i < 4; i++) {
-		if (pdata->button_code[i] != KEY_RESERVED)
-			set_bit(pdata->button_code[i], ts->input_dev->keybit);
-	}
-//                                               
 
-	if (input_register_device(ts->input_dev)) {
+	if (PDATA(enable_pressure_shaping) == 0)
+		input_set_abs_params(ts->input_dev, ABS_MT_PRESSURE,
+				0, 0xFFFF, 0, 0);
+	else
+		input_set_abs_params(ts->input_dev, ABS_MT_PRESSURE,
+			0, PRESSURE_MAX_SQRT, 0, 0);
+
+	if (PDATA(linux_touch_protocol) == 0)
+		input_set_abs_params(ts->input_dev, ABS_MT_TOOL_TYPE,
+			0, MT_TOOL_MAX, 0, 0);
+
+	if (PDATA(max1187x_report_mode) == 2) {
+		input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR,
+			0, PDATA(lcd_x) + PDATA(lcd_y), 0, 0);
+		input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MINOR,
+			0, PDATA(lcd_x) + PDATA(lcd_y), 0, 0);
+		input_set_abs_params(ts->input_dev, ABS_MT_ORIENTATION,
+				-90, 90, 0, 0);
+	}
+
+	if (PDATA(button_code0) != KEY_RESERVED)
+		set_bit(pdata->button_code0, ts->input_dev->keybit);
+	if (PDATA(button_code1) != KEY_RESERVED)
+		set_bit(pdata->button_code1, ts->input_dev->keybit);
+	if (PDATA(button_code2) != KEY_RESERVED)
+		set_bit(pdata->button_code2, ts->input_dev->keybit);
+	if (PDATA(button_code3) != KEY_RESERVED)
+		set_bit(pdata->button_code3, ts->input_dev->keybit);
+
+	if (PDATA(enable_touch_wakeup) == 1)
+		set_bit(KEY_POWER, ts->input_dev->keybit);
+
+	ret = input_register_device(ts->input_dev);
+	if (ret) {
 		pr_err("Failed to register touch input device");
 		ret = -EPERM;
 		goto err_device_init_register_inputdev;
 	}
 	pr_info_if(8, "(INIT): Input touch device OK");
 
+	/* Setup IRQ and handler */
+	ret = request_threaded_irq(client->irq,
+			irq_handler_hard, irq_handler_soft,
+			IRQF_TRIGGER_FALLING, client->name, ts);
+	if (ret != 0) {
+			pr_err("Failed to setup IRQ handler");
+			ret = -EIO;
+			goto err_device_init_irq;
+	}
+	pr_info_if(8, "(INIT): IRQ handler OK");
+
+	/* collect controller ID and configuration ID data from firmware   */
+	/* and perform firmware comparison/download if we have valid image */
+	validate_fw(ts);
+
 	/* configure suspend/resume */
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 1;
 	ts->early_suspend.suspend = early_suspend;
 	ts->early_suspend.resume = late_resume;
 	register_early_suspend(&ts->early_suspend);
-	ts->early_suspend_registered = 1;
+#elif defined CONFIG_FB
+	ts->fb_notif.notifier_call = fb_notifier_callback;
+	ret = fb_register_client(&ts->fb_notif);
+	if (ret)
+		pr_err("Unable to register fb_notifier");
+#endif
+
+	ts->is_suspended = 0;
 	pr_info_if(8, "(INIT): suspend/resume registration OK");
 
 	/* set up debug interface */
@@ -2115,15 +2243,21 @@ static int device_init(struct i2c_client *client)
 	}
 	ts->sysfs_created++;
 
+	if (PDATA(enable_touch_wakeup) == 1) {
+		pr_info("Touch Wakeup Feature setup complete\n");
+		device_init_wakeup(&client->dev, 1);
+		device_wakeup_disable(&client->dev);
+	}
+
 	pr_info("(INIT): Done\n");
 	return 0;
 
+err_device_init_irq:
 err_device_init_register_inputdev:
 	input_free_device(ts->input_dev);
 	ts->input_dev = NULL;
 err_device_init_alloc_inputdev:
 err_device_init_gpio:
-err_device_init_memalloc:
 err_device_init_pdata:
 	kfree(ts);
 err_device_init:
@@ -2133,15 +2267,19 @@ err_device_init:
 static int device_deinit(struct i2c_client *client)
 {
 	struct data *ts = i2c_get_clientdata(client);
-	struct max1187x_pdata *pdata = ts->pdata;
+	struct max1187x_pdata *pdata;
 	struct device_attribute **dev_attr = dev_attrs;
 
 	if (ts == NULL)
 		return 0;
 
-	propagate_report(ts, -1, NULL);
+	pdata = ts->pdata;
 
 	init_state = 0;
+
+	if (PDATA(enable_touch_wakeup) == 1)
+		device_init_wakeup(&client->dev, 0);
+
 	while (*dev_attr) {
 		if (ts->sysfs_created && ts->sysfs_created--)
 			device_remove_file(&client->dev, *dev_attr);
@@ -2150,13 +2288,18 @@ static int device_deinit(struct i2c_client *client)
 	if (ts->sysfs_created && ts->sysfs_created--)
 		device_remove_bin_file(&client->dev, &dev_attr_report);
 
-	if (ts->early_suspend_registered)
-		unregister_early_suspend(&ts->early_suspend);
-	if (ts->input_dev)
-		input_unregister_device(ts->input_dev);
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&ts->early_suspend);
+#elif defined CONFIG_FB
+	if (fb_unregister_client(&ts->fb_notif))
+		pr_err("Error occurred while unregistering fb_notifier.");
+#endif
 
 	if (client->irq)
-		free_irq(client->irq, ts);
+			free_irq(client->irq, ts);
+
+	input_unregister_device(ts->input_dev);
+
 	(void) max1187x_chip_init(pdata, 0);
 	kfree(ts);
 
@@ -2171,8 +2314,6 @@ static int probe(struct i2c_client *client, const struct i2c_device_id *id)
 		return 0;
 	}
 
-	if (!is_booting())
-		return device_init(client);
 	if (IS_ERR(kthread_run(device_init_thread, (void *) client,
 			MAX1187X_NAME))) {
 		pr_err("failed to start kernel thread");
@@ -2190,231 +2331,279 @@ static int remove(struct i2c_client *client)
 }
 
 /*
- COMMANDS
+ Commands
  */
-static int sreset(struct i2c_client *client)
+/* debug_mask |= 0x40 for all rbcmd */
+static int process_rbcmd(struct data *ts)
 {
-	struct data *ts = i2c_get_clientdata(client);
-	u16 data[] = { 0x00E9, 0x0000 };
-	return send_mtp_command(ts, data, NWORDS(data));
+	pr_info_if(0x40, "Enter\n");
+	if (ts->rbcmd_waiting == 0)
+		goto process_rbcmd_complete;
+	if (ts->rbcmd_report_id != ts->rx_report[1])
+		goto process_rbcmd_complete;
+
+	ts->rbcmd_received = 1;
+	memcpy(ts->rbcmd_rx_report, ts->rx_report, (ts->rx_report_len + 1)<<1);
+	*ts->rbcmd_rx_report_len = ts->rx_report_len;
+	wake_up_interruptible(&ts->waitqueue_rbcmd);
+
+process_rbcmd_complete:
+	pr_info_if(0x40, "Exit\n");
+	return 0;
 }
 
-static int get_touch_config(struct i2c_client *client)
+static int combine_multipacketreport(struct data *ts)
 {
-	struct data *ts = i2c_get_clientdata(client);
-	u16 data[] = { 0x0002, 0x0000 };
-	return send_mtp_command(ts, data, NWORDS(data));
-}
-
-static int get_fw_version(struct i2c_client *client)
-{
-	struct data *ts = i2c_get_clientdata(client);
-	u16 data[] = { 0x0040, 0x0000 };
-	return send_mtp_command(ts, data, NWORDS(data));
-}
-
-static int change_touch_rpt(struct i2c_client *client, u16 to)
-{
-	struct data *ts = i2c_get_clientdata(client);
-	u16 data[] = { 0x0018, 0x0001, to & 0x0003 };
-	return send_mtp_command(ts, data, NWORDS(data));
-}
-
-static int combine_multipacketreport(struct data *ts, u16 *report)
-{
-	u16 packet_header = report[0];
+	u16 packet_header = ts->rx_packet[0];
 	u8 packet_seq_num = BYTEH(packet_header);
 	u8 packet_size = BYTEL(packet_header);
 	u16 total_packets, this_packet_num, offset;
 	static u16 packet_seq_combined;
 
 	if (packet_seq_num == 0x11) {
-		memcpy(ts->rx_report, report, (packet_size + 1) << 1);
+		memcpy(ts->rx_report, ts->rx_packet, (packet_size + 1) << 1);
 		ts->rx_report_len = packet_size;
 		packet_seq_combined = 1;
-		return 0;
+		goto combine_multipacketreport_full_received;
 	}
 
 	total_packets = (packet_seq_num & 0xF0) >> 4;
 	this_packet_num = packet_seq_num & 0x0F;
 
 	if (this_packet_num == 1) {
-		if (report[1] == 0x0800) {
-			ts->rx_report_len = report[2] + 2;
+		/* At this time, only raw reports are
+		 * expected to be multi-packet */
+		if (ts->rx_packet[1] == 0x0800) {
+			ts->rx_report_len = ts->rx_packet[2] + 2;
 			packet_seq_combined = 1;
-			memcpy(ts->rx_report, report, (packet_size + 1) << 1);
-			return -EAGAIN;
+			memcpy(ts->rx_report, ts->rx_packet,
+					(packet_size + 1) << 1);
+			goto err_combine_multipacketreport_partial;
 		} else {
-			return -EIO;
+			goto err_combine_multipacketreport_bad_id;
 		}
 	} else if (this_packet_num == packet_seq_combined + 1) {
 		packet_seq_combined++;
 		offset = (this_packet_num - 1) * 0xF4 + 1;
-		memcpy(ts->rx_report + offset, report + 1, packet_size << 1);
+		memcpy(ts->rx_report + offset, ts->rx_packet + 1,
+				packet_size << 1);
 		if (total_packets == this_packet_num)
-			return 0;
+			goto combine_multipacketreport_full_received;
 		else
-			return -EIO;
-	}
+			goto err_combine_multipacketreport_partial;
+	} else
+		goto err_combine_multipacketreport_outofsync;
+
+combine_multipacketreport_full_received:
+	return 0;
+
+err_combine_multipacketreport_partial:
+err_combine_multipacketreport_bad_id:
+err_combine_multipacketreport_outofsync:
 	return -EIO;
 }
 
-static void propagate_report(struct data *ts, int status, u16 *report)
+/* debug_mask |= 0x10 for pm functions */
+
+static void set_suspend_mode(struct data *ts)
 {
-	int i, ret;
+	u16 cmd_buf[] = {0x0020, 0x0001, 0x0000};
+	int ret;
 
-	down(&ts->report_sem);
-	mutex_lock(&ts->report_mutex);
+	pr_info_if(0x10, "Enter\n");
 
-	if (report) {
-		ret = combine_multipacketreport(ts, report);
-		if (ret) {
-			up(&ts->report_sem);
-			mutex_unlock(&ts->report_mutex);
-			return;
-		}
-	}
+	disable_irq(ts->client->irq);
+	ts->is_suspended = 1;
 
-	for (i = 0; i < MAX_REPORT_READERS; i++) {
-		if (status == 0) {
-			if (ts->report_readers[i].report_id == 0xFFFF
-				|| (ts->rx_report[1] != 0
-				&& ts->report_readers[i].report_id
-				== ts->rx_report[1])) {
-				up(&ts->report_readers[i].sem);
-				ts->report_readers[i].reports_passed++;
-				ts->report_readers_outstanding++;
-			}
-		} else {
-			if (ts->report_readers[i].report_id != 0) {
-				ts->report_readers[i].status = status;
-				up(&ts->report_readers[i].sem);
-			}
-		}
-	}
-	if (ts->report_readers_outstanding == 0)
-		up(&ts->report_sem);
-	mutex_unlock(&ts->report_mutex);
+	if (PDATA(enable_touch_wakeup) == 1)
+		if (device_may_wakeup(&ts->client->dev))
+			cmd_buf[2] = 0x6;
+
+	ret = cmd_send(ts, cmd_buf, 3);
+	if (ret)
+		pr_err("Failed to set sleep mode");
+
+	if (PDATA(enable_touch_wakeup) == 1)
+		if (device_may_wakeup(&ts->client->dev))
+			enable_irq(ts->client->irq);
+
+	pr_info_if(0x10, "Exit\n");
+	return;
 }
 
-static int get_report(struct data *ts, u16 report_id, ulong timeout)
+static void set_resume_mode(struct data *ts)
 {
-	int i, ret, status;
+	u16 cmd_buf[] = {0x0020, 0x0001, 0x0002};
+	int ret;
 
-	mutex_lock(&ts->report_mutex);
-	for (i = 0; i < MAX_REPORT_READERS; i++)
-		if (ts->report_readers[i].report_id == 0)
-			break;
-	if (i == MAX_REPORT_READERS) {
-		mutex_unlock(&ts->report_mutex);
-		ENABLE_IRQ();
-		pr_err("maximum readers reached");
-		return -EBUSY;
-	}
-	ts->report_readers[i].report_id = report_id;
-	sema_init(&ts->report_readers[i].sem, 1);
-	down(&ts->report_readers[i].sem);
-	ts->report_readers[i].status = 0;
-	ts->report_readers[i].reports_passed = 0;
-	mutex_unlock(&ts->report_mutex);
-	ENABLE_IRQ();
+	pr_info_if(0x10, "Enter\n");
 
-	if (timeout == 0xFFFFFFFF)
-		ret = down_interruptible(&ts->report_readers[i].sem);
-	else
-		ret = down_timeout(&ts->report_readers[i].sem,
-			(timeout * HZ) / 1000);
+	if (PDATA(enable_touch_wakeup) == 1)
+		if (device_may_wakeup(&ts->client->dev))
+			disable_irq(ts->client->irq);
 
-	mutex_lock(&ts->report_mutex);
-	if (ret && ts->report_readers[i].reports_passed > 0)
-		if (--ts->report_readers_outstanding == 0)
-			up(&ts->report_sem);
-	status = ts->report_readers[i].status;
-	ts->report_readers[i].report_id = 0;
-	mutex_unlock(&ts->report_mutex);
+	ret = cmd_send(ts, cmd_buf, 3);
+	if (ret)
+		pr_err("Failed to set active mode");
 
-	return (status == 0) ? ret : status;
+	cmd_buf[0] = 0x0018;
+	cmd_buf[1] = 0x0001;
+	cmd_buf[2] = PDATA(max1187x_report_mode);
+	ret = cmd_send(ts, cmd_buf, 3);
+	if (ret)
+		pr_err("Failed to set up touch report mode");
+
+	ts->is_suspended = 0;
+
+	enable_irq(ts->client->irq);
+
+	pr_info_if(0x10, "Exit\n");
+
+	return;
 }
 
-static void release_report(struct data *ts)
-{
-	mutex_lock(&ts->report_mutex);
-	if (--ts->report_readers_outstanding == 0)
-		up(&ts->report_sem);
-	mutex_unlock(&ts->report_mutex);
-}
-
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 /* When entering the suspend mode,
  * if user press touch-panel, release them automatically.  */
 static void release_all_ts_event(struct data *ts)
 {
 #ifndef MAX1187X_PROTOCOL_A
-	int i;
+        int i;
 #endif
 
-	if (ts->list_finger_ids) { //Finger Released
+        if (ts->list_finger_ids) { //Finger Released
 #ifdef MAX1187X_PROTOCOL_A
-	        input_mt_sync(ts->input_dev);
+                input_mt_sync(ts->input_dev);
 #else
-		for (i = 0; i < MAX1187X_TOUCH_COUNT_MAX; i++) {
-			input_mt_slot(ts->input_dev, i);
-			input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, 0);
-		}
+                for (i = 0; i < MAX1187X_TOUCH_COUNT_MAX; i++) {
+                        input_mt_slot(ts->input_dev, i);
+                        input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, 0);
+                }
 #endif
-		ts->list_finger_ids = 0;
-		pr_info_if(4, "(TOUCH) touch finger position released \n");
-	}
-	else if (ts->prev_button_status == KEY_PRESSED) {  //Button Release
-		input_report_key(ts->input_dev, ts->prev_button_code,KEY_RELEASED);
-		pr_info_if(4, "(TOUCH) touch button(%d) is released \n",ts->prev_button_code);
-	}
-	input_sync(ts->input_dev);
+                ts->list_finger_ids = 0;
+                pr_info_if(4, "(TOUCH) touch finger position released \n");
+        }
+        else if (ts->prev_button_status == KEY_PRESSED) {  //Button Release
+                input_report_key(ts->input_dev, ts->prev_button_code,KEY_RELEASED);
+                pr_info_if(4, "(TOUCH) touch button(%d) is released \n",ts->prev_button_code);
+        }
+        input_sync(ts->input_dev);
 }
+#endif
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void early_suspend(struct early_suspend *h)
 {
-	u16 data[] = {0x0020, 0x0001, 0x0000};
-	struct data *ts;
-	ts = container_of(h, struct data, early_suspend);
+	struct data *ts = container_of(h, struct data, early_suspend);
 
-	DISABLE_IRQ();
-	(void)send_mtp_command(ts, data, NWORDS(data));
-	ENABLE_IRQ();
+	pr_info_if(0x10, "Enter\n");
 
-//                                            
+	set_suspend_mode(ts);
+
+#if defined (CONFIG_MACH_LGE_L9II_COMMON) 
+// release all touch at suspend
 	release_all_ts_event(ts);
-//             
-//start hoseong.han
+
+	ts->pwr_state = PWR_SLEEP;
 	if (ts->pdata->power_func) {
 		int ret = ts->pdata->power_func(0);
 		if (ret)
 			pr_err("power off failed");
 	}
-	ts->pwr_state = PWR_SLEEP;
-//end hoseong.han
+#endif
+
+	pr_info_if(0x10, "Exit\n");
+	return;
 }
 
 static void late_resume(struct early_suspend *h)
 {
-	u16 data[] = {0x0020, 0x0001, 0x0002};
-	struct data *ts;
-	ts = container_of(h, struct data, early_suspend);
+	struct data *ts = container_of(h, struct data, early_suspend);
 
-//strat hoseong.han
-	if (ts->pdata->power_func) {
-		int ret = ts->pdata->power_func(1);
-		if (ret)
-			pr_err("power on failed");
-	}
-	ts->pwr_state = PWR_WAKE;
+	pr_info_if(0x10, "Enter\n");
+
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
+        if (ts->pdata->power_func) {
+                int ret = ts->pdata->power_func(1);
+                if (ret)
+                        pr_err("power on failed");
+        }
+        ts->pwr_state = PWR_WAKE;
 	msleep(20);
-//end hoseong.han
+#endif
 
-	/* previous_fingers = current_fingers = 0; */
-	(void)send_mtp_command(ts, data, NWORDS(data));
+	set_resume_mode(ts);
 
-	(void)change_touch_rpt(ts->client, MAXIM_TOUCH_REPORT_MODE);
+	pr_info_if(0x10, "Exit\n");
 }
+#elif defined CONFIG_FB
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank;
+	struct data *ts = container_of(self, struct data, fb_notif);
+
+	if (evdata && evdata->data && event == FB_EVENT_BLANK && ts &&
+			ts->client) {
+		blank = evdata->data;
+		if (ts->is_suspended == 0 && *blank != FB_BLANK_UNBLANK) {
+			pr_info_if(0x10, "FB_BLANK_BLANKED\n");
+			set_suspend_mode(ts);
+		} else if (ts->is_suspended == 1
+				&& *blank == FB_BLANK_UNBLANK) {
+			pr_info_if(0x10, "FB_BLANK_UNBLANK\n");
+			set_resume_mode(ts);
+		}
+	}
+	return 0;
+}
+#endif
+
+static int suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct data *ts = i2c_get_clientdata(to_i2c_client(dev));
+
+	pr_info_if(0x10, "Enter\n");
+
+#if (!defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND))
+	set_suspend_mode(ts);
+#endif
+
+	if (PDATA(enable_touch_wakeup) == 1)
+		if (device_may_wakeup(&client->dev))
+			enable_irq_wake(client->irq);
+
+	pr_info_if(0x10, "Exit\n");
+
+	return 0;
+}
+
+static int resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct data *ts = i2c_get_clientdata(to_i2c_client(dev));
+
+	pr_info_if(0x10, "Enter\n");
+
+	if (PDATA(enable_touch_wakeup) == 1)
+		if (device_may_wakeup(&client->dev))
+			disable_irq_wake(client->irq);
+
+#if (!defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND))
+	set_resume_mode(ts);
+#endif
+
+	pr_info_if(0x10, "Exit\n");
+
+	return 0;
+}
+
+static const struct dev_pm_ops max1187x_pm_ops = {
+	.resume = resume,
+	.suspend = suspend,
+};
 
 #define STATUS_ADDR_H 0x00
 #define STATUS_ADDR_L 0xFF
@@ -2561,34 +2750,33 @@ static int bootloader_enter(struct data *ts)
 	u16 enter[3][2] = { { 0x7F00, 0x0047 }, { 0x7F00, 0x00C7 }, { 0x7F00,
 			0x0007 } };
 
-	DISABLE_IRQ();
 	for (i = 0; i < 3; i++) {
 		if (i2c_tx_words(ts, enter[i], 2) != 2) {
-			ENABLE_IRQ();
 			pr_err("Failed to enter bootloader");
 			return -EIO;
 		}
 	}
 
 	if (bootloader_get_cmd_conf(ts, 5) < 0) {
-		ENABLE_IRQ();
 		pr_err("Failed to enter bootloader mode");
 		return -EIO;
 	}
-	bootloader = 1;
 	return 0;
 }
 
 static int bootloader_exit(struct data *ts)
 {
-	u16 exit[] = { 0x00FE, 0x0001, 0x5432 };
+	int i;
+	u16 exit[3][2] = { { 0x7F00, 0x0040 }, { 0x7F00, 0x00C0 }, { 0x7F00,
+			0x0000 } };
 
-	bootloader = 0;
-	ts->got_report = 0;
-	if (i2c_tx_words(ts, exit, NWORDS(exit)) != NWORDS(exit)) {
-		pr_err("Failed to exit bootloader");
-		return -EIO;
+	for (i = 0; i < 3; i++) {
+		if (i2c_tx_words(ts, exit[i], 2) != 2) {
+			pr_err("Failed to exit bootloader");
+			return -EIO;
+		}
 	}
+
 	return 0;
 }
 
@@ -2742,6 +2930,7 @@ static struct i2c_driver driver = {
 			.name = MAX1187X_NAME,
 			.owner	= THIS_MODULE,
 			.of_match_table = max1187x_dt_match,
+			.pm = &max1187x_pm_ops,
 		},
 };
 
@@ -2761,4 +2950,4 @@ module_exit(max1187x_exit);
 MODULE_AUTHOR("Maxim Integrated Products, Inc.");
 MODULE_DESCRIPTION("MAX1187X Touchscreen Driver");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("3.0.7");
+MODULE_VERSION("3.2.3");

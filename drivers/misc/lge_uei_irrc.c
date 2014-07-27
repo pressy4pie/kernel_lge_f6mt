@@ -31,7 +31,7 @@ static int irrc_parse_dt(struct device *dev, struct uei_irrc_pdata_type *pdata)
 	return 0;
 }
 #else
-//                             
+//LGE_CHANGE bumgyu.kim@lge.com
 static int irrc_parse_dt(struct device *dev, struct uei_irrc_pdata_type *pdata)
 {
 	pdata->reset_gpio = GPIO_IRRC_RESET_N;

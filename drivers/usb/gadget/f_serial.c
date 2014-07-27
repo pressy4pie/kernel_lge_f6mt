@@ -93,11 +93,7 @@ static inline struct f_gser *port_to_gser(struct gserial *p)
 	return container_of(p, struct f_gser, port);
 }
 #define GS_LOG2_NOTIFY_INTERVAL		5	/* 1 << 5 == 32 msec */
-#ifdef CONFIG_USB_G_LGE_ANDROID
 #define GS_NOTIFY_MAXPACKET		16
-#else
-#define GS_NOTIFY_MAXPACKET		10	/* notification + 2 bytes */
-#endif
 #endif
 /*-------------------------------------------------------------------------*/
 
@@ -112,7 +108,7 @@ static struct usb_interface_descriptor gser_interface_desc = {
 #else
 	.bNumEndpoints =	2,
 #endif
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
 	.bInterfaceClass =	USB_CLASS_VENDOR_SPEC,
 	.bInterfaceSubClass =	USB_CLASS_VENDOR_SPEC,
 	.bInterfaceProtocol =	USB_CLASS_VENDOR_SPEC,
@@ -181,7 +177,7 @@ static struct usb_endpoint_descriptor gser_fs_out_desc = {
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 };
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
 static struct usb_descriptor_header *gser_fs_function[] = {
 	(struct usb_descriptor_header *) &gser_interface_desc,
 	(struct usb_descriptor_header *) &gser_fs_in_desc,
@@ -231,7 +227,7 @@ static struct usb_endpoint_descriptor gser_hs_out_desc = {
 	.wMaxPacketSize =	__constant_cpu_to_le16(512),
 };
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
 static struct usb_descriptor_header *gser_hs_function[] = {
 	(struct usb_descriptor_header *) &gser_interface_desc,
 	(struct usb_descriptor_header *) &gser_hs_in_desc,
@@ -335,7 +331,6 @@ static int gport_setup(struct usb_configuration *c)
 		ret = ghsic_ctrl_setup(no_hsic_sports, USB_GADGET_SERIAL);
 		if (ret < 0)
 			return ret;
-		return 0;
 	}
 #endif
 	if (no_hsuart_sports) {
@@ -351,8 +346,6 @@ static int gport_setup(struct usb_configuration *c)
 				port_idx++;
 			}
 		}
-
-		return 0;
 	}
 	return ret;
 }
@@ -619,14 +612,14 @@ static int gser_notify(struct f_gser *gser, u8 type, u16 value,
 	struct usb_ep			*ep = gser->notify;
 	struct usb_request		*req;
 	struct usb_cdc_notification	*notify;
-#ifndef CONFIG_USB_G_LGE_ANDROID
+#ifndef CONFIG_USB_LGE_ANDROID
 	const unsigned			len = sizeof(*notify) + length;
 #endif
 	void				*buf;
 	int				status;
 	struct usb_composite_dev *cdev = gser->port.func.config->cdev;
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
 	unsigned char noti_buf[GS_NOTIFY_MAXPACKET];
 	memset(noti_buf, 0, GS_NOTIFY_MAXPACKET);
 #endif
@@ -634,7 +627,7 @@ static int gser_notify(struct f_gser *gser, u8 type, u16 value,
 	gser->notify_req = NULL;
 	gser->pending = false;
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
 	req->length = GS_NOTIFY_MAXPACKET;
 #else
 	req->length = len;
@@ -648,7 +641,7 @@ static int gser_notify(struct f_gser *gser, u8 type, u16 value,
 	notify->wValue = cpu_to_le16(value);
 	notify->wIndex = cpu_to_le16(gser->data_id);
 	notify->wLength = cpu_to_le16(length);
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
 	memcpy(noti_buf, data, length);
 	memcpy(buf, noti_buf, GS_NOTIFY_MAXPACKET);
 #else
@@ -1002,9 +995,11 @@ int gser_bind_config(struct usb_configuration *c, u8 port_num)
 /**
  * gserial_init_port - bind a gserial_port to its transport
  */
-static int gserial_init_port(int port_num, const char *name)
+static int gserial_init_port(int port_num, const char *name,
+		const char *port_name)
 {
 	enum transport_type transport;
+	int ret = 0;
 
 	if (port_num >= GSERIAL_NO_PORTS)
 		return -ENODEV;
@@ -1030,6 +1025,9 @@ static int gserial_init_port(int port_num, const char *name)
 		no_smd_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
+		ghsic_ctrl_set_port_name(port_name, name);
+		ghsic_data_set_port_name(port_name, name);
+
 		/*client port number will be updated in gport_setup*/
 		no_hsic_sports++;
 		break;
@@ -1045,5 +1043,5 @@ static int gserial_init_port(int port_num, const char *name)
 
 	nr_ports++;
 
-	return 0;
+	return ret;
 }

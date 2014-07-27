@@ -471,19 +471,20 @@ struct input_keymap_entry {
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
 
-/*             
-                                     
-                                      
- */
-#if defined(CONFIG_MACH_LGE_F6_TMUS)|| defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_L9II_OPEN_EU) || defined(CONFIG_MACH_LGE_F6_ORG)|| defined(CONFIG_MACH_LGE_F6_OPEN) || defined(CONFIG_MACH_LGE_F6_TMO)
+/* LGE_CHANGE S
+	* add the quick memo key for F6 TMUS
+	* 2013-01-31, choonghyun.jeon@lge.com
+	*/
+#if defined(CONFIG_MACH_LGE_F6_TMUS)|| defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_L9II_COMMON) \
+	|| defined(CONFIG_MACH_LGE_F6_ORG)|| defined(CONFIG_MACH_LGE_F6_OPEN) || defined(CONFIG_MACH_LGE_F6_TMO)
 #define KEY_QUICKMEMO	499
 #endif
-/*             */
+/* LGE_CHANGE E*/
 
-/*           
-                               
-                        
-                                 
+/* LGE_CHANGE
+ * add keys to work in F3Q(VZW)
+ * when qwerty key press
+ * 2013-1-4, sangyeol.ryu@lge.com
  */
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
 #define KEY_RECENT		251
@@ -1532,7 +1533,7 @@ void input_inject_event(struct input_handle *handle, unsigned int type, unsigned
 
 static inline void input_report_key(struct input_dev *dev, unsigned int code, int value)
 {
-/*            */
+/* LGE_CHANGE */
 /*	input_event(dev, EV_KEY, code, !!value); */
     input_event(dev, EV_KEY, code, value); /* Changed value from boolean to int for cancel key */
 }

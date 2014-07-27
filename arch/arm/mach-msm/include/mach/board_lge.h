@@ -1,23 +1,29 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* arch/arm/mach-msm/include/mach/board_lge.h
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
+ * Copyright (C) 2007 Google, Inc.
+ * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, LGE Inc.
+ * Author: Brian Swetland <swetland@google.com>
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
  */
 
 #ifndef __ARCH_ARM_MACH_MSM_BOARD_LGE_H
 #define __ARCH_ARM_MACH_MSM_BOARD_LGE_H
 
 /*
-                            
+ * TODO : LGE General Define
  */
 
-/*                           */
+/* LGE General platform data */
 
 /* HALL-IC(s5712ACDL1) platform data */
 #ifdef CONFIG_HALLIC_S5712ACDL1
@@ -27,12 +33,12 @@ struct s5712ACDL1_platform_data {
 };
 #endif
 
-/*                              */
+/* LGE General Power Management */
 
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 #define LGE_RAM_CONSOLE_SIZE (124 * SZ_1K * 2)
 #endif
-#ifdef CONFIG_LGE_HANDLE_PANIC
+#ifdef CONFIG_LGE_CRASH_HANDLER
 #define LGE_CRASH_LOG_SIZE (4*SZ_1K)
 #endif
 
@@ -77,9 +83,9 @@ struct chg_cable_info {
 	acc_cable_type cable_type;
 	unsigned ta_ma;
 	unsigned usb_ma;
-/*           
-                            
-                                
+/* LGE_CHANGE
+ * add field for debugging. 
+ * 2012-06-21 lee.yonggu@lge.com
  */
 	int adc;
 	int threshould;
@@ -94,7 +100,6 @@ unsigned lge_pm_get_usb_current(void);
 int is_battery_low_in_lk(void);
 #endif
 
-/*                                                      */
 /* PROXIMITY platform data */
 struct prox_platform_data {
 	uint32_t version;
@@ -102,7 +107,7 @@ struct prox_platform_data {
 	int (*power)(int onoff);
 };
 
-/*                                                                        */
+/* BEGIN : janghyun.bake@lge.com 2012-07-24 Pseudo battery implementation */
 #ifdef CONFIG_LGE_PM
 struct pseudo_batt_info_type {
 	int mode;
@@ -114,13 +119,22 @@ struct pseudo_batt_info_type {
 	int charging;
 };
 #endif
-/*                                        */
+/* END : janghyun.bake@lge.com 2012-07-24 */
 
+/* BEGIN : dukwung.kim@lge.com 2013-07-01 power off charging mode flag */
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+struct off_batt_info_type {
+	int mode;
+	
+};
+#endif
+
+/* END : dukwung.kim@lge.com 2013-07-01 power off charging mode flag */
 #define AGC_COMPRESIION_RATE        0
 #define AGC_OUTPUT_LIMITER_DISABLE  1
 #define AGC_FIXED_GAIN          14
 
-/*                 */
+/* LGE General I2C */
 #ifdef CONFIG_I2C
 struct i2c_registry {
 	u8                     machs;
@@ -149,21 +163,21 @@ bool lge_get_board_usembhc(void);
 void __init lge_add_nfc_devices(void);
 #endif
 
-#ifdef CONFIG_LGE_HANDLE_PANIC
+#ifdef CONFIG_LGE_CRASH_HANDLER
 void __init lge_add_panic_handler_devices(void);
 int lge_get_magic_for_subsystem(void);
 void lge_set_magic_for_subsystem(const char* subsys_name);
 #endif
 
 #if defined(CONFIG_LGE_PM) && defined(CONFIG_DEBUG_FS)
-/*                                               
-                                                 */
+/* LGE_UPDATE_S [dongwon.choi@lge.com] 2013-03-20
+ * for getting gpio dump when ap power collapsed */
 int gpio_debug_init(void);
 void gpio_debug_print(void);
 #else
 static inline int gpio_debug_init(void){ return 0; }
-static inline void gpio_debug_print(void) { retur; }
-/*              */
+static inline void gpio_debug_print(void) { return; }
+/* LGE_UPDATE_E */
 #endif
 
 #ifdef CONFIG_LGE_HIDDEN_RESET
@@ -202,7 +216,7 @@ enum lge_boot_mode_type {
 	LGE_BOOT_MODE_FACTORY,
 	LGE_BOOT_MODE_FACTORY2,
 	LGE_BOOT_MODE_PIFBOOT,
-	LGE_BOOT_MODE_MINIOS    /*                          */
+	LGE_BOOT_MODE_MINIOS    /* LGE_UPDATE for MINIOS2.0 */
 };
 
 #ifdef CONFIG_SWITCH_FSA8008
@@ -229,15 +243,15 @@ extern unsigned int system_rev;
 void __init lge_add_ramconsole_devices(void);
 #endif
 
-/*                            */
+/* LGE_UPDATE_S for MINIOS2.0 */
 enum lge_boot_mode_type lge_get_boot_mode(void);
-/*                            */
+/* LGE_UPDATE_E for MINIOS2.0 */
 
 #if defined(CONFIG_MACH_LGE_FX3_SPCS) && defined(CONFIG_LGE_USB_DIAG_DISABLE)
 int lge_get_emergency_status(void);
 #endif
 
-#endif /*                                 */
+#endif /* __ARCH_ARM_MACH_MSM_BOARD_LGE_H */
 #ifdef CONFIG_LGE_QFPROM_INTERFACE
 void __init lge_add_qfprom_devices(void);
 #endif

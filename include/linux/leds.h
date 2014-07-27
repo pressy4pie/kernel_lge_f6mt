@@ -34,12 +34,12 @@ struct led_classdev {
 	int			 max_brightness;
 	int			 flags;
 
-/*                                                         */
+/* LGE_CHANGE_S, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 #ifdef CONFIG_LGE_PM8038_KPJT
 	int			 pattern_num;
 #else
 #endif
-/*                                                         */
+/* LGE_CHANGE_E, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 
 	/* Lower 16 bits reflect status */
 #define LED_SUSPENDED		(1 << 0)
@@ -89,12 +89,12 @@ extern void led_classdev_unregister(struct led_classdev *led_cdev);
 extern void led_classdev_suspend(struct led_classdev *led_cdev);
 extern void led_classdev_resume(struct led_classdev *led_cdev);
 
-/*                                                         */
+/* LGE_CHANGE_S, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 #ifdef CONFIG_LGE_PM8038_KPJT
 extern int led_pattern_sysfs_register(void);
 #else
 #endif
-/*                                                         */
+/* LGE_CHANGE_E, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 
 /**
  * led_blink_set - set blinking with software fallback

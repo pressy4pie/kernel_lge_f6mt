@@ -23,19 +23,19 @@ XCALBACKUP	: RF CAL Golden Copy 저장용
 #define PTN_FRST_PERSIST_OFFSET_IN_MISC_PARTITION 2048 
 #define PTN_MEID_PERSIST_OFFSET_IN_MISC_PARTITION 12
 #define PTN_NVCRC_PERSIST_OFFSET_IN_MISC_PARTITION 16
-#if 1//                      
+#if 1//LGE_MAC_ADDRESS_BACKUP
 #define PTN_WLAN_MAC_PERSIST_OFFSET_IN_MISC_PARTITION  24
 #define PTN_PF_NIC_MAC_PERSIST_OFFSET_IN_MISC_PARTITION  28
 #endif
 #define PTN_PID_PERSIST_OFFSET_IN_MISC_PARTITION  32
 #define PTN_USBID_PERSIST_OFFSET_IN_MISC_PARTITION  36
 #define PTN_XCAL_OFFSET_IN_MISC_PARTITION         40
-/*                                            */
+/* BEGIN: 0015981 jihoon.lee@lge.com 20110214 */
 /* ADD 0015981: [MANUFACTURE] BACK UP MAC ADDRESS NV */
 //daheui.kim_kcal
 #define PTN_LCD_K_CAL_OFFSET_IN_MISC_PARTITION 48
 //daheui.kim_kcal
-//                                                             
+//For preserving fake battery mode setting - Sujin.shin@lge.com
 #define PTN_POWER_OFFSET_IN_MISC_PARTITION 55
 #define PTN_LCD_K_CAL_PARTITION     (512*PTN_LCD_K_CAL_OFFSET_IN_MISC_PARTITION)
 #define K_CAL_DATA_OFFSET_IN_BYTES 0x680000 //6.5MB - for cayman US kcal
@@ -43,17 +43,17 @@ XCALBACKUP	: RF CAL Golden Copy 저장용
 #define PTN_FRST_PERSIST_POSITION_IN_MISC_PARTITION     (512*PTN_FRST_PERSIST_OFFSET_IN_MISC_PARTITION)*7   //7Mbyte offset 
 #define PTN_MEID_PERSIST_POSITION_IN_MISC_PARTITION     (512*PTN_MEID_PERSIST_OFFSET_IN_MISC_PARTITION)
 #define PTN_NVCRC_PERSIST_POSITION_IN_MISC_PARTITION    (512*PTN_NVCRC_PERSIST_OFFSET_IN_MISC_PARTITION)
-/*                                            */
+/* BEGIN: 0015981 jihoon.lee@lge.com 20110214 */
 /* ADD 0015981: [MANUFACTURE] BACK UP MAC ADDRESS NV */
-#if 1//                      
+#if 1//LGE_MAC_ADDRESS_BACKUP
 #define PTN_WLAN_MAC_PERSIST_POSITION_IN_MISC_PARTITION (512*PTN_WLAN_MAC_PERSIST_OFFSET_IN_MISC_PARTITION)
 #define PTN_PF_NIC_MAC_PERSIST_POSITION_IN_MISC_PARTITION  (512*PTN_PF_NIC_MAC_PERSIST_OFFSET_IN_MISC_PARTITION)
 #endif
-/*                                          */
+/* END: 0015981 jihoon.lee@lge.com 20110214 */
 #define PTN_PID_PERSIST_POSITION_IN_MISC_PARTITION      (512*PTN_PID_PERSIST_OFFSET_IN_MISC_PARTITION)
 #define PTN_USBID_PERSIST_POSITION_IN_MISC_PARTITION    (512*PTN_USBID_PERSIST_OFFSET_IN_MISC_PARTITION)
 #define PTN_XCAL_POSITION_IN_MISC_PARTITION             (512*PTN_XCAL_OFFSET_IN_MISC_PARTITION)
-//                                                             
+//For preserving fake battery mode setting - Sujin.shin@lge.com
 #define PTN_POWER_POSITION_IN_MISC_PARTITION             (512*PTN_POWER_OFFSET_IN_MISC_PARTITION)
 
 
@@ -71,16 +71,16 @@ XCALBACKUP	: RF CAL Golden Copy 저장용
 #define PID_BACKUP_READ				9
 #define PID_BACKUP_WRITE				10
 
-/*                                            */
+/* BEGIN: 0015981 jihoon.lee@lge.com 20110214 */
 /* ADD 0015981: [MANUFACTURE] BACK UP MAC ADDRESS NV */
-#if 1//                      
+#if 1//LGE_MAC_ADDRESS_BACKUP
 #define WLAN_MAC_ADDRESS_BACKUP_READ	11
 #define WLAN_MAC_ADDRESS_BACKUP_WRITE	12
 #define PF_NIC_MAC_BACKUP_READ			13
 #define PF_NIC_MAC_BACKUP_WRITE			14
 #define USBID_REMOTE_WRITE              15
 #endif
-/*                                          */
+/* END: 0015981 jihoon.lee@lge.com 20110214 */
 
 
 #define CALBACKUP_CALFILE		0
@@ -116,13 +116,13 @@ XCALBACKUP	: RF CAL Golden Copy 저장용
 #define FACTORYINFO_BACKUP_64BIT_ALIGNED_SIZE	(FACTORYINFO_MAGIC_CODE_SIZE + FACTORYINFO_BACKUP_SIZE)
 
 
-/*                                            */
+/* BEGIN: 0015981 jihoon.lee@lge.com 20110214 */
 /* ADD 0015981: [MANUFACTURE] BACK UP MAC ADDRESS NV */
-#if 1//                      
+#if 1//LGE_MAC_ADDRESS_BACKUP
 #define MACADDR_BACKUP_SIZE					6
 #define MACADDR_BACKUP_64BIT_ALIGNED_SIZE	(MACADDR_MAGIC_CODE_SIZE + MACADDR_BACKUP_SIZE)
 #endif
-/*                                          */
+/* END: 0015981 jihoon.lee@lge.com 20110214 */
 
 //1 2011.02.25 current smem_alloc size is 24836
 #define BACKUP_TOTAL_SIZE 24836

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,8 +31,8 @@ static atomic_t ispif_irq_cnt;
 static spinlock_t ispif_tasklet_lock;
 static struct list_head ispif_tasklet_q;
 
-/*                                                                   */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.17, jungki.kim[Start] */
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 #define ABANDON_TIMEOUT_VAL 5*1000
 static int is_abandon_flag = 0;
 static void abandon_fn(struct work_struct *work);
@@ -56,7 +56,7 @@ static void abandon_fn(struct work_struct *work)
 
 #define DEINIT_ABANDON_WORK() do{cancel_delayed_work(&abandon_work);}while(0);
 #endif
-/*                                                                 */
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.17, jungki.kim[End] */
 
 static int msm_ispif_intf_reset(struct ispif_device *ispif,
 	uint16_t intfmask, uint8_t vfe_intf)
@@ -287,15 +287,15 @@ static int msm_ispif_config(struct ispif_device *ispif,
 	uint8_t vfe_intf;
 	params_len = params_list->len;
 	ispif_params = params_list->params;
-	pr_err("[RDI] %s: Enable interface\n",__func__);
+	CDBG("Enable interface\n");
 	msm_camera_io_w(0x00000000, ispif->base + ISPIF_IRQ_MASK_ADDR);
 	msm_camera_io_w(0x00000000, ispif->base + ISPIF_IRQ_MASK_1_ADDR);
 	msm_camera_io_w(0x00000000, ispif->base + ISPIF_IRQ_MASK_2_ADDR);
 	for (i = 0; i < params_len; i++) {
 		intftype = ispif_params[i].intftype;
 		vfe_intf = ispif_params[i].vfe_intf;
-		pr_err("%s intftype %x, vfe_intf %d, cid_mask %d\n", __func__, intftype,
-			vfe_intf,ispif_params[i].cid_mask);
+		CDBG("%s intftype %x, vfe_intf %d, csid %d\n", __func__,
+			intftype, vfe_intf, ispif_params[i].csid);
 		if ((intftype >= INTF_MAX) ||
 			(ispif->csid_version <= CSID_VERSION_V2 &&
 			vfe_intf > VFE0) ||
@@ -316,6 +316,7 @@ static int msm_ispif_config(struct ispif_device *ispif,
 		msm_ispif_enable_intf_cids(ispif, intftype,
 			ispif_params[i].cid_mask, vfe_intf);
 	}
+	msm_camera_io_w(0x40, ispif->base + ISPIF_CTRL_ADDR);
 
 	msm_camera_io_w(ISPIF_IRQ_STATUS_MASK, ispif->base +
 					ISPIF_IRQ_MASK_ADDR);
@@ -378,11 +379,11 @@ static void msm_ispif_intf_cmd(struct ispif_device *ispif, uint16_t intfmask,
 	uint32_t cid_mask = 0;
 	uint32_t global_intf_cmd_mask1 = 0xFFFFFFFF;
 
-/*                                                                   */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.17, jungki.kim[Start] */
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 	INIT_ABANDON_WORK();
 #endif
-/*                                                                 */
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.17, jungki.kim[End] */
 
 	while (mask != 0) {
 		if (!(intfmask & (0x1 << intfnum))) {
@@ -414,11 +415,11 @@ static void msm_ispif_intf_cmd(struct ispif_device *ispif, uint16_t intfmask,
 		}
 		mask >>= 1;
 		intfnum++;
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 		MSM_ISPIF_WAIT_FOR_SIG_JUMP(init_end);
 #endif
 	}
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 init_end:
 	DEINIT_ABANDON_WORK();
 #endif
@@ -478,11 +479,11 @@ static int msm_ispif_stop_intf_transfer(struct ispif_device *ispif,
 		intf_cmd_mask);
 	msm_ispif_intf_cmd(ispif, intfmask, intf_cmd_mask, vfe_intf);
 
-/*                                                                   */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.17, jungki.kim[Start] */
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 	INIT_ABANDON_WORK();
 #endif
-/*                                                                 */
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.17, jungki.kim[End] */
 	while (mask != 0) {
 		if (intfmask & (0x1 << intfnum)) {
 			switch (intfnum) {
@@ -492,11 +493,11 @@ static int msm_ispif_stop_intf_transfer(struct ispif_device *ispif,
 					(0x200 * vfe_intf))
 					& 0xf) != 0xf) {
 					CDBG("Wait for pix0 Idle\n");
-/*                                                                   */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.17, jungki.kim[Start] */
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 					MSM_ISPIF_WAIT_FOR_SIG_JUMP2(rc, stop_end);
 #endif
-/*                                                                 */
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.17, jungki.kim[End] */
 				}
 				break;
 
@@ -506,11 +507,11 @@ static int msm_ispif_stop_intf_transfer(struct ispif_device *ispif,
 					(0x200 * vfe_intf))
 					& 0xf) != 0xf) {
 					CDBG("Wait for rdi0 Idle\n");
-/*                                                                   */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.17, jungki.kim[Start] */
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 					MSM_ISPIF_WAIT_FOR_SIG_JUMP2(rc, stop_end);
 #endif
-/*                                                                 */
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.17, jungki.kim[End] */
 				}
 				break;
 
@@ -520,11 +521,11 @@ static int msm_ispif_stop_intf_transfer(struct ispif_device *ispif,
 					(0x200 * vfe_intf))
 					& 0xf) != 0xf) {
 					CDBG("Wait for pix1 Idle\n");
-/*                                                                   */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.17, jungki.kim[Start] */
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 					MSM_ISPIF_WAIT_FOR_SIG_JUMP2(rc, stop_end);
 #endif
-/*                                                                 */
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.17, jungki.kim[End] */
 				}
 				break;
 
@@ -534,11 +535,11 @@ static int msm_ispif_stop_intf_transfer(struct ispif_device *ispif,
 					(0x200 * vfe_intf))
 					& 0xf) != 0xf) {
 					CDBG("Wait for rdi1 Idle\n");
-/*                                                                   */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.17, jungki.kim[Start] */
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 					MSM_ISPIF_WAIT_FOR_SIG_JUMP2(rc, stop_end);
 #endif
-/*                                                                 */
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.17, jungki.kim[End] */
 				}
 				break;
 
@@ -548,11 +549,11 @@ static int msm_ispif_stop_intf_transfer(struct ispif_device *ispif,
 					(0x200 * vfe_intf))
 					& 0xf) != 0xf) {
 					CDBG("Wait for rdi2 Idle\n");
-/*                                                                   */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.17, jungki.kim[Start] */
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 					MSM_ISPIF_WAIT_FOR_SIG_JUMP2(rc, stop_end);
 #endif
-/*                                                                 */
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.17, jungki.kim[End] */
 				}
 				break;
 
@@ -565,11 +566,11 @@ static int msm_ispif_stop_intf_transfer(struct ispif_device *ispif,
 		}
 		mask >>= 1;
 		intfnum++;
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 		MSM_ISPIF_WAIT_FOR_SIG_JUMP2(rc, stop_end);
 #endif
 	}
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 stop_end:
 	DEINIT_ABANDON_WORK();
 #endif
@@ -666,7 +667,7 @@ static void ispif_process_irq(struct ispif_device *ispif,
 
 	if (qcmd->ispifInterruptStatus0 &
 			ISPIF_IRQ_STATUS_PIX_SOF_MASK) {
-			CDBG("%s: ispif PIX irq status", __func__);
+			CDBG("%s: ispif PIX irq status\n", __func__);
 			ispif->pix_sof_count++;
 			v4l2_subdev_notify(&ispif->subdev,
 				NOTIFY_VFE_PIX_SOF_COUNT,
@@ -675,20 +676,23 @@ static void ispif_process_irq(struct ispif_device *ispif,
 
 	if (qcmd->ispifInterruptStatus0 &
 			ISPIF_IRQ_STATUS_RDI0_SOF_MASK) {
-			CDBG("%s: ispif RDI0 irq status", __func__);
 			ispif->rdi0_sof_count++;
+			CDBG("%s: ispif RDI0 irq status, counter = %d",
+				__func__, ispif->rdi0_sof_count);
 			send_rdi_sof(ispif, RDI_0, ispif->rdi0_sof_count);
 	}
 	if (qcmd->ispifInterruptStatus1 &
 		ISPIF_IRQ_STATUS_RDI1_SOF_MASK) {
-		CDBG("%s: ispif RDI1 irq status", __func__);
 		ispif->rdi1_sof_count++;
+		CDBG("%s: ispif RDI1 irq status, counter = %d",
+			__func__, ispif->rdi1_sof_count);
 		send_rdi_sof(ispif, RDI_1, ispif->rdi1_sof_count);
 	}
 	if (qcmd->ispifInterruptStatus2 &
 		ISPIF_IRQ_STATUS_RDI2_SOF_MASK) {
-		CDBG("%s: ispif RDI2 irq status", __func__);
 		ispif->rdi2_sof_count++;
+		CDBG("%s: ispif RDI2 irq status, counter = %d",
+			__func__, ispif->rdi2_sof_count);
 		send_rdi_sof(ispif, RDI_2, ispif->rdi2_sof_count);
 	}
 
@@ -722,7 +726,9 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 	CDBG("%s: irq vfe0 Irq_status0 = 0x%x, 1 = 0x%x, 2 = 0x%x\n",
 		__func__, out->ispifIrqStatus0, out->ispifIrqStatus1,
 		out->ispifIrqStatus2);
-	if (out->ispifIrqStatus0 & ISPIF_IRQ_STATUS_MASK) {
+	if (out->ispifIrqStatus0 & ISPIF_IRQ_STATUS_MASK ||
+		out->ispifIrqStatus1 & ISPIF_IRQ_STATUS_1_MASK ||
+		out->ispifIrqStatus2 & ISPIF_IRQ_STATUS_2_MASK) {
 		if (out->ispifIrqStatus0 & (0x1 << RESET_DONE_IRQ))
 			complete(&ispif->reset_complete);
 		if (out->ispifIrqStatus0 & (0x1 << PIX_INTF_0_OVERFLOW_IRQ))
@@ -878,20 +884,14 @@ static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
 static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
 								void *arg)
 {
-//                                                        
 	struct ispif_device *ispif;
-//                                                       
 	switch (cmd) {
 	case VIDIOC_MSM_ISPIF_CFG:
 		return msm_ispif_cmd(sd, arg);
-		
-//                                                        
 	case VIDIOC_MSM_ISPIF_REL:
 		ispif =	(struct ispif_device *)v4l2_get_subdevdata(sd);
 		msm_ispif_release(ispif);
 		return 0;
-//                                                       
-		
 	default:
 		return -ENOIOCTLCMD;
 	}

@@ -37,7 +37,9 @@
 #include <linux/poll.h>
 #include <linux/version.h>
 
-#include <linux/nfc/bcm43341.h>		//                  
+/* LGE_CHANGE */
+//include <linux/nfc/bcm20779x.h>
+#include <linux/nfc/bcm43341.h>		//hyunho.koh@lge.com
 #include <linux/wakelock.h>
 
 /* do not change below */
@@ -61,8 +63,11 @@ struct bcm2079x_dev {
 	bool irq_enabled;
 	spinlock_t irq_enabled_lock;
 	unsigned int count_irq;
+/* LGE_CHANGE */
+    bool irq_wake_enabled;	//hyunho.koh
 };
 
+/* LGE_CHANGE */
 struct wake_lock nfc_wake_lock;
 
 static void bcm2079x_init_stat(struct bcm2079x_dev *bcm2079x_dev)
@@ -76,7 +81,13 @@ static void bcm2079x_disable_irq(struct bcm2079x_dev *bcm2079x_dev)
 	spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
 	if (bcm2079x_dev->irq_enabled) {
 		disable_irq_nosync(bcm2079x_dev->client->irq);
-		disable_irq_wake(bcm2079x_dev->client->irq);
+	
+/* LGE_CHANGE */
+		if (bcm2079x_dev->irq_wake_enabled)
+		{
+			disable_irq_wake(bcm2079x_dev->client->irq);
+			bcm2079x_dev->irq_wake_enabled = false;
+		}
 		bcm2079x_dev->irq_enabled = false;
 	}
 	spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
@@ -89,7 +100,13 @@ static void bcm2079x_enable_irq(struct bcm2079x_dev *bcm2079x_dev)
 	if (!bcm2079x_dev->irq_enabled) {
 		bcm2079x_dev->irq_enabled = true;
 		enable_irq(bcm2079x_dev->client->irq);
-		enable_irq_wake(bcm2079x_dev->client->irq);
+
+/* LGE_CHANGE */
+		if (!bcm2079x_dev->irq_wake_enabled)
+		{
+			enable_irq_wake(bcm2079x_dev->client->irq);
+			bcm2079x_dev->irq_wake_enabled = true;
+		}
 	}
 	spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
 }
@@ -157,6 +174,7 @@ static irqreturn_t bcm2079x_dev_irq_handler(int irq, void *dev_id)
 	bcm2079x_dev->count_irq++;
 	spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
 	wake_up(&bcm2079x_dev->read_wq);
+/* LGE_CHANGE */
 	wake_lock(&nfc_wake_lock);
 
 	return IRQ_HANDLED;
@@ -239,6 +257,7 @@ static ssize_t bcm2079x_dev_read(struct file *filp, char __user *buf,
 			"failed to copy to user space, total = %d\n", total);
 		total = -EFAULT;
 	}
+/* LGE_CHANGE */
 	if (bcm2079x_dev->count_irq == 0) {
 		wake_unlock(&nfc_wake_lock);
 	}
@@ -342,7 +361,9 @@ static int bcm2079x_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
 	int ret;
-	struct bcm43341_platform_data *platform_data;		//                           
+/* LGE_CHANGE */
+	// struct bcm2079x_platform_data *platform_data;
+	struct bcm43341_platform_data *platform_data;		//hyunho.koh@lge.com for l9ii
 	struct bcm2079x_dev *bcm2079x_dev;
 
 	platform_data = client->dev.platform_data;
@@ -407,6 +428,7 @@ static int bcm2079x_probe(struct i2c_client *client,
 		goto err_misc_register;
 	}
 
+/* LGE_CHANGE */
 	wake_lock_init(&nfc_wake_lock, WAKE_LOCK_SUSPEND, "NFCWAKE");
 
 	/* request irq.  the irq is set whenever the chip has data available
@@ -420,6 +442,10 @@ static int bcm2079x_probe(struct i2c_client *client,
 		dev_err(&client->dev, "request_irq failed\n");
 		goto err_request_irq_failed;
 	}
+	
+/* LGE_CHANGE */
+	bcm2079x_dev->irq_wake_enabled = false;	//hyunho.koh
+	 
 	bcm2079x_disable_irq(bcm2079x_dev);
 	i2c_set_clientdata(client, bcm2079x_dev);
 	dev_info(&client->dev,
@@ -478,8 +504,6 @@ static struct i2c_driver bcm2079x_driver = {
 
 static int __init bcm2079x_dev_init(void)
 {
-	//dev_err(&client->dev, "bcm2079x_dev_init\n");
-	
 	return i2c_add_driver(&bcm2079x_driver);
 }
 module_init(bcm2079x_dev_init);
@@ -491,7 +515,6 @@ static void __exit bcm2079x_dev_exit(void)
 module_exit(bcm2079x_dev_exit);
 
 MODULE_DEVICE_TABLE(i2c, bcm2079x_id);
-
 MODULE_AUTHOR("Broadcom");
 MODULE_DESCRIPTION("NFC bcm2079x driver");
 MODULE_LICENSE("GPL");

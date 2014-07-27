@@ -1706,7 +1706,8 @@ int ecryptfs_new_file_context(struct inode *ecryptfs_inode)
 	ecryptfs_set_default_crypt_stat_vals(crypt_stat, mount_crypt_stat);
 	crypt_stat->flags |= (ECRYPTFS_ENCRYPTED | ECRYPTFS_KEY_VALID);
 #if 1 // FEATURE_SDCARD_ENCRYPTION  DEBUG
-	if (mount_crypt_stat && (mount_crypt_stat->flags & ECRYPTFS_DECRYPTION_ONLY))
+    BUG_ON(!mount_crypt_stat);
+	if (mount_crypt_stat->flags & ECRYPTFS_DECRYPTION_ONLY)
 	{
 		printk(KERN_ERR "%s:%d::CHECK decryption_only set, try encryption disable\n", __FUNCTION__,__LINE__);
 	//	crypt_stat->flags &= ~(ECRYPTFS_ENCRYPTED);

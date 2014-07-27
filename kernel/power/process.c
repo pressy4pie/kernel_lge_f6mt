@@ -142,6 +142,14 @@ int freeze_processes(void)
 {
 	int error;
 
+//LGE_CHANGE_S,[DEVICE_ENCRYPT][hk.song@lge.com][VZW], 2013-05-31 Fixed failure in suspending mode on encrypted device.
+#if defined(CONFIG_MACH_LGE_FX3_VZW)
+	error = suspend_sys_sync_wait();
+	if (error)
+		return error;
+#endif
+//LGE_CHANGE_E,[DEVICE_ENCRYPT][hk.song@lge.com][VZW], 2013-05-31 Fixed failure in suspending mode on encrypted device.
+
 	error = __usermodehelper_disable(UMH_FREEZING);
 	if (error)
 		return error;
@@ -177,9 +185,11 @@ int freeze_kernel_threads(void)
 {
 	int error;
 
+#if !defined(CONFIG_MACH_LGE_FX3_VZW)
 	error = suspend_sys_sync_wait();
 	if (error)
 		return error;
+#endif
 
 	printk("Freezing remaining freezable tasks ... ");
 	pm_nosig_freezing = true;

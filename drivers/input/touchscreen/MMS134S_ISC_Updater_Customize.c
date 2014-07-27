@@ -2,8 +2,8 @@
  * MMS100S ISC Updater customize source
  */
 
-/*                                                
-                                         
+/* [LGE_CHANGE_S] 20130205 mystery184.kim@lge.com 
+ * mms134s f/w upgrade initialize porting
  */
 #include "MMS134S_ISC_Updater_Customize.h"
 
@@ -78,6 +78,6 @@ void MFS_reboot(void)
 
 }
 
-/*                                                
-                                         
+/* [LGE_CHANGE_E] 20130205 mystery184.kim@lge.com 
+ * mms134s f/w upgrade initialize porting
  */

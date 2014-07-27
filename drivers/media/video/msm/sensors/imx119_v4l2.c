@@ -36,10 +36,10 @@ static struct msm_camera_i2c_reg_conf imx119_groupoff_settings[] = {
 };
 
 #if defined(CONFIG_MACH_MSM8960_L1A)
-	/*           
-                                 
-                                
- */
+	/* LGE_CHANGE
+	Seperate l1a_ATT_US from others.
+	2012.02.24 yousung.kang@lge.com
+	*/
 
 static struct msm_camera_i2c_reg_conf imx119_prev_settings[] = {
 	{0x0101, 0x03},
@@ -70,16 +70,16 @@ static struct msm_camera_i2c_reg_conf imx119_prev_settings[] = {
 };
 #else
 static struct msm_camera_i2c_reg_conf imx119_prev_settings[] = {
-//                                                                       
-//                                                                         
+// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-06-11 VT_Rotate_in_KDDI
+// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-06-05 VT_Rotate_in_DOCOMO
 #if defined(CONFIG_MACH_APQ8064_J1D) || defined(CONFIG_MACH_APQ8064_J1KD)
 	{0x0101, 0x00}, /* read out direction */
 #else
 	{0x0101, 0x03}, /* read out direction */
 #endif
-//                                                                       
-//                                                                       
-/*                                                   */
+// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-06-05 VT_Rotate_in_DOCOMO
+// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-06-11 VT_Rotate_in_KDDI
+/* LGE_CHANGE_S Stripe issue fix, hyunuk.park@lge.com*/
 	/*{0x0340, 0x04},
 	{0x0341, 0x28},
 	{0x0346, 0x00},
@@ -104,8 +104,12 @@ static struct msm_camera_i2c_reg_conf imx119_prev_settings[] = {
 	{0x3309, 0x05},
 	{0x330B, 0x03},
 	{0x330D, 0x05},*/
+#if 1 // LGE_CAMERA_IQ_S, flicker fix with 29.5fps, adds linelengthpclk regs, L9II, QCT Andy 20130613
+		{0x0342, 0x05},
+		{0x0343, 0x70},
+#endif // LGE_CAMERA_IQ_E, flicker fix with 29.5fps, adds linelengthpclk regs, L9II, QCT Andy 20130613
 	{0x0340, 0x06},
-	{0x0341, 0x10},
+	{0x0341, 0x2a},//0x10}, // LGE_CAMERA_IQ, flicker fix with 29.5fps, L9II, QCT Andy 20130613
 	{0x0346, 0x00},
 	{0x0347, 0x00},
 	{0x034A, 0x04},
@@ -128,12 +132,12 @@ static struct msm_camera_i2c_reg_conf imx119_prev_settings[] = {
 	{0x3309, 0x07},
 	{0x330B, 0x05},
 	{0x330D, 0x08},
-/*                                                   */
+/* LGE_CHANGE_E Stripe issue fix, hyunuk.park@lge.com*/
 };
 #endif
 
 static struct msm_camera_i2c_reg_conf imx119_recommend_settings[] = {
-/*                                                   */
+/* LGE_CHANGE_S Stripe issue fix, hyunuk.park@lge.com*/
 	/*{0x0305, 0x02},
 	{0x0307, 0x26},
 	{0x3025, 0x0A},
@@ -154,7 +158,7 @@ static struct msm_camera_i2c_reg_conf imx119_recommend_settings[] = {
 	{0x302F, 0x81},*/
 	{0x0305, 0x01},
 	{0x0307, 0x1B},
-/*                                                   */
+/* LGE_CHANGE_E Stripe issue fix, hyunuk.park@lge.com*/
 	{0x3025, 0x0A},
 	{0x302B, 0x4B},
 	{0x0112, 0x0A},
@@ -171,9 +175,9 @@ static struct msm_camera_i2c_reg_conf imx119_recommend_settings[] = {
 	{0x308C, 0x00},
 	{0x302E, 0x8C},
 	{0x302F, 0x81},
-/*           
-                                                       
-                                  
+/* LGE_CHANGE
+ * Fix the rotaion issue for Recorded moive on Windows.
+ * 2012-01-13, soojung.lim@lge.com
  */
 	{0x0101, 0x03},
 };
@@ -203,10 +207,10 @@ static struct msm_sensor_output_info_t imx119_dimensions[] = {
 		.x_output = 0x510,
 		.y_output = 0x410,
 		.line_length_pclk = 0x570,
-/*                                                    */
+/* LGE_CHANGE_S Stripe issue fix, hyunuk.park@lge.com */
 		//.frame_length_lines = 0x432,
-		.frame_length_lines = 0x610,
-/*                                                   */
+		.frame_length_lines = 0x62a,//0x610,// LGE_CAMERA_IQ, flicker fix with 29.5fps, L9II, QCT Andy 20130613
+/* LGE_CHANGE_E Stripe issue fix, hyunuk.park@lge.com*/
 		.vt_pixel_clk = 64800000 ,
 		.op_pixel_clk = 64800000 ,
 	},
@@ -242,7 +246,7 @@ static struct msm_camera_csi2_params *imx119_csi_params_array[] = {
 static struct msm_sensor_output_reg_addr_t imx119_reg_addr = {
 	.x_output = 0x34C,
 	.y_output = 0x34E,
-	.line_length_pclk = 0x342,
+	.line_length_pclk = 0x0342,// LGE_CAMERA_IQ, flicker fix with 29.5fps, L9II, QCT Andy 20130613
 	.frame_length_lines = 0x340,
 };
 
@@ -314,9 +318,9 @@ static struct msm_sensor_fn_t imx119_func_tbl = {
 #endif
 	.sensor_set_fps = msm_sensor_set_fps,
 	.sensor_write_exp_gain = msm_sensor_write_exp_gain1,
-/*                                                                      */
+/* LGE_CHANGE_S, add snapshot exp gain, 2012-03-14, chaehee.lim@lge.com */
 	.sensor_write_snapshot_exp_gain = msm_sensor_write_exp_gain1,
-/*                                                                      */
+/* LGE_CHANGE_E, add snapshot exp gain, 2012-03-14, chaehee.lim@lge.com */
 	.sensor_setting = msm_sensor_setting,
 	.sensor_set_sensor_mode = msm_sensor_set_sensor_mode,
 	.sensor_mode_init = msm_sensor_mode_init,
@@ -324,9 +328,9 @@ static struct msm_sensor_fn_t imx119_func_tbl = {
 	.sensor_config = msm_sensor_config,
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
-//                                                        
+//Start LGE_BSP_CAMERA : au069 patch - jonghwan.ko@lge.com
 	.sensor_get_csi_params = msm_sensor_get_csi_params,
-//                                                       
+//End  LGE_BSP_CAMERA : au069 patch - jonghwan.ko@lge.com
 };
 
 static struct msm_sensor_reg_t imx119_regs = {

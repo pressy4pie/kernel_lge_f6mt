@@ -1,4 +1,4 @@
-/* 
+/*
  * arch/arm/mach-msm/lge/lge_block_monitor.c
  *
  * Copyright (C) 2012 LGE, Inc
@@ -20,13 +20,13 @@
 
 #include <mach/lge_blocking_monitor.h>
 
-#define MAX_BLOCKING_MONITOR_NUMBER	10
+#define MAX_BLOCKING_MONITOR_NUMBER     10
 
 struct blocking_monitor {
-	int id;
-	const char *name;
-	struct timer_list timer;
-	struct task_struct *task;
+	int			id;
+	const char *		name;
+	struct timer_list	timer;
+	struct task_struct *	task;
 };
 
 static struct blocking_monitor *bl_monitor[MAX_BLOCKING_MONITOR_NUMBER];
@@ -75,10 +75,9 @@ int create_blocking_monitor(const char *name)
 {
 	int i;
 
-	for (i = 0; i < MAX_BLOCKING_MONITOR_NUMBER; ++i) {
+	for (i = 0; i < MAX_BLOCKING_MONITOR_NUMBER; ++i)
 		if (bl_monitor[i] == 0)
 			break;
-	}
 
 	if (i == MAX_BLOCKING_MONITOR_NUMBER)
 		return -EINVAL;

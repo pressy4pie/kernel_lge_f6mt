@@ -28,7 +28,7 @@
 #include <linux/miscdevice.h>
 
 #define ADB_BULK_BUFFER_SIZE           4096
-
+#define DEBUG 1
 /* number of tx requests to allocate */
 #define TX_REQ_MAX 4
 
@@ -274,7 +274,7 @@ static ssize_t adb_read(struct file *fp, char __user *buf,
 	int r = count, xfer;
 	int ret;
 
-#ifndef CONFIG_USB_G_LGE_ANDROID
+#ifndef CONFIG_USB_LGE_ANDROID
 	pr_debug("adb_read(%d)\n", count);
 #endif
 	if (!_adb_dev)
@@ -314,7 +314,7 @@ requeue_req:
 		atomic_set(&dev->error, 1);
 		goto done;
 	} else {
-#ifndef CONFIG_USB_G_LGE_ANDROID
+#ifndef CONFIG_USB_LGE_ANDROID
 		pr_debug("rx %p queue\n", req);
 #endif
 	}
@@ -334,7 +334,7 @@ requeue_req:
 		if (req->actual == 0)
 			goto requeue_req;
 
-#ifndef CONFIG_USB_G_LGE_ANDROID
+#ifndef CONFIG_USB_LGE_ANDROID
 		pr_debug("rx %p %d\n", req, req->actual);
 #endif
 		xfer = (req->actual < count) ? req->actual : count;
@@ -349,7 +349,7 @@ done:
 		wake_up(&dev->write_wq);
 
 	adb_unlock(&dev->read_excl);
-#ifndef CONFIG_USB_G_LGE_ANDROID
+#ifndef CONFIG_USB_LGE_ANDROID
 	pr_debug("adb_read returning %d\n", r);
 #endif
 	return r;
@@ -365,7 +365,7 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 
 	if (!_adb_dev)
 		return -ENODEV;
-#ifndef CONFIG_USB_G_LGE_ANDROID
+#ifndef CONFIG_USB_LGE_ANDROID
 	pr_debug("adb_write(%d)\n", count);
 #endif
 
@@ -424,7 +424,7 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 		wake_up(&dev->read_wq);
 
 	adb_unlock(&dev->write_excl);
-#ifndef CONFIG_USB_G_LGE_ANDROID
+#ifndef CONFIG_USB_LGE_ANDROID
 	pr_debug("adb_write returning %d\n", r);
 #endif
 	return r;
@@ -624,7 +624,7 @@ static int adb_bind_config(struct usb_configuration *c)
 {
 	struct adb_dev *dev = _adb_dev;
 
-	printk(KERN_INFO "adb_bind_config\n");
+	pr_debug("adb_bind_config\n");
 
 	dev->cdev = c->cdev;
 	dev->function.name = "adb";

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@ static struct afe_ctl this_afe;
 static struct acdb_cal_block afe_cal_addr[MAX_AUDPROC_TYPES];
 static int pcm_afe_instance[2];
 static int proxy_afe_instance[2];
+bool afe_close_done[2] = {true, true};
 
 #define TIMEOUT_MS 1000
 #define Q6AFE_MAX_VOLUME 0x3FFF
@@ -421,6 +422,83 @@ done:
 	return;
 }
 
+static int afe_send_hw_delay(u16 port_id, u32 rate)
+{
+	struct hw_delay_entry delay_entry;
+	struct afe_port_cmd_set_param config;
+	int index = 0;
+	int ret = -EINVAL;
+
+	pr_debug("%s\n", __func__);
+
+	delay_entry.sample_rate = rate;
+	if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_TX)
+		ret = get_hw_delay(TX_CAL, &delay_entry);
+	else if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_RX)
+		ret = get_hw_delay(RX_CAL, &delay_entry);
+
+	if (ret != 0) {
+		pr_debug("%s: Failed to get hw delay info\n", __func__);
+		goto done;
+	}
+	index = port_id;
+	if (index < 0) {
+		pr_debug("%s: AFE port index invalid!\n", __func__);
+		goto done;
+	}
+
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = index;
+	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM;
+
+	config.port_id = port_id;
+	config.payload_size = sizeof(struct afe_param_payload_base)+
+				sizeof(struct afe_param_id_device_hw_delay_cfg);
+	config.payload_address = 0;
+
+	config.payload.base.module_id = AFE_MODULE_ID_PORT_INFO ;
+	config.payload.base.param_id = AFE_PARAM_ID_DEVICE_HW_DELAY;
+	config.payload.base.param_size = sizeof(struct afe_param_id_device_hw_delay_cfg);
+	config.payload.base.reserved = 0;
+
+	config.payload.param.hw_delay.delay_in_us = delay_entry.delay_usec;
+	config.payload.param.hw_delay.device_hw_delay_minor_version =
+				AFE_API_VERSION_DEVICE_HW_DELAY;
+
+	atomic_set(&this_afe.state, 1);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
+	if (ret < 0) {
+		pr_err("%s: AFE enable for port %d failed\n", __func__,
+			port_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+				(atomic_read(&this_afe.state) == 0),
+				msecs_to_jiffies(TIMEOUT_MS));
+
+	if (!ret) {
+		pr_err("%s: wait_event timeout IF CONFIG\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+done:
+	pr_debug("%s port_id %u rate %u delay_usec %d status %d\n",
+		__func__, port_id, rate, delay_entry.delay_usec, ret);
+	return ret;
+}
+
 void afe_send_cal(u16 port_id)
 {
 	pr_debug("%s\n", __func__);
@@ -441,6 +519,11 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	struct afe_audioif_config_command config;
 	int ret;
 
+	// wany.cho@lge.com : Please refer to QCT case#01306695 regarding AFE recovery
+	#ifdef CONFIG_LGE_AFE_RECOVERY
+	int count = 0;
+	#endif // CONFIG_LGE_AFE_RECOVERY
+
 	if (!afe_config) {
 		pr_err("%s: Error, no configuration data\n", __func__);
 		ret = -EINVAL;
@@ -451,7 +534,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 		(port_id == RT_PROXY_DAI_002_TX)) {
 		pr_debug("%s: before incrementing pcm_afe_instance %d"\
-				"port_id %d\n", __func__,
+				" port_id %d\n", __func__,
 				pcm_afe_instance[port_id & 0x1], port_id);
 		port_id = VIRTUAL_ID_TO_PORTID(port_id);
 		pcm_afe_instance[port_id & 0x1]++;
@@ -460,10 +543,17 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	if ((port_id == RT_PROXY_DAI_002_RX) ||
 		(port_id == RT_PROXY_DAI_001_TX)) {
 		pr_debug("%s: before incrementing proxy_afe_instance %d"\
-				"port_id %d\n", __func__,
+				" port_id %d\n", __func__,
 				proxy_afe_instance[port_id & 0x1], port_id);
-		port_id = VIRTUAL_ID_TO_PORTID(port_id);
+		if (!afe_close_done[port_id & 0x1]) {
+			/*close pcm dai corresponding to the proxy dai*/
+			afe_close(port_id - 0x10);
+			pcm_afe_instance[port_id & 0x1]++;
+			pr_debug("%s: reconfigure afe port again\n", __func__);
+		}
 		proxy_afe_instance[port_id & 0x1]++;
+		afe_close_done[port_id & 0x1] = false;
+		port_id = VIRTUAL_ID_TO_PORTID(port_id);
 	}
 
 	ret = afe_q6_interface_prepare();
@@ -535,6 +625,11 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	config.port_id = port_id;
 	config.port = *afe_config;
 
+// wany.cho@lge.com : Please refer to QCT case#01306695 regarding AFE recovery
+#ifdef CONFIG_LGE_AFE_RECOVERY
+send_cfg_cmd:
+#endif // CONFIG_LGE_AFE_RECOVERY
+
 	atomic_set(&this_afe.state, 1);
 	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
@@ -556,12 +651,23 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	}
 	if (atomic_read(&this_afe.status) != 0) {
 		pr_err("%s: config cmd failed\n", __func__);
+
+		// wany.cho@lge.com : Please refer to QCT case#01306695 regarding AFE recovery
+		#ifdef CONFIG_LGE_AFE_RECOVERY
+		if (count < 2) {
+			afe_close(port_id);
+			count++;
+			goto send_cfg_cmd;
+		}
+		#endif // CONFIG_LGE_AFE_RECOVERY
+
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
 
 	/* send AFE cal */
 	afe_send_cal(port_id);
+	afe_send_hw_delay(port_id, rate);
 
 	start.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
@@ -840,7 +946,7 @@ int afe_loopback_cfg(u16 enable, u16 dst_port, u16 src_port, u16 mode)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -918,7 +1024,7 @@ int afe_loopback_gain(u16 port_id, u16 volume)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -979,7 +1085,7 @@ int afe_apply_gain(u16 port_id, u16 gain)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -1587,7 +1693,7 @@ static ssize_t afe_debug_write(struct file *filp,
 				goto afe_error;
 			}
 
-			if (param[1] < 0 || param[1] > 100) {
+			if (param[1] > 100) {
 				pr_err("%s: Error, volume shoud be 0 to 100"
 					" percentage param = %lu\n",
 					__func__, param[1]);
@@ -1654,7 +1760,7 @@ int afe_sidetone(u16 tx_port_id, u16 rx_port_id, u16 enable, uint16_t gain)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -1723,6 +1829,8 @@ int afe_close(int port_id)
 		if (!(pcm_afe_instance[port_id & 0x1] == 0 &&
 			proxy_afe_instance[port_id & 0x1] == 0))
 			return 0;
+		else
+			afe_close_done[port_id & 0x1] = true;
 	}
 
 	if ((port_id == RT_PROXY_DAI_002_RX) ||
@@ -1734,6 +1842,8 @@ int afe_close(int port_id)
 		if (!(pcm_afe_instance[port_id & 0x1] == 0 &&
 			proxy_afe_instance[port_id & 0x1] == 0))
 			return 0;
+		else
+			afe_close_done[port_id & 0x1] = true;
 	}
 
 	port_id = afe_convert_virtual_to_portid(port_id);
@@ -1783,9 +1893,9 @@ static int __init afe_init(void)
 #ifdef CONFIG_DEBUG_FS
 #ifdef CONFIG_LGE_AUDIO
 	/*
-                                                      
-                               
-  */
+	 * permission is changed S_IWUGO => S_IWUSR | S_IWGRP
+	 * bob.cho@lge.com, 02/07/2012
+	 */
 	debugfs_afelb = debugfs_create_file("afe_loopback",
 	S_IFREG | S_IWUSR | S_IWGRP, NULL, (void *) "afe_loopback",
 	&afe_debug_fops);
@@ -1795,11 +1905,11 @@ static int __init afe_init(void)
 	&afe_debug_fops);
 #else
 	debugfs_afelb = debugfs_create_file("afe_loopback",
-	S_IFREG | S_IWUGO, NULL, (void *) "afe_loopback",
+	0220, NULL, (void *) "afe_loopback",
 	&afe_debug_fops);
 
 	debugfs_afelb_gain = debugfs_create_file("afe_loopback_gain",
-	S_IFREG | S_IWUGO, NULL, (void *) "afe_loopback_gain",
+	0220, NULL, (void *) "afe_loopback_gain",
 	&afe_debug_fops);
 
 

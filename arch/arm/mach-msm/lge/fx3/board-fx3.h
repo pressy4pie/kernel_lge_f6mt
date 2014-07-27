@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,6 +155,7 @@ void msm8930_pm8917_gpio_mpp_init(void);
 void msm8930_set_display_params(char *prim_panel, char *ext_panel);
 void msm8930_mdp_writeback(struct memtype_reserve *reserve_table);
 void __init msm8930_init_gpu(void);
+void __init configure_8930_sglte_regulator(void);
 void __init lge_add_bcm43341_device(void);
 
 
@@ -166,6 +167,7 @@ void __init lge_add_bcm43341_device(void);
 #define MSM_8930_GSBI3_QUP_I2C_BUS_ID 3
 #define MSM_8930_GSBI4_QUP_I2C_BUS_ID 4
 #define MSM_8930_GSBI2_QUP_I2C_BUS_ID 2
+#define MSM_8930_GSBI8_QUP_I2C_BUS_ID 8
 #define MSM_8930_GSBI9_QUP_I2C_BUS_ID 0
 #define MSM_8930_GSBI10_QUP_I2C_BUS_ID 10
 #define MSM_8930_GSBI12_QUP_I2C_BUS_ID 12
@@ -180,12 +182,12 @@ void __init lge_add_bcm43341_device(void);
 extern struct msm_rtb_platform_data msm8930_rtb_pdata;
 extern struct msm_cache_dump_platform_data msm8930_cache_dump_pdata;
 /*
-                                             
+ * TODO: LGE Specific Devices for each models
  */
 
-/*                  */
-//                                             
-//                               
+/* LGE Specific LCD */
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II
+//#ifndef CONFIG_MACH_LGE_F6_TMUS
 //#define LCD_RESOLUTION_X			800
 //#define LCD_RESOLUTION_Y			496
 //#define MSM_FB_WIDTH_MM			56
@@ -196,7 +198,7 @@ extern struct msm_cache_dump_platform_data msm8930_cache_dump_pdata;
 //#define MSM_FB_WIDTH_MM			53
 //#define MSM_FB_HEIGHT_MM			95
 //#endif
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
 #define LCD_RESOLUTION_X                                       1280
 #define LCD_RESOLUTION_Y                                       736
 #define MSM_FB_WIDTH_MM                                      59
@@ -212,12 +214,12 @@ extern struct msm_cache_dump_platform_data msm8930_cache_dump_pdata;
 #define MSM_FB_WIDTH_MM			56
 #define MSM_FB_HEIGHT_MM			94
 #endif
-//                                             
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II
 
 #define DISABLE_GSBI1_SPI
 
 
-/*                    */
+/* LGE Specific TOUCH */
 #define MELFAS_VD33_MAX_UV			2850000
 #define MELFAS_VD33_MIN_UV			2850000
 #define MELFAS_VD33_CURR_UA			4230
@@ -225,8 +227,8 @@ extern struct msm_cache_dump_platform_data msm8930_cache_dump_pdata;
 #define MELFAS_IO_MAX_UV			1800000
 #define MELFAS_IO_MIN_UV			1800000
 
-//                                                 
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU) 
+//LGE_CHANGE_S [hoseong.han@lge.com] Touch for L9II
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
 #define TS_X_MIN					0
 #define TS_X_MAX					720
 #define TS_Y_MIN					0
@@ -237,7 +239,7 @@ extern struct msm_cache_dump_platform_data msm8930_cache_dump_pdata;
 #define TS_Y_MIN					0
 #define TS_Y_MAX					800
 #endif
-//                                                 
+//LGE_CHANGE_E [hoseong.han@lge.com] Touch for L9II
 
 #ifdef CONFIG_TOUCHSCREEN_MMS128
 #define TS_GPIO_I2C_SDA				16
@@ -255,7 +257,7 @@ extern struct msm_cache_dump_platform_data msm8930_cache_dump_pdata;
 #endif
 
 
-/*                     */
+/* LGE Specific HALL-IC*/
 #ifdef CONFIG_HALLIC_S5712ACDL1
 #define GPIO_S5712ACDL1_IRQ         50
 #endif
@@ -270,7 +272,7 @@ extern struct msm_cache_dump_platform_data msm8930_cache_dump_pdata;
 #endif
 #endif
 
-/*                       */
+/* LGE Specific Vibrator */
 #ifdef CONFIG_LGE_DIRECT_QCOIN_VIBRATOR
 #define MOTOR_AMP					128
 #define VIB_DRV						0x4A
@@ -291,11 +293,11 @@ extern struct msm_cache_dump_platform_data msm8930_cache_dump_pdata;
 #define VIB_OVERDRIVE_RANGE_MS      100
 #endif
 
-/*                      */
+/* LGE Specific Headset */
 #define GPIO_EAR_SENSE_N			90
 
-//                                                                                      
-#ifdef CONFIG_MACH_LGE_L9II_OPEN_EU
+//LGE_CHANGE_S [kugchin.kang@lge.com] Audio for L9II, GPIO Setting for Ear Mic, 13-03-21
+#if defined (CONFIG_MACH_LGE_L9II_COMMON)
 #define GPIO_EAR_MIC_EN				7
 #define GPIO_EARPOL_DETECT			9
 #elif defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_F6_ORG) || defined(CONFIG_MACH_LGE_F6_OPEN) || defined(CONFIG_MACH_LGE_F6_TMO)
@@ -305,11 +307,11 @@ extern struct msm_cache_dump_platform_data msm8930_cache_dump_pdata;
 #define GPIO_EAR_MIC_EN				47
 #define GPIO_EARPOL_DETECT			48
 #endif
-//                                                                                      
+//LGE_CHANGE_E [kugchin.kang@lge.com] Audio for L9II, GPIO Setting for Ear Mic, 13-03-21
 
 #define GPIO_EAR_KEY_INT			55
 
-/*                        */
+/* LGE Specific AMP power */
 #define GPIO_EXT_BOOST_EN PM8038_GPIO_PM_TO_SYS(3)
 
 #ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
@@ -340,7 +342,7 @@ enum chg_status_enum {
 
 
 
-/*                               */
+/* LGE Specific Power Management */
 #ifdef CONFIG_LGE_PM
 
 #if defined(CONFIG_MACH_LGE_FX3_VZW)
@@ -379,7 +381,7 @@ enum chg_status_enum {
     124,128,135,138,144,145,149,150,151
 #define LGE_PM8038_NC_GPIO_INITDATA \
 	6,7,8,10,11	
-#elif defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+#elif defined(CONFIG_MACH_LGE_L9II_COMMON)
 #define LGE_MSM8930_NC_GPIO_INITDATA \
 	8, 14, 18, 19, 33, 36, 39, 41, 50, 53, \
 	67, 68, 69, 71, 72, 73, 74, 75, 80, \
@@ -397,6 +399,8 @@ enum chg_status_enum {
 #define IBAT_CURRENT 	    1225
 #elif defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
 #define IBAT_CURRENT 	    1225
+#elif defined(CONFIG_MACH_LGE_L9II_COMMON)
+#define IBAT_CURRENT 	    850
 #else
 #define IBAT_CURRENT 	    1500
 #endif
@@ -452,6 +456,8 @@ enum chg_status_enum {
 #define C_910K_TA_MA        1500//[ORG]500
 #if defined(CONFIG_MACH_LGE_FX3_TMUS)
 #define C_NONE_TA_MA		1100
+#elif defined(CONFIG_MACH_LGE_L9II_COMMON)
+#define C_NONE_TA_MA        850
 #else
 #define C_NONE_TA_MA        1200
 #endif

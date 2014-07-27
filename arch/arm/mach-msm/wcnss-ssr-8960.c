@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,14 +27,9 @@
 #include <mach/peripheral-loader.h>
 #include "smd_private.h"
 #include "ramdump.h"
-#if defined(CONFIG_LGE_HANDLE_PANIC) 
-#include <mach/restart.h>
-#include <mach/board_lge.h>
-#endif
+
 #define MODULE_NAME			"wcnss_8960"
 #define MAX_BUF_SIZE			0x51
-
-
 
 static struct delayed_work cancel_vote_work;
 static void *riva_ramdump_dev;
@@ -42,23 +37,6 @@ static int riva_crash;
 static int ss_restart_inprogress;
 static int enable_riva_ssr;
 static struct subsys_device *riva_8960_dev;
-
-/*            */
-#if 0 /* riva_smsm_cb_fn is removed on 1031 */
-static void riva_smsm_cb_fn(struct work_struct *work)
-{
-	if (!enable_riva_ssr)
-	{
-#if defined(CONFIG_LGE_HANDLE_PANIC)
-		lge_set_magic_for_subsystem("riva");
-		msm_set_restart_mode(0x6d632130);
-#endif
-		panic(MODULE_NAME ": SMSM reset request received from Riva");
-	}
-	else
-		subsystem_restart("riva");
-}
-#endif
 
 static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 					uint32_t new_state)
@@ -72,6 +50,8 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 
 	pr_err("%s: smsm state changed\n", MODULE_NAME);
 
+	wcnss_riva_dump_pmic_regs();
+
 	if (!(new_state & SMSM_RESET))
 		return;
 
@@ -82,13 +62,7 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 	}
 
 	if (!enable_riva_ssr)
-	{
-#if defined(CONFIG_LGE_HANDLE_PANIC)
-	        lge_set_magic_for_subsystem("riva");
-		msm_set_restart_mode(0x6d632130);
-#endif
 		panic(MODULE_NAME ": SMSM reset request received from Riva");
-	}
 
 	smem_reset_reason = smem_get_entry(SMEM_SSR_REASON_WCNSS0,
 			&smem_reset_size);
@@ -170,6 +144,8 @@ static int riva_powerup(const struct subsys_desc *subsys)
 	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
 	int    ret = -1;
 
+	wcnss_ssr_boot_notify();
+
 	if (pdev && pwlanconfig)
 		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
 					WCNSS_WLAN_SWITCH_ON);
@@ -209,8 +185,13 @@ static int riva_ramdump(int enable, const struct subsys_desc *subsys)
 static void riva_crash_shutdown(const struct subsys_desc *subsys)
 {
 	pr_err("%s: crash shutdown : %d\n", MODULE_NAME, riva_crash);
-	if (riva_crash != true)
+	if (riva_crash != true) {
 		smsm_riva_reset();
+		/* give sufficient time for wcnss to finish it's error
+		 * fatal routine */
+		mdelay(3000);
+	}
+
 }
 
 static struct subsys_desc riva_8960 = {

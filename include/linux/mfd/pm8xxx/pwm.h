@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 
 #define PM8XXX_PWM_PERIOD_MIN	7 /* usec: 19.2M, n=6, m=0, pre=2 */
 #define PM8XXX_PWM_PERIOD_MAX	(384 * USEC_PER_SEC) /* 1K, n=9, m=7, pre=6 */
-/*            */
+/* LGE_CHANGE */
 #define PM_PWM_LUT_SIZE			80
 #define PM_PWM_LUT_DUTY_TIME_MAX	512	/* ms */
 #define PM_PWM_LUT_PAUSE_MAX		(7000 * PM_PWM_LUT_DUTY_TIME_MAX)
@@ -32,6 +32,9 @@
 #define PM_PWM_LUT_PAUSE_LO_EN	0x20
 
 #define PM_PWM_LUT_NO_TABLE	0x100
+
+#define PM_PWM_BANK_LO		0x1000
+#define PM_PWM_BANK_HI		0x2000
 
 /**
  * PWM frequency/period control
@@ -85,7 +88,7 @@ struct pm8xxx_pwm_period {
  * start_idx - index in the LUT
  */
 
-/*                                                         */
+/* LGE_CHANGE_S, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 #ifdef CONFIG_LGE_PM8038_KPJT
 struct pm8xxx_pwm_duty_cycles {
 	int *duty_pcts0;
@@ -106,6 +109,24 @@ struct pm8xxx_pwm_duty_cycles {
 	int *duty_pcts15;
 	int *duty_pcts16;
 	int *duty_pcts17;
+#if defined(CONFIG_MACH_LGE_F6_VDF)
+        int *duty_pcts18;
+        int *duty_pcts19;
+        int *duty_pcts20;
+        int *duty_pcts21;
+        int *duty_pcts22;
+        int *duty_pcts23;
+        int *duty_pcts24;
+        int *duty_pcts25;
+        int *duty_pcts26;
+        int *duty_pcts27;
+        int *duty_pcts28;
+        int *duty_pcts29;
+        int *duty_pcts30;
+        int *duty_pcts31;
+        int *duty_pcts32;
+#endif
+	int *duty_pcts;		/* LGE_CHANGE, 2013-12-19, choonghyun.jeon@lge.com, KK compile error fix*/
 	int num_duty_pcts;
 	int duty_ms;
 	int start_idx;
@@ -119,7 +140,7 @@ struct pm8xxx_pwm_duty_cycles {
 	int start_idx;
 };
 #endif
-/*                                                         */
+/* LGE_CHANGE_E, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 /**
  * struct pm8xxx_pwm_platform_data - PWM platform data
  * dtest_channel - Enable LPG DTEST mode for this LPG channel

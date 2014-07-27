@@ -5118,9 +5118,9 @@ static void sw_perf_event_destroy(struct perf_event *event)
 
 static int perf_swevent_init(struct perf_event *event)
 {
-	//                                                                                            
+	//[LGE_CHANGE_S] Google security patch CVE-2013-2094 (int -> u64), munseon.choi@lge.com, 06/20
 	u64 event_id = event->attr.config;
-	//                                                                                             
+	//[LGE_CHANGE_E] Google security patch CVE-2013-2094 (int -> u64), munseon.choi@lge.com, 06/20 
 
 	if (event->attr.type != PERF_TYPE_SOFTWARE)
 		return -ENOENT;

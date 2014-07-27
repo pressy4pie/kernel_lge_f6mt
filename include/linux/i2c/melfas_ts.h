@@ -44,14 +44,14 @@ struct melfas_tsi_platform_data {
 	unsigned int delta_pos_threshold;
 };
 
-/*                                                
-                                           
+/* [LGE_CHANGE_S] 20130205 mystery184.kim@lge.com 
+  * mms134s f/w upgrade initialize porting 
   */
 #if defined(CONFIG_TOUCHSCREEN_MELFAS_MMS134)
 int melfas_touch_i2c_read(unsigned char* buf, unsigned char reg, int len);
 int melfas_touch_i2c_write(unsigned char* buf, unsigned char reg, int len);
 int melfas_touch_i2c_read_len(unsigned char* buf, int len);
 #endif
-/*                                                        */
+/* [LGE_CHANGE_E] mms134s f/w upgrade initialize porting  */
 
 #endif /* _LINUX_MELFAS_TS_H */

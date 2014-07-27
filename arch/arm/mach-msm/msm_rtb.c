@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,12 +71,12 @@ static atomic_t msm_rtb_idx;
 #endif
 
 struct msm_rtb_state msm_rtb = {
-/*            */
+/* LGE_CHANGE */
 #if CONFIG_MACH_LGE
 	.filter = 1 << LOGK_CTXID | 1 << LOGK_HOTPLUG | 1 << LOGK_LOGBUF | \
 			  1 << LOGK_WRITEL | 1 << LOGK_READL | 1 << LOGK_NONE,
 #else
-	.filter = 1 << LOGK_LOGBUF,
+	.filter = 1 << LOGK_READL | 1 << LOGK_WRITEL,
 #endif
 	.enabled = 1,
 };

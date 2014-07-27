@@ -969,7 +969,7 @@ SYSCALL_DEFINE2(clock_gettime, const clockid_t, which_clock,
 	struct timespec kernel_tp;
 	int error;
 
-/*                                          */
+/* LGE_CHANGE: prevent null-point accessing */
 #ifdef CONFIG_MACH_LGE
 	if (!kc || !kc->clock_get)
 		return -EINVAL;

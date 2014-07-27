@@ -53,17 +53,17 @@ static struct dsi_cmd_desc cmds_macp_off =
 	{DTYPE_GEN_WRITE2, 1, 0, 0, 0, sizeof(macp_off), macp_off};
 static struct dsi_cmd_desc cmds_macp_on =
 	{DTYPE_GEN_WRITE2, 1, 0, 0, 0, sizeof(macp_on), macp_on};
-#endif /*                      */
+#endif /* CONFIG_LGE_ESD_CHECK */
 
 #if defined(CONFIG_MACH_MSM8930_LGPS9) || defined(CONFIG_MACH_MSM8930_FX3)
 static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
 #endif
 
 
-/*                                       
-                                                              
-                                                   
-                                   
+/* [LGE_CHANGE] Remove unnecessary codes.
+ * Remove mutex_lock, mutex_unlock and mipi_dsi_op_mode_config
+ * in mipi_hitachi_lcd_on and mipi_hitachi_lcd_off.
+ * minjong.gong@lge.com, 2011-07-19
  */
 static int mipi_hitachi_lcd_on(struct platform_device *pdev)
 {
@@ -81,7 +81,7 @@ static int mipi_hitachi_lcd_on(struct platform_device *pdev)
 #ifdef CONFIG_LGE_ESD_CHECK
 	if(local_mfd==NULL)
 		local_mfd = mfd;
-#endif /*                      */
+#endif /* CONFIG_LGE_ESD_CHECK */
 	return 0;
 }
 
@@ -249,13 +249,13 @@ ssize_t read_reg(struct device *dev, struct device_attribute *attr, char *buf)
 DEVICE_ATTR(show_reg_value, 0644, read_reg, write_reg_adr);
 DEVICE_ATTR(write_cmd_type, 0644, NULL, write_cmd);
 DEVICE_ATTR(write_cmd_size, 0644, NULL, write_size);
-#endif /*                      */
+#endif /* CONFIG_LGE_ESD_CHECK */
 static int mipi_hitachi_lcd_probe(struct platform_device *pdev)
 {
 	struct msm_fb_panel_data *pdata;
 #ifdef CONFIG_LGE_ESD_CHECK
 	int ret;
-#endif /*                      */
+#endif /* CONFIG_LGE_ESD_CHECK */
 	if (pdev->id == 0) {
 		mipi_hitachi_pdata = pdev->dev.platform_data;
 		return 0;
@@ -277,7 +277,7 @@ static int mipi_hitachi_lcd_probe(struct platform_device *pdev)
 	if (ret) {
 		printk(KERN_ERR " %s : fail to create sysfs\n", __func__);
 	}
-#endif /*                      */
+#endif /* CONFIG_LGE_ESD_CHECK */
 	return 0;
 }
 

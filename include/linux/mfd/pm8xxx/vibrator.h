@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,11 +31,11 @@ struct pm8xxx_vib_config {
 struct pm8xxx_vibrator_platform_data {
 	int initial_vibrate_ms;
 	int max_timeout_ms;
-    int min_timeout_ms;     //           
-    int min_stop_ms;        //           
+    int min_timeout_ms;     // LGE_UPDATE
+    int min_stop_ms;        // LGE_UPDATE
 	int level_mV;
-    int overdrive_ms;       //           
-    int overdrive_range_ms; //           
+    int overdrive_ms;       // LGE_UPDATE
+    int overdrive_range_ms; // LGE_UPDATE
 };
 
 int pm8xxx_vibrator_config(struct pm8xxx_vib_config *vib_config);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,38 @@ struct pm8xxx_rtc {
 	struct device *rtc_dev;
 	spinlock_t ctrl_reg_lock;
 };
+
+/* LGE_CHANGE_S - reset RTC */
+static struct device *pm8xxx_rtc_rtc_dev  = NULL;
+static int rtc_reset = 0;
+static int pm8xxx_rtc_set_time(struct device *dev, struct rtc_time *tm);
+static int pm8xxx_rtc_reset(const char *val, struct kernel_param *kp)
+{
+  int ret = param_set_int(val, kp);
+  if (ret)
+    return ret;
+
+  if (!pm8xxx_rtc_rtc_dev)
+    return -EINVAL;
+
+  if (rtc_reset == 700102) {
+    struct rtc_time tm;
+    int ret;
+
+    /* set to 1970/01/02 (The Earliest Supported Time on Android) */
+    memset ((void *)&tm, 0x00, sizeof(struct rtc_time));
+    tm.tm_year = 70;
+    tm.tm_mday = 2;
+    tm.tm_yday = 2;
+    tm.tm_wday = 5; /* Saturday */
+    ret = pm8xxx_rtc_set_time (pm8xxx_rtc_rtc_dev, &tm);
+    if (ret == 0)
+      printk(KERN_INFO "%s: success!\n", __func__);
+  }
+  return 0;
+}
+module_param_call(rtc_reset, pm8xxx_rtc_reset, param_get_int, &rtc_reset, S_IWUSR | S_IRUGO);
+/* LGE_CHANGE_E */
 
 /*
  * The RTC registers need to be read/written one byte at a time. This is a
@@ -352,10 +384,6 @@ rtc_rw_fail:
 
 static struct rtc_class_ops pm8xxx_rtc_ops = {
 	.read_time	= pm8xxx_rtc_read_time,
-/*                            */
-#if defined(CONFIG_MACH_LGE)
-	.set_time	= pm8xxx_rtc_set_time,
-#endif
 	.set_alarm	= pm8xxx_rtc_set_alarm,
 	.read_alarm	= pm8xxx_rtc_read_alarm,
 	.alarm_irq_enable = pm8xxx_rtc_alarm_irq_enable,
@@ -476,6 +504,9 @@ static int __devinit pm8xxx_rtc_probe(struct platform_device *pdev)
 	}
 
 	rtc_dd->ctrl_reg = ctrl_reg;
+	/* LGE_CHANGE_S */
+	pm8xxx_rtc_rtc_dev = rtc_dd->rtc_dev;
+	/* LGE_CHANGE_E */
 	if (rtc_write_enable == true)
 		pm8xxx_rtc_ops.set_time = pm8xxx_rtc_set_time;
 

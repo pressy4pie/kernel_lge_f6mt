@@ -46,8 +46,6 @@
 
 #define UETH__VERSION	"29-May-2008"
 
-void gether_cleanup(void);
-
 static struct workqueue_struct	*uether_wq;
 
 struct eth_dev {
@@ -122,6 +120,7 @@ static inline int qlen(struct usb_gadget *gadget)
 #undef DBG
 #undef VDBG
 #undef ERROR
+#undef DEBUG
 #undef INFO
 
 #define xprintk(d, level, fmt, args...) \
@@ -586,7 +585,7 @@ static inline int is_promisc(u16 cdc_filter)
 	return cdc_filter & USB_CDC_PACKET_TYPE_PROMISCUOUS;
 }
 
-static void alloc_tx_buffer(struct eth_dev *dev)
+static int alloc_tx_buffer(struct eth_dev *dev)
 {
 	struct list_head	*act;
 	struct usb_request	*req;
@@ -603,7 +602,19 @@ static void alloc_tx_buffer(struct eth_dev *dev)
 		if (!req->buf)
 			req->buf = kmalloc(dev->tx_req_bufsize,
 						GFP_ATOMIC);
+			if (!req->buf)
+				goto free_buf;
 	}
+	return 0;
+
+free_buf:
+	/* tx_req_bufsize = 0 retries mem alloc on next eth_start_xmit */
+	dev->tx_req_bufsize = 0;
+	list_for_each(act, &dev->tx_reqs) {
+		req = container_of(act, struct usb_request, list);
+		kfree(req->buf);
+	}
+	return -ENOMEM;
 }
 
 static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
@@ -635,8 +646,11 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 
 	/* Allocate memory for tx_reqs to support multi packet transfer */
-	if (multi_pkt_xfer && !dev->tx_req_bufsize)
-		alloc_tx_buffer(dev);
+	if (multi_pkt_xfer && !dev->tx_req_bufsize) {
+		retval = alloc_tx_buffer(dev);
+		if (retval < 0)
+			return -ENOMEM;
+	}
 
 	/* apply outgoing CDC or RNDIS filters */
 	if (!is_promisc(cdc_filter)) {
@@ -848,9 +862,7 @@ static int eth_stop(struct net_device *net)
 		 * their own pace; the network stack can handle old packets.
 		 * For the moment we leave this here, since it works.
 		 */
-#ifndef CONFIG_USB_G_LGE_ANDROID
 		usb_ep_disable(link->in_ep);
-#endif
 		usb_ep_disable(link->out_ep);
 		if (netif_carrier_ok(net)) {
 			if (config_ep_by_speed(dev->gadget, &link->func,
@@ -873,9 +885,8 @@ static int eth_stop(struct net_device *net)
 
 /*-------------------------------------------------------------------------*/
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
 static u8 host_ethaddr[ETH_ALEN];
-#endif
+
 /* initial value, changed by "ifconfig usb0 hw ether xx:xx:xx:xx:xx:xx" */
 static char *dev_addr;
 module_param(dev_addr, charp, S_IRUGO);
@@ -906,7 +917,7 @@ static int get_ether_addr(const char *str, u8 *dev_addr)
 	random_ether_addr(dev_addr);
 	return 1;
 }
-#ifdef CONFIG_USB_G_LGE_ANDROID
+
 static int get_host_ether_addr(u8 *str, u8 *dev_addr)
 {
 	memcpy(dev_addr, str, ETH_ALEN);
@@ -917,7 +928,7 @@ static int get_host_ether_addr(u8 *str, u8 *dev_addr)
 	memcpy(str, dev_addr, ETH_ALEN);
 	return 1;
 }
-#endif
+
 static struct eth_dev *the_dev;
 
 static const struct net_device_ops eth_netdev_ops = {
@@ -973,17 +984,11 @@ int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 	int			status;
 
 	if (the_dev)
-	{
-		pr_info("[##-CHOONG-##] gether_setup_name() the_dev is NOT NULL!! It means that this call could be secend with no gether_cleanup of first ecm bind!!\n");
-		return 1; 
-	}
+		return -EBUSY;
 
 	net = alloc_etherdev(sizeof *dev);
 	if (!net)
-	{
-		pr_info("gether_setup_name() net is NULL!!\n");
 		return -ENOMEM;
-	}
 
 	dev = netdev_priv(net);
 	spin_lock_init(&dev->lock);
@@ -1002,18 +1007,11 @@ int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 	if (get_ether_addr(dev_addr, net->dev_addr))
 		dev_warn(&g->dev,
 			"using random %s ethernet address\n", "self");
-#ifdef CONFIG_USB_G_LGE_ANDROID
+
 	if (get_host_ether_addr(host_ethaddr, dev->host_mac))
-		dev_warn(&g->dev,
-			"using random %s ethernet address\n", "host");
+		dev_warn(&g->dev, "using random %s ethernet address\n", "host");
 	else
-		dev_warn(&g->dev,
-			"using previous %s ethernet address\n", "host");
-#else /* below is original */
-	if (get_ether_addr(host_addr, dev->host_mac))
-		dev_warn(&g->dev,
-			"using random %s ethernet address\n", "host");
-#endif
+		dev_warn(&g->dev, "using previous %s ethernet address\n", "host");
 
 	if (ethaddr)
 		memcpy(ethaddr, dev->host_mac, ETH_ALEN);
@@ -1021,12 +1019,6 @@ int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 	net->netdev_ops = &eth_netdev_ops;
 
 	SET_ETHTOOL_OPS(net, &ops);
-
-	/* two kinds of host-initiated state changes:
-	 *  - iff DATA transfer is active, carrier is "on"
-	 *  - tx queueing enabled if open *and* carrier is "on"
-	 */
-	netif_carrier_off(net);
 
 	dev->gadget = g;
 	SET_NETDEV_DEV(net, &g->dev);
@@ -1041,6 +1033,12 @@ int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 		INFO(dev, "HOST MAC %pM\n", dev->host_mac);
 
 		the_dev = dev;
+
+		/* two kinds of host-initiated state changes:
+		 *  - iff DATA transfer is active, carrier is "on"
+		 *  - tx queueing enabled if open *and* carrier is "on"
+		 */
+		netif_carrier_off(net);
 	}
 
 	return status;
@@ -1055,17 +1053,13 @@ int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 void gether_cleanup(void)
 {
 	if (!the_dev)
-	{
-		pr_info("gether_cleanup() the_dev is already NULL!!\n");
 		return;
-	}
 
 	unregister_netdev(the_dev->net);
 	flush_work_sync(&the_dev->work);
 	free_netdev(the_dev->net);
 
 	the_dev = NULL;
-	pr_info("gether_cleanup() completed!!\n");
 }
 
 

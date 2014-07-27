@@ -18,10 +18,23 @@
 #define FCC_CC_COLS		5
 #define FCC_TEMP_COLS		8
 
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+#define PC_CC_ROWS             31 
+
+#else
 #define PC_CC_ROWS             29
+#endif
+
 #define PC_CC_COLS             13
 
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+
+#define PC_TEMP_ROWS		31
+
+#else
 #define PC_TEMP_ROWS		29
+#endif
+
 #define PC_TEMP_COLS		8
 
 #define MAX_SINGLE_LUT_COLS	20
@@ -29,6 +42,12 @@
 #if defined(CONFIG_LGE_PM)
 extern struct bms_battery_data  LGE_BL_58JH_Sanyo_2460mAh_data;
 extern struct bms_battery_data  LGE_BL_58JH_LGE_2460mAh_data;
+
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+
+extern struct bms_battery_data  LG_D_BL53QH_2150_data;
+extern struct bms_battery_data  LG_C_BL53QH_2150_data;
+#endif
 #endif
 
 struct single_row_lut {
@@ -93,6 +112,8 @@ enum battery_type {
  *			readings from bms are not available.
  * @delta_rbatt_mohm:	the resistance to be added towards lower soc to
  *			compensate for battery capacitance.
+ * @rbatt_capacitve_mohm: the resistance to be added to compensate for
+ *				battery capacitance
  */
 
 struct bms_battery_data {
@@ -104,17 +125,18 @@ struct bms_battery_data {
 	struct sf_lut		*rbatt_sf_lut;
 	int			default_rbatt_mohm;
 	int			delta_rbatt_mohm;
+	int			rbatt_capacitive_mohm;
 };
 
 #if defined(CONFIG_PM8921_BMS) || \
 	defined(CONFIG_PM8921_BMS_MODULE)
 extern struct bms_battery_data  palladium_1500_data;
 extern struct bms_battery_data  desay_5200_data;
-//                                                                                                                   
-#ifdef CONFIG_MACH_LGE_L9II_OPEN_EU
+//[LGE_CHANGE_S] 2013.03.01 daewon1004.kim@lge.com l9ii change the BL53QH battery(G2 modle), so i add BL53QH profile.
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
 extern struct bms_battery_data LGC_BL53QH_2000_data;
 #endif
-//                                                                                                                  
+//[LGE_CHANGE_E] 2013.03.01 daewon1004.kim@lge.com l9ii change the BL53QH battery(G2 modle), so i add BL53QH profile
 
 int interpolate_fcc(struct single_row_lut *fcc_temp_lut, int batt_temp);
 int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc);

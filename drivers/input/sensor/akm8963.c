@@ -75,8 +75,84 @@ struct akm8963_data {
 };
 
 static struct akm8963_data *s_akm;
+static struct FILTERPRMS fltPrms;
 
+//==========================================================================
+//
+//  FUNCTION:  InitAVR_Filter()
+//
+//  PURPOSE:  Initializes buffers for Average Filter.
+//
+//  DESCRIPTION:
+//
+//==========================================================================
+void InitAVR_Filter(struct FILTERPRMS* fltprms)
+{
+    int i, j;
 
+    for(i=0; i<FDATA_SIZE; i++){
+        for(j=0; j<3; j++){
+            fltprms->fdata[i][j] = MAG_INIT_VALUE;
+        }
+    }
+
+}
+
+//==========================================================================
+//
+//  FUNCTION: AVR_Filter
+//
+//  PURPOSE:   Average Filter for e-compass.
+//
+//  DESCRIPTION:
+//
+//==========================================================================
+void AVR_Filter(
+    struct FILTERPRMS*  fltprms
+)
+{
+    short       fdata[3];
+    float       vecf[3];
+    int         i, j;
+
+    fdata[0] = fltprms->chdata[0];
+    fdata[1] = fltprms->chdata[1];
+    fdata[2] = fltprms->chdata[2];
+
+    // FIFO
+    for(i=FDATA_SIZE-1; i>0; i--){
+        for(j=0; j<3; j++){
+            fltprms->fdata[i][j] = fltprms->fdata[i-1][j];
+        }
+    }
+    for(i=0; i<3; i++){
+        fltprms->fdata[0][i] = fdata[i];
+    }
+
+    vecf[0] = 0.0f;
+    vecf[1] = 0.0f;
+    vecf[2] = 0.0f;
+
+    for(i=0; i<CSPEC_AVR_Filter; i++) {
+        if((fltprms->fdata[i][0] == MAG_INIT_VALUE)
+           && (fltprms->fdata[i][1] == MAG_INIT_VALUE)
+           && (fltprms->fdata[i][2] == MAG_INIT_VALUE)) {
+            break;
+        }
+        vecf[0] += fltprms->fdata[i][0];
+        vecf[1] += fltprms->fdata[i][1];
+        vecf[2] += fltprms->fdata[i][2];
+    }
+
+    /* Sensitivity Setting & divided for Average */
+    vecf[0] = vecf[0] * (0.15f / MAG_SENSITIVITY_VALUE) / (float)i;
+    vecf[1] = vecf[1] * (0.15f / MAG_SENSITIVITY_VALUE) / (float)i;
+    vecf[2] = vecf[2] * (0.15f / MAG_SENSITIVITY_VALUE) / (float)i;
+
+    fltprms->chdata[0] = (int)vecf[0];
+    fltprms->chdata[1] = (int)vecf[1];
+    fltprms->chdata[2] = (int)vecf[2];
+}
 
 /***** I2C I/O function ***********************************************/
 static int akm8963_i2c_rxdata(
@@ -303,18 +379,19 @@ static int AKECS_GetData(
 	int size)
 {
 	int err;
+
 	err = wait_event_interruptible_timeout(
 			akm->drdy_wq,
 			atomic_read(&akm->drdy),
 			AKM8963_DRDY_TIMEOUT);
 
 	if (err < 0) {
-		dev_dbg(&akm->i2c->dev,
+		dev_err(&akm->i2c->dev,
 			"%s: wait_event failed (%d).", __func__, err);
 		return -1;
 	}
 	if (!atomic_read(&akm->drdy)) {
-		dev_dbg(&akm->i2c->dev,
+		dev_err(&akm->i2c->dev,
 			"%s: DRDY is not set.", __func__);
 		return -1;
 	}
@@ -332,6 +409,7 @@ static void AKECS_SetYPR(
 	int *rbuf)
 {
 	uint32_t ready;
+
 	AKM_DATA(&akm->i2c->dev, "AKM8963 %s: flag =0x%X", __func__,
 		rbuf[0]);
 	AKM_DATA(&akm->input->dev, "  Acceleration[LSB]: %6d,%6d,%6d stat=%d",
@@ -350,6 +428,16 @@ static void AKECS_SetYPR(
 	mutex_lock(&akm->val_mutex);
 	ready = (akm->enable_flag & (uint32_t)rbuf[0]);
 	mutex_unlock(&akm->val_mutex);
+
+	fltPrms.chdata[0] = rbuf[5];
+	fltPrms.chdata[1] = rbuf[6];
+	fltPrms.chdata[2] = rbuf[7];
+
+	AVR_Filter(&fltPrms);
+
+	rbuf[5] = fltPrms.chdata[0];
+	rbuf[6] = fltPrms.chdata[1];
+	rbuf[7] = fltPrms.chdata[2];
 
 	/* Report acceleration sensor information */
 	if (ready & ACC_DATA_READY) {
@@ -393,6 +481,10 @@ static int AKECS_GetCloseStatus(
 static int AKECS_Open(struct inode *inode, struct file *file)
 {
 	file->private_data = s_akm;
+
+    /* Initialize buffer for Average Filter */
+    InitAVR_Filter(&fltPrms);
+
 	return nonseekable_open(inode, file);
 }
 
@@ -1239,20 +1331,22 @@ static irqreturn_t akm8963_irq(int irq, void *handle)
 		dev_err(&akm->i2c->dev, "%s failed.", __func__);
 		goto work_func_end;
 	}
+
 	/* Check ST bit */
-	/*if ((buffer[0] & 0x01) != 0x01) {
+	if ((buffer[0] & 0x01) != 0x01) {
 		dev_err(&akm->i2c->dev, "%s ST is not set.", __func__);
+		atomic_set(&akm->drdy, 1);
+		atomic_set(&akm->is_busy, 0);
+		wake_up(&akm->drdy_wq);
 		goto work_func_end;
-	}*/
+	}
 
 	mutex_lock(&akm->sensor_mutex);
 	memcpy(akm->sense_data, buffer, SENSOR_DATA_SIZE);
 	mutex_unlock(&akm->sensor_mutex);
-
 	atomic_set(&akm->drdy, 1);
 	atomic_set(&akm->is_busy, 0);
 	wake_up(&akm->drdy_wq);
-
 work_func_end:
 	return IRQ_HANDLED;
 }

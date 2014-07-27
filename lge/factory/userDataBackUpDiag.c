@@ -401,7 +401,7 @@ Error:
   	printk(KERN_INFO "[SRD] srd_init error!! err_code = %d ", (int)rsp_pkt->header.err_code);
 }
 EXPORT_SYMBOL(diag_SRD_Init);
-#endif //                                          
+#endif //#ifdef CONFIG_LGE_DLOAD_SRD  //kabjoo.choi
 
 
 // LG_FW : 2011.07.07 moon.yongho : saving webdload status variable to eMMC. ----------[[

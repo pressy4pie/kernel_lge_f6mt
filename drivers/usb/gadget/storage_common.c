@@ -695,7 +695,7 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 	}
 
 	if (curlun->cdrom) {
-#ifdef CONFIG_USB_G_LGE_ANDROID_CDROM_MAC_SUPPORT
+#ifdef CONFIG_USB_LGE_ANDROID_CDROM_MAC_SUPPORT
 		curlun->blksize = 512;
 		curlun->blkbits = 9;
 #else
@@ -713,7 +713,7 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 	num_sectors = size >> curlun->blkbits; /* File size in logic-block-size blocks */
 	min_sectors = 1;
 	if (curlun->cdrom) {
-#ifdef CONFIG_USB_G_LGE_ANDROID_CDROM_MAC_SUPPORT
+#ifdef CONFIG_USB_LGE_ANDROID_CDROM_MAC_SUPPORT
 		num_sectors &= ~3;	/* Reduce to a multiple of 2048 */
 		min_sectors = 300*4;	/* Smallest track is 300 frames */
 		if (num_sectors >= 256*60*75*4) {
@@ -795,7 +795,7 @@ static void store_cdrom_address(u8 *dest, int msf, u32 addr)
 	}
 }
 
-#ifdef CONFIG_USB_G_LGE_ANDROID_CDROM_MAC_SUPPORT
+#ifdef CONFIG_USB_LGE_ANDROID_CDROM_MAC_SUPPORT
 /**
  * fsg_get_toc() - Builds a TOC with required format @format.
  * @curlun: The LUN for which the TOC has to be built

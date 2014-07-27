@@ -42,6 +42,8 @@ obj-$(CONFIG_BACKLIGHT_88PM860X) += 88pm860x_bl.o
 obj-$(CONFIG_BACKLIGHT_PCF50633)	+= pcf50633-backlight.o
 obj-$(CONFIG_BACKLIGHT_AAT2870) += aat2870_bl.o
 obj-$(CONFIG_BACKLIGHT_OT200) += ot200_bl.o
-#LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
+obj-$(CONFIG_BACKLIGHT_LM3530) += lm3530_bl.o
+obj-$(CONFIG_BACKLIGHT_LM3533) += lm3533.o
+# LGE_CHANGE_S [younglae.kim@lge.com], Backlight driver for L9II
 obj-$(CONFIG_BACKLIGHT_LM3639)	+= lm3639_bl.o
-#LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
+# LGE_CHANGE_E [younglae.kim@lge.com]

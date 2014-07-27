@@ -1,9 +1,23 @@
 /*
- * Copyright LG Electronics (c) 2011
- * All rights reserved.
+ * Copyright (C) 2011-2012 LGE, Inc.
+ *
  * Author: Fred Cho <fred.cho@lge.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ *
  */
-
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -20,13 +34,12 @@
 static int pre_set_flag;
 struct pm8xxx_cradle {
 	struct switch_dev sdev;
-	struct delayed_work work;
+	struct work_struct work; //TEMP_FX3Q
+	struct delayed_work delay_work; //TEMP_FX3Q
 	struct device *dev;
 	const struct pm8xxx_cradle_platform_data *pdata;
 	int carkit;
 	int pouch;
-	int carkit_pre;
-	int pouch_pre;
 	spinlock_t lock;
 	struct wake_lock wake_lock;
 	int state;
@@ -40,23 +53,10 @@ static void pm8xxx_cradle_work_func(struct work_struct *work)
 	int state;
 	unsigned long flags;
 
-	if (cradle->pdata->carkit_detect_pin) {
+	if (cradle->pdata->carkit_detect_pin)
 		cradle->carkit = !gpio_get_value_cansleep(cradle->pdata->carkit_detect_pin);
-		if (cradle->carkit_pre != cradle->carkit) {
-			cradle->carkit_pre = cradle->carkit;
-			queue_delayed_work(cradle_wq, &cradle->work, msecs_to_jiffies(100));
-			return;
-		}
-	}
-
-	if (cradle->pdata->pouch_detect_pin) {
+	if (cradle->pdata->pouch_detect_pin)
 		cradle->pouch = !gpio_get_value_cansleep(cradle->pdata->pouch_detect_pin);
-		if (cradle->pouch_pre != cradle->pouch) {
-			cradle->pouch_pre = cradle->pouch;
-			queue_delayed_work(cradle_wq, &cradle->work, msecs_to_jiffies(100));
-			return;
-		}
-	}
 
 	printk("carkit === > %d , pouch === > %d \n", cradle->carkit , cradle->pouch);
 
@@ -100,14 +100,7 @@ static irqreturn_t pm8xxx_carkit_irq_handler(int irq, void *handle)
 {
 	struct pm8xxx_cradle *cradle_handle = handle;
 	printk("carkit irq!!!!!\n");
-	wake_lock_timeout(&cradle->wake_lock, 5 * HZ);
-	if (cradle->pdata->carkit_detect_pin) {
-		cradle->carkit = !gpio_get_value_cansleep(cradle->pdata->carkit_detect_pin);
-		if (cradle->carkit_pre != cradle->carkit) {
-			cradle->carkit_pre = cradle->carkit;
-			queue_delayed_work(cradle_wq, &cradle_handle->work, msecs_to_jiffies(500));
-		}
-	}
+	queue_work(cradle_wq, &cradle_handle->work);
 	return IRQ_HANDLED;
 }
 #endif
@@ -117,14 +110,7 @@ static irqreturn_t pm8xxx_pouch_irq_handler(int irq, void *handle)
 {
 	struct pm8xxx_cradle *cradle_handle = handle;
 	printk("pouch irq!!!!\n");
-	wake_lock_timeout(&cradle->wake_lock, 5 * HZ);
-	if (cradle->pdata->pouch_detect_pin) {
-		cradle->pouch = !gpio_get_value_cansleep(cradle->pdata->pouch_detect_pin);
-		if (cradle->pouch_pre != cradle->pouch) {
-			cradle->pouch_pre = cradle->pouch;
-			queue_delayed_work(cradle_wq, &cradle_handle->work, msecs_to_jiffies(500));
-		}
-	}
+	queue_work(cradle_wq, &cradle_handle->work);
 	return IRQ_HANDLED;
 }
 #endif
@@ -209,8 +195,8 @@ static struct device_attribute cradle_device_attrs[] = {
 #endif
 	__ATTR(sensing,  S_IRUGO | S_IWUSR, cradle_sensing_show, NULL),
 	__ATTR(send_event ,  S_IRUGO | S_IWUSR, cradle_send_event_show, cradle_send_event_store),
-
 };
+
 
 static ssize_t cradle_print_name(struct switch_dev *sdev, char *buf)
 {
@@ -239,10 +225,9 @@ static int __devinit pm8xxx_cradle_probe(struct platform_device *pdev)
 
 	cradle->sdev.name = "dock";
 	cradle->sdev.print_name = cradle_print_name;
-	cradle->pouch = cradle->pouch_pre = 0;
-	cradle->carkit = cradle->carkit_pre = 0;
+	cradle->pouch = cradle->carkit = 0;
+
 	spin_lock_init(&cradle->lock);
-	wake_lock_init(&cradle->wake_lock, WAKE_LOCK_SUSPEND, dev_name(&pdev->dev));
 
 	ret = switch_dev_register(&cradle->sdev);
 	if (ret < 0)
@@ -252,9 +237,10 @@ static int __devinit pm8xxx_cradle_probe(struct platform_device *pdev)
 		cradle_set_deskdock(pre_set_flag);
 		cradle->state = pre_set_flag;
 	}
-	INIT_DELAYED_WORK(&cradle->work, pm8xxx_cradle_work_func);
+	INIT_WORK(&cradle->work, pm8xxx_cradle_work_func);
 
 	printk("%s : init cradle\n", __func__);
+
 #if defined(CONFIG_BU52031NVX_CARKITDETECT)
 	if (pdata->carkit_irq) {
 		ret = request_irq(pdata->carkit_irq, pm8xxx_carkit_irq_handler, pdata->irq_flags, PM8XXX_CRADLE_DEV_NAME, cradle);
@@ -262,21 +248,10 @@ static int __devinit pm8xxx_cradle_probe(struct platform_device *pdev)
 			printk(KERN_ERR "%s: Can't allocate irq %d, ret %d\n", __func__, pdata->carkit_irq, ret);
 			goto err_request_irq;
 		}
-		ret = irq_set_irq_wake(pdata->carkit_irq, 1);
-		if (ret > 0) {
-			printk(KERN_ERR "%s: Can't set irq wake %d, ret %d\n", __func__, pdata->carkit_irq, ret);
-			goto err_request_irq;
-		}
+	}
 
-	}
-	if (cradle->pdata->carkit_detect_pin) {
-		cradle->carkit = !gpio_get_value_cansleep(cradle->pdata->carkit_detect_pin);
-		if (cradle->carkit_pre != cradle->carkit) {
-			cradle->carkit_pre = cradle->carkit;
-			queue_delayed_work(cradle_wq, &cradle->work, 0);
-		}
-	}
 #endif
+
 #if defined(CONFIG_BU52031NVX_POUCHDETECT)
 	if (pdata->pouch_irq) {
 		ret = request_irq(pdata->pouch_irq, pm8xxx_pouch_irq_handler, pdata->irq_flags, PM8XXX_CRADLE_DEV_NAME, cradle);
@@ -284,19 +259,7 @@ static int __devinit pm8xxx_cradle_probe(struct platform_device *pdev)
 			printk(KERN_ERR "%s: Can't allocate irq %d, ret %d\n", __func__, pdata->pouch_irq, ret);
 			goto err_request_irq;
 		}
-		ret = irq_set_irq_wake(pdata->pouch_irq, 1);
-		if (ret > 0) {
-			printk(KERN_ERR "%s: Can't set irq wake %d, ret %d\n", __func__, pdata->pouch_irq, ret);
-			goto err_request_irq;
-		}
 	}
-	if (cradle->pdata->pouch_detect_pin) {
-		cradle->pouch = !gpio_get_value_cansleep(cradle->pdata->pouch_detect_pin);
-		if (cradle->pouch_pre != cradle->pouch) {
-			cradle->pouch_pre = cradle->pouch;
-			queue_delayed_work(cradle_wq, &cradle->work, 0);
-		}
-	}	
 #endif
 
 	for (i = 0; i < ARRAY_SIZE(cradle_device_attrs); i++) {
@@ -309,6 +272,12 @@ static int __devinit pm8xxx_cradle_probe(struct platform_device *pdev)
 	return 0;
 
 err_request_irq:
+	if (pdata->carkit_irq)
+		free_irq(pdata->carkit_irq, 0);
+	if (pdata->pouch_irq)
+		free_irq(pdata->pouch_irq, 0);
+
+err_switch_dev_register:
 #if defined(CONFIG_BU52031NVX_CARKITDETECT)
 	if (pdata->carkit_irq)
 		free_irq(pdata->carkit_irq, 0);
@@ -318,8 +287,6 @@ err_request_irq:
 		free_irq(pdata->pouch_irq, 0);
 #endif
 
-err_switch_dev_register:
-	wake_lock_destroy(&cradle->wake_lock);
 	switch_dev_unregister(&cradle->sdev);
 	kfree(cradle);
 	return ret;
@@ -329,8 +296,7 @@ static int __devexit pm8xxx_cradle_remove(struct platform_device *pdev)
 {
 	struct pm8xxx_cradle *cradle = platform_get_drvdata(pdev);
 
-	wake_lock_destroy(&cradle->wake_lock);
-	cancel_delayed_work_sync(&cradle->work);
+	cancel_work_sync(&cradle->work);
 	switch_dev_unregister(&cradle->sdev);
 	platform_set_drvdata(pdev, NULL);
 	kfree(cradle);
@@ -338,12 +304,30 @@ static int __devexit pm8xxx_cradle_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int pm8xxx_cradle_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int pm8xxx_cradle_resume(struct device *dev)
+{
+	return 0;
+}
+
+static const struct dev_pm_ops pm8xxx_cradle_pm_ops = {
+	.suspend = pm8xxx_cradle_suspend,
+	.resume = pm8xxx_cradle_resume,
+};
+
 static struct platform_driver pm8xxx_cradle_driver = {
 	.probe		= pm8xxx_cradle_probe,
 	.remove		= __devexit_p(pm8xxx_cradle_remove),
 	.driver		= {
 		.name	= PM8XXX_CRADLE_DEV_NAME,
 		.owner	= THIS_MODULE,
+#ifdef CONFIG_PM
+		.pm	= &pm8xxx_cradle_pm_ops,
+#endif
 	},
 };
 

@@ -60,7 +60,7 @@ obj-$(CONFIG_IWM)	+= iwmc3200wifi/
 obj-$(CONFIG_MWIFIEX)	+= mwifiex/
 
 ifeq (l9ii, $(findstring l9ii, $(TARGET_PRODUCT)))
-obj-$(CONFIG_BCMDHD)	+= bcmdhd_43341/
+obj-$(CONFIG_BCMDHD)	+= bcmdhd/
 else
 obj-$(CONFIG_BCMDHD)	+= bcmdhd/
 endif

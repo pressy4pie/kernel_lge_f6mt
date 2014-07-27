@@ -127,33 +127,33 @@
 #define APDS9130_PDRVIE_25MA	0x80  /* PS 25mA LED drive */
 #define APDS9130_PDRVIE_12_5MA	0xC0  /* PS 12.5mA LED drive */
 
-//                                                                           
+// LGE_CHANGE_S [younglae.kim@lge.com] , add for Proximity sensor calibration
 #define DEFAULT_CROSS_TALK		50
 
 #if defined(CONFIG_MACH_LGE_FX3_TMUS) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US)
 #define ADD_TO_CROSS_TALK       300
-#elif defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
-#define ADD_TO_CROSS_TALK		150
+#elif defined(CONFIG_MACH_LGE_L9II_COMMON)
+#define ADD_TO_CROSS_TALK		250
 #elif defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_F6_VDF)
 #define ADD_TO_CROSS_TALK		320
 #else
 #define ADD_TO_CROSS_TALK       200
 #endif
 
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
-#define SUB_FROM_PS_THRESHOLD	40
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+#define SUB_FROM_PS_THRESHOLD	120
 #else
 #define SUB_FROM_PS_THRESHOLD	100
 #endif
 
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
 #define MAX_CROSS_TALK			870
 #else
 #define MAX_CROSS_TALK			720
 #endif
 
 static int stored_cross_talk = 0;
-//                                    
+// LGE_CHANGE_E [younglae.kim@lge.com]
 
 /*
  * Structs
@@ -187,7 +187,7 @@ struct apds9130_data {
 	unsigned int ps_sat;					/* to store PS saturation bit */
 	unsigned int ps_poll_delay;				/* needed for PS polling */
 
-//                                    
+// LGE_CHANGE_S [younglae.kim@lge.com]
 	int irq;
     unsigned char irq_wake;
 	struct wake_lock wakelock;
@@ -197,7 +197,7 @@ struct apds9130_data {
 
     unsigned int add_to_cross_talk;
     unsigned int sub_from_ps_threshold;
-//                                    
+// LGE_CHANGE_E [younglae.kim@lge.com]
 
 };
 
@@ -211,17 +211,27 @@ static struct workqueue_struct *apds9130_workqueue;
  * Management functions
  */
 
-//                                                                           
+// LGE_CHANGE_S [younglae.kim@lge.com] , add for Proximity sensor calibration
 static int __init prox_cal_data(char *str)
 {
 	s32 value = simple_strtol(str, NULL, 10);
+    printk("[ProximitySensor] %s\n", __func__);
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+	if(value == 0) {
+		value += 200;
+		printk("=====================================================\n"
+			"ProximitySensor : Calibration has not been performed.\n"
+			"   -> cross_talk is set to %d\n"
+			"=====================================================\n", value);
+	}
+#endif
 	stored_cross_talk = value;
 	printk("ProximitySensor : cal_data = %d\n", stored_cross_talk);
 
 	return 1;
 }
 __setup("prox_cal_data=", prox_cal_data);
-//                                    
+// LGE_CHANGE_E [younglae.kim@lge.com]
 
 
 static int apds9130_set_command(struct i2c_client *client, int command)
@@ -376,11 +386,11 @@ static void apds9130_change_ps_threshold(struct i2c_client *client)
 
 	data->ps_data =	i2c_smbus_read_word_data(client, CMD_WORD|APDS9130_PDATAL_REG);
 
-	/*                                               
-                                      
-                                                                                        
-                                           
-  */
+	/* LGE_CHANGE_S [younglae.kim@lge.com] 2013-05-20
+	 * fix the abnormal symptom as below:
+	 * - interrupt is not occured if the sensor is enabled with the saturated pdata(==1023)
+	 * - PERS can be set to any value except 0
+	 */
 	apds9130_set_pers(client, APDS9130_PPERS_2);
 
 	if(wake_lock_active(&data->wakelock))
@@ -633,11 +643,11 @@ static int apds9130_enable_ps_sensor(struct i2c_client *client, int val)
 		apds9130_set_pilt(client, 1023);		// to force first Near-to-Far interrupt
 		apds9130_set_piht(client, 0);
 
-		/*                                               
-                                       
-                                                                                         
-                                         
-   */
+		/* LGE_CHANGE_S [younglae.kim@lge.com] 2013-05-20
+		 * fix the abnormal symptom as below:
+		 * - interrupt is not occured if the sensor is enabled with the saturated pdata(==1023)
+		 * - PERS would be changed again in ISR
+		 */
 		apds9130_set_pers(client, APDS9130_PPERS_0);
 
 		if (val == APDS9130_ENABLE_PS_WITH_INT) {
@@ -757,7 +767,7 @@ static DEVICE_ATTR(ps_poll_delay, S_IWUSR | S_IRUGO,
 				   apds9130_show_ps_poll_delay, apds9130_store_ps_poll_delay);
 
 
-//                                                                           
+// LGE_CHANGE_S [younglae.kim@lge.com] , add for Proximity sensor calibration
 static int apds9130_Run_Cross_talk_Calibration(struct i2c_client *client)
 {
 	struct apds9130_data *data = i2c_get_clientdata(client);
@@ -1034,12 +1044,12 @@ static ssize_t apds9130_store_pdrive(struct device *dev,
 }
 static DEVICE_ATTR(pdrive, S_IRUGO | S_IWUSR | S_IWGRP,
          apds9130_show_pdrive, apds9130_store_pdrive);
-//                                    
+// LGE_CHANGE_E [younglae.kim@lge.com]
 static struct attribute *apds9130_attributes[] = {
 	&dev_attr_pdata.attr,
 	&dev_attr_enable_ps_sensor.attr,
 	&dev_attr_ps_poll_delay.attr,
-//                                                                           
+// LGE_CHANGE_S [younglae.kim@lge.com] , add for Proximity sensor calibration
 	&dev_attr_run_calibration.attr,
 	&dev_attr_default_crosstalk.attr,
     &dev_attr_piht.attr,
@@ -1048,7 +1058,7 @@ static struct attribute *apds9130_attributes[] = {
     &dev_attr_add_to_cross_talk.attr,
     &dev_attr_sub_from_ps_threshold.attr,
     &dev_attr_pdrive.attr,
-//                                    
+// LGE_CHANGE_E [younglae.kim@lge.com]
 	NULL
 };
 
@@ -1088,7 +1098,7 @@ static int apds9130_init_client(struct i2c_client *client)
 	err = apds9130_set_config(client, 0);   // no long wait
 	if (err < 0) return err;
 
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
 	err = apds9130_set_control(client, APDS9130_PDRVIE_100MA|APDS9130_PRX_IR_DIOD|APDS9130_PGAIN_2X);
 #else
 	err = apds9130_set_control(client, APDS9130_PDRVIE_100MA|APDS9130_PRX_IR_DIOD|APDS9130_PGAIN_4X);
@@ -1264,7 +1274,7 @@ static int apds9130_suspend(struct i2c_client *client, pm_message_t mesg)
     flush_delayed_work_sync(&data->dwork);
 
     if( data->enable & 0x20 ) {
-        apds9130_set_enable(client, 0x25);
+        apds9130_set_enable(client, 0x2D);
     } else {
         apds9130_set_enable(client, 0);
     }

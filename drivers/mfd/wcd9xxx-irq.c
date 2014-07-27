@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -326,9 +326,10 @@ int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 			free_irq(wcd9xxx->irq, wcd9xxx);
 	}
 
-	if (ret)
+	if (ret) {
 		mutex_destroy(&wcd9xxx->irq_lock);
 		mutex_destroy(&wcd9xxx->nested_irq_lock);
+	}
 
 	return ret;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,6 @@
 #define CSID_VERSION_V2                      0x02000011
 #define CSID_VERSION_V3                      0x30000000
 
-/*            */
 #define DBG_CSID 0
 
 #define TRUE   1
@@ -97,7 +96,7 @@ static int msm_csid_config(struct csid_device *csid_dev,
 		return -EINVAL;
 	}
 
-	/*                                                         */
+	/*LGE_CHANGE, open logs, 2013-01-28, kwangsik83.kim@lge.com*/
 	pr_err("%s csid_params, lane_cnt = %d, lane_assign = %x, phy sel = %d\n",
 		__func__,
 		csid_params->lane_cnt,
@@ -127,12 +126,12 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 {
 	uint32_t irq;
 	struct csid_device *csid_dev = data;
-	if (!csid_dev) {
+	if (!csid_dev||!csid_dev->base) {
 		pr_err("%s:%d csid_dev NULL\n", __func__, __LINE__);
 		return IRQ_HANDLED;
 	}
 	irq = msm_camera_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
-  /*            */
+  /* LGE_CHANGE */
 	pr_err("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 		 __func__, csid_dev->pdev->id, irq);
 	if (irq & (0x1 << CSID_RST_DONE_IRQ_BITSHIFT))
@@ -429,7 +428,7 @@ static long msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 		return -EFAULT;
 	}
 
-	/*                                                         */
+	/*LGE_CHANGE, open logs, 2013-01-28, kwangsik83.kim@lge.com*/
 	pr_err("%s cfgtype = %d\n", __func__, cdata.cfgtype);
 	switch (cdata.cfgtype) {
 	case CSID_INIT:
@@ -449,6 +448,13 @@ static long msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 			sizeof(struct msm_camera_csid_params))) {
 			pr_err("%s: %d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
+			break;
+		}
+		if (csid_params.lut_params.num_cid < 1 ||
+			csid_params.lut_params.num_cid > 16) {
+			pr_err("%s: %d num_cid outside range\n",
+				__func__, __LINE__);
+			rc = -EINVAL;
 			break;
 		}
 		vc_cfg = kzalloc(csid_params.lut_params.num_cid *
@@ -619,7 +625,7 @@ static int __devinit csid_probe(struct platform_device *pdev)
 csid_no_resource:
 	mutex_destroy(&new_csid_dev->mutex);
 	kfree(new_csid_dev);
-	return 0;
+	return rc;
 }
 
 static const struct of_device_id msm_csid_dt_match[] = {

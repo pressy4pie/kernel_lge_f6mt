@@ -111,12 +111,12 @@ static bool rt_mt6(const struct sk_buff *skb, struct xt_action_param *par)
 						       reserved),
 					sizeof(_reserved),
 					&_reserved);
-		/*                                      */
+		/* LGE_CHANGE_S: fixed WBT TD2170422116 */
 		if (rp == NULL) {
 			/* failed due to return NULL pointer */
 			return false;
 		}
-		/*              */
+		/* LGE_CHANGE_E */
 
 		ret = (*rp == 0);
 	}

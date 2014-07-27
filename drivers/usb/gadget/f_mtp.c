@@ -67,6 +67,9 @@
 #define MTP_RESPONSE_OK             0x2001
 #define MTP_RESPONSE_DEVICE_BUSY    0x2019
 
+unsigned int mtp_rx_req_len = MTP_BULK_BUFFER_SIZE;
+module_param(mtp_rx_req_len, uint, S_IRUGO | S_IWUSR);
+
 static const char mtp_shortname[] = "mtp_usb";
 
 struct mtp_dev {
@@ -246,44 +249,22 @@ struct mtp_ext_config_desc_function {
 	__u8	reserved[6];
 };
 
-/*           
-                                                               
-                                                                            
-                                                                   
-                                   
- */
-
 /* MTP Extended Configuration Descriptor */
 struct {
 	struct mtp_ext_config_desc_header	header;
 	struct mtp_ext_config_desc_function    function;
-#ifdef NOT_CONFIG_USB_G_LGE_ANDROID
-	struct mtp_ext_config_desc_function    adb_function;
-#endif
 } mtp_ext_config_desc = {
 	.header = {
 		.dwLength = __constant_cpu_to_le32(sizeof(mtp_ext_config_desc)),
 		.bcdVersion = __constant_cpu_to_le16(0x0100),
 		.wIndex = __constant_cpu_to_le16(4),
-#ifdef NOT_CONFIG_USB_G_LGE_ANDROID
-		/* It has two functions (mtp, adb) */
-		.bCount = __constant_cpu_to_le16(2),
-#else /* This is Google Original */
 		.bCount = __constant_cpu_to_le16(1),
-#endif
 	},
 	.function = {
 		.bFirstInterfaceNumber = 0,
 		.bInterfaceCount = 1,
 		.compatibleID = { 'M', 'T', 'P' },
 	},
-#ifdef NOT_CONFIG_USB_G_LGE_ANDROID
-	/* adb */
-	.adb_function = {
-		.bFirstInterfaceNumber = 1,
-		.bInterfaceCount = 1,
-	},
-#endif
 };
 
 struct mtp_device_status {
@@ -449,10 +430,17 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 		req->complete = mtp_complete_in;
 		mtp_req_put(dev, &dev->tx_idle, req);
 	}
+retry_rx_alloc:
 	for (i = 0; i < RX_REQ_MAX; i++) {
-		req = mtp_request_new(dev->ep_out, MTP_BULK_BUFFER_SIZE);
-		if (!req)
-			goto fail;
+		req = mtp_request_new(dev->ep_out, mtp_rx_req_len);
+		if (!req) {
+			if (mtp_rx_req_len <= MTP_BULK_BUFFER_SIZE)
+				goto fail;
+			for (; i > 0; i--)
+				mtp_request_free(dev->rx_req[i], dev->ep_out);
+			mtp_rx_req_len = MTP_BULK_BUFFER_SIZE;
+			goto retry_rx_alloc;
+		}
 		req->complete = mtp_complete_out;
 		dev->rx_req[i] = req;
 	}
@@ -482,7 +470,7 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 
 	DBG(cdev, "mtp_read(%d)\n", count);
 
-	if (count > MTP_BULK_BUFFER_SIZE)
+	if (count > mtp_rx_req_len)
 		return -EINVAL;
 
 	/* we will block until we're online */
@@ -780,8 +768,8 @@ static void receive_file_work(struct work_struct *data)
 			read_req = dev->rx_req[cur_buf];
 			cur_buf = (cur_buf + 1) % RX_REQ_MAX;
 
-			read_req->length = (count > MTP_BULK_BUFFER_SIZE
-					? MTP_BULK_BUFFER_SIZE : count);
+			read_req->length = (count > mtp_rx_req_len
+					? mtp_rx_req_len : count);
 			dev->rx_done = 0;
 			ret = usb_ep_queue(dev->ep_out, read_req, GFP_KERNEL);
 			if (ret < 0) {
@@ -1055,6 +1043,7 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 			ctrl->bRequest, w_index, w_value, w_length);
 
 
+#ifdef CONFIG_USB_LGE_ANDROID
 		/* Fix Windows 7 Bug at PCSync
 		 * In mtp usb request, MTP_REQ_CANCEL and MTP_REQ_GET_DEVICE_STATUS has w_index(USB interface number) parameter.
 		 * In Windows XP, this w_index is hardcoded to 0,
@@ -1073,7 +1062,7 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 		 MTP only mode : MTP_REQ_GET_DEVICE_STATUS(0x67), w_index = 0, w_value = 0;
 		 PC suite mode   : MTP_REQ_GET_DEVICE_STATUS(0x67), w_index = 3, w_value = 0;
 		 */
-#ifdef CONFIG_USB_G_LGE_ANDROID
+
 		if (ctrl->bRequest == MTP_REQ_CANCEL && (w_index == 0 || w_index == 3)
 				&& w_value == 0) {
 #else /* google original */
@@ -1095,7 +1084,7 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 			 * the contents.
 			 */
 			value = w_length;
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
 		} else if (ctrl->bRequest == MTP_REQ_GET_DEVICE_STATUS
 				&& (w_index == 0 || w_index == 3) && w_value == 0) {
 #else /* google original */
@@ -1150,7 +1139,7 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	if (id < 0)
 		return id;
 	mtp_interface_desc.bInterfaceNumber = id;
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
 	/* for ptp & MS desc */
 	ptp_interface_desc.bInterfaceNumber = id;
 	mtp_ext_config_desc.function.bFirstInterfaceNumber = id;

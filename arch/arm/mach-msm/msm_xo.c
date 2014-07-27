@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -161,7 +161,7 @@ static int msm_xo_show_voters(struct seq_file *m, void *v)
 	return 0;
 }
 
-/*            */
+/* LGE_CHANGE */
 #ifdef CONFIG_LGE_PM
 static struct  delayed_work     xo_print_work;
 static void msm_xo_show_voters_worker(struct work_struct *work)
@@ -259,10 +259,9 @@ static int __msm_xo_mode_vote(struct msm_xo_voter *xo_voter, unsigned mode)
 	int ret;
 	struct msm_xo *xo = xo_voter->xo;
 	int is_d0 = xo == &msm_xo_sources[MSM_XO_TCXO_D0];
-	int needs_workaround = cpu_is_msm8960() || cpu_is_apq8064() ||
-			       cpu_is_msm8930() || cpu_is_msm8930aa() ||
-			       cpu_is_msm9615() || cpu_is_msm8627() ||
-			       cpu_is_msm8960ab() || cpu_is_apq8064ab();
+	int needs_workaround = soc_class_is_msm8960() ||
+			       soc_class_is_apq8064() ||
+			       soc_class_is_msm8930() || cpu_is_msm9615();
 
 	if (xo_voter->mode == mode)
 		return 0;
@@ -410,7 +409,7 @@ int __init msm_xo_init(void)
 	if (ret)
 		return ret;
 	msm_xo_debugfs_init();
-/*            */
+/* LGE_CHANGE */
 #ifdef CONFIG_LGE_PM
 	INIT_DELAYED_WORK(&xo_print_work, msm_xo_show_voters_worker); 
 	schedule_delayed_work(&xo_print_work, round_jiffies_relative(msecs_to_jiffies(30000)));

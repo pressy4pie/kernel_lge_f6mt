@@ -24,11 +24,11 @@
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
 #endif
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_LGE_ANDROID
 #include <linux/usb/cdc.h>
 #endif
-#ifdef CONFIG_LGE_PM
-#include <mach/board_lge.h>
+#ifdef CONFIG_LGE_PM_VZW_FAST_CHG
+#include <linux/mfd/pm8xxx/pm8921-charger.h>
 #endif
 
 /*
@@ -40,6 +40,15 @@
 
 /* big enough to hold our biggest descriptor */
 #define USB_BUFSIZ	4096
+
+#ifdef CONFIG_LGE_PM_VZW_FAST_CHG
+extern int vzw_fast_chg_ma;
+bool usb_connected_flag = false;
+EXPORT_SYMBOL(usb_connected_flag);
+bool usb_configured_flag = false;
+EXPORT_SYMBOL(usb_configured_flag);
+#endif
+
 
 static struct usb_composite_driver *composite;
 static int (*composite_gadget_bind)(struct usb_composite_dev *cdev);
@@ -697,14 +706,7 @@ static int set_config(struct usb_composite_dev *cdev,
 	/* when we return, be sure our power usage is valid */
 	power = c->bMaxPower ? (2 * c->bMaxPower) : CONFIG_USB_GADGET_VBUS_DRAW;
 done:
-#ifdef CONFIG_LGE_PM
-	if (lge_pm_get_cable_type() == NO_INIT_CABLE)
-		usb_gadget_vbus_draw(gadget, power);
-	else
-		usb_gadget_vbus_draw(gadget, lge_pm_get_usb_current());
-#else /* google original */
 	usb_gadget_vbus_draw(gadget, power);
-#endif
 
 	if (result >= 0 && cdev->delayed_status)
 		result = USB_GADGET_DELAYED_STATUS;
@@ -1118,6 +1120,16 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 
 	/* we handle all standard USB descriptors */
 	case USB_REQ_GET_DESCRIPTOR:
+#ifdef CONFIG_LGE_PM_VZW_FAST_CHG
+		if (!usb_connected_flag){
+			usb_connected_flag = true;
+			pr_info("%s: usb_connected_flag set to TURE!! \n", __func__);
+
+			//forcibly set normal charging status
+			vzw_fast_chg_ma = 1100;
+			set_vzw_charging_state();
+		}
+#endif
 		if (ctrl->bRequestType != USB_DIR_IN)
 			goto unknown;
 		switch (w_value >> 8) {
@@ -1197,6 +1209,14 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		spin_lock(&cdev->lock);
 		value = set_config(cdev, ctrl, w_value);
 		spin_unlock(&cdev->lock);
+#ifdef CONFIG_LGE_PM_VZW_FAST_CHG
+		usb_configured_flag = true;
+		pr_info("%s: usb_configured_flag set to TRUE!!\n", __func__);
+
+		//forcibly set normal charging status
+		vzw_fast_chg_ma = 1100;
+		set_vzw_charging_state();
+#endif
 		break;
 	case USB_REQ_GET_CONFIGURATION:
 		if (ctrl->bRequestType != USB_DIR_IN)
@@ -1381,6 +1401,10 @@ static void composite_disconnect(struct usb_gadget *gadget)
 		reset_config(cdev);
 	if (composite->disconnect)
 		composite->disconnect(cdev);
+	if (cdev->delayed_status != 0) {
+		INFO(cdev, "delayed status mismatch..resetting\n");
+		cdev->delayed_status = 0;
+	}
 	spin_unlock_irqrestore(&cdev->lock, flags);
 }
 
@@ -1442,7 +1466,7 @@ static u8 override_id(struct usb_composite_dev *cdev, u8 *desc)
 
 	return *desc;
 }
-#if defined CONFIG_DEBUG_FS && defined CONFIG_USB_G_LGE_ANDROID
+#if defined CONFIG_DEBUG_FS && defined CONFIG_USB_LGE_ANDROID
 static char debug_buffer[PAGE_SIZE];
 
 static ssize_t debug_desc_read(struct file *file, char __user *ubuf,
@@ -1619,7 +1643,7 @@ static void composite_debugfs_init(struct usb_composite_dev	*cdev)
 
 	debugfs_create_file("desc", 0444, dent, cdev, &debug_desc_ops);
 }
-#endif /*                                             */
+#endif /* CONFIG_USB_LGE_ANDROID && CONFIG_DEBUG_FS */
 
 static int composite_bind(struct usb_gadget *gadget)
 {
@@ -1712,11 +1736,7 @@ static int composite_bind(struct usb_gadget *gadget)
 	if (status)
 		goto fail;
 
-#if defined CONFIG_DEBUG_FS && defined CONFIG_USB_G_LGE_ANDROID
-	/*           
-                                    
-                                    
-  */
+#if defined CONFIG_DEBUG_FS && defined CONFIG_USB_LGE_ANDROID
 	composite_debugfs_init(cdev);
 #endif
 
@@ -1751,12 +1771,7 @@ composite_suspend(struct usb_gadget *gadget)
 
 	cdev->suspended = 1;
 
-#ifdef CONFIG_LGE_PM
-	return;
-#else /* google original */
 	usb_gadget_vbus_draw(gadget, 2);
-#endif
-
 }
 
 static void

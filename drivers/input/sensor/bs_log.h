@@ -1,3 +1,14 @@
+/*
+ * (C) Copyright 2013 Bosch Sensortec GmbH All Rights Reserved
+ *
+ * This software program is licensed subject to the GNU General Public License
+ * (GPL).Version 2,June 1991, available at http://www.fsf.org/copyleft/gpl.html
+ *
+ * @date        Apr 28th, 2011
+ * @version     v1.0
+ * @brief       Log API for Bosch MEMS Sensor drivers
+ */
+
 #ifndef __BS_LOG_H
 #define __BS_LOG_H
 
@@ -17,25 +28,33 @@
 #endif
 
 #if (LOG_LEVEL >= LOG_LEVEL_E)
-#define PERR(fmt, args...) printk("\n" "[E]" KERN_ERR MODULE_TAG "<%s><%d>" fmt "\n", __FUNCTION__, __LINE__, ##args)
+#define PERR(fmt, args...) printk(KERN_ERR\
+		"\n" "[E]" KERN_ERR MODULE_TAG "<%s><%d>" fmt "\n",\
+		__func__, __LINE__, ##args)
 #else
 #define PERR(fmt, args...)
-#endif 
+#endif
 
 #if (LOG_LEVEL >= LOG_LEVEL_N)
-#define PNOTICE(fmt, args...) printk("\n" "[N]" KERN_NOTICE MODULE_TAG "<%s><%d>" fmt "\n", __FUNCTION__, __LINE__, ##args)
+#define PNOTICE(fmt, args...) printk(KERN_NOTICE\
+		"\n" "[N]" KERN_NOTICE MODULE_TAG "<%s><%d>" fmt "\n",\
+		__func__, __LINE__, ##args)
 #else
 #define PNOTICE(fmt, args...)
 #endif
 
 #if (LOG_LEVEL >= LOG_LEVEL_I)
-#define PINFO(fmt, args...) printk("\n" "[I]" KERN_INFO MODULE_TAG "<%s><%d>" fmt "\n", __FUNCTION__, __LINE__, ##args)
+#define PINFO(fmt, args...) printk(KERN_INFO\
+		"\n" "[I]" KERN_INFO MODULE_TAG "<%s><%d>" fmt "\n",\
+		__func__, __LINE__, ##args)
 #else
 #define PINFO(fmt, args...)
 #endif
 
 #if (LOG_LEVEL >= LOG_LEVEL_D)
-#define PDEBUG(fmt, args...) printk("\n" "[D]" KERN_DEBUG MODULE_TAG "<%s><%d>" fmt "\n", __FUNCTION__, __LINE__, ##args)
+#define PDEBUG(fmt, args...) printk(KERN_DEBUG\
+		"\n" "[D]" KERN_DEBUG MODULE_TAG "<%s><%d>" fmt "\n",\
+		__func__, __LINE__, ##args)
 #else
 #define PDEBUG(fmt, args...)
 #endif

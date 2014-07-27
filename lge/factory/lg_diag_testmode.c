@@ -5,12 +5,12 @@
 
 #include <lg_fw_diag_communication.h>
 #include <lg_diag_testmode.h>
-#include <mach/qdsp5v2/audio_def.h>
+#include <mach/qdsp6v2/audio_def.h>
 #include <linux/delay.h>
 
 #include <userDataBackUpDiag.h>
 #include <userDataBackUpTypeDef.h> 
-#include <../../arm/mach-msm/smd_private.h>
+#include <../../arch/arm/mach-msm/smd_private.h>
 #include <linux/slab.h>
 
 
@@ -37,7 +37,7 @@ extern int lge_read_srd_block(int secnum, unsigned char *buf, size_t size);
 #ifdef CONFIG_LGE_DLOAD_SRD  //kabjoo.choi
 #define SIZE_OF_SHARD_RAM  0x10000  //384K
 
-//                                                                             
+//extern PACK (void *)LGE_Dload_SRD (PACK (void *)req_pkt_ptr, uint16 pkg_len);
 extern void diag_SRD_Init(udbp_req_type * req_pkt, udbp_rsp_type * rsp_pkt);
 extern void diag_userDataBackUp_entrySet(udbp_req_type * req_pkt, udbp_rsp_type * rsp_pkt, script_process_type MODEM_MDM );
 extern boolean writeBackUpNVdata( char * ram_start_address , unsigned int size);
@@ -61,7 +61,7 @@ asmlinkage long sys_test (int* temp)
 // Self Recovery Download Support  diag command 249-XX
 //====================================================================
 #ifdef CONFIG_LGE_DLOAD_SRD  //kabjoo.choi
-//                                                                     
+//PACK (void *)LGE_Dload_SRD (PACK (void *)req_pkt_ptr, uint16 pkg_len)
 asmlinkage long sys_LGE_Dload_SRD (void *req_pkt_ptr, void *rsp_pkt_ptr)
 {
     udbp_req_type *req_ptr = (udbp_req_type *) req_pkt_ptr;
@@ -161,7 +161,7 @@ printk(KERN_INFO "[SRD] USERDATA_BACKIP_REQUEST \n");
 
   return TRUE;
 }
-//                             
+//EXPORT_SYMBOL(LGE_Dload_SRD);
 #endif 
 
 

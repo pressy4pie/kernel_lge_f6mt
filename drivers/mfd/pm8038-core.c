@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -376,16 +376,18 @@ static struct mfd_cell ccadc_cell __devinitdata = {
 	.num_resources	= ARRAY_SIZE(ccadc_cell_resources),
 };
 
+#if !defined (CONFIG_MACH_LGE_L9II_COMMON)
 static struct mfd_cell vibrator_cell __devinitdata = {
-//                                                                       
+// LGE_CHANGE_S [younglae.kim@lge.com] 2013-02-25, add immersion solution
 #if defined(CONFIG_TSPDRV)
     .name           = "tspdrv",
 #else
 	.name           = PM8XXX_VIBRATOR_DEV_NAME,
 #endif
-//                                               
+// LGE_CHANGE_E [younglae.kim@lge.com] 2013-02-25
 	.id             = -1,
 };
+#endif
 
 static struct pm8xxx_vreg regulator_data[] = {
 	/*   name	     pc_name	    ctrl   test   hpm_min */
@@ -636,15 +638,15 @@ pm8038_add_subdevices(const struct pm8038_platform_data *pdata,
 	}
 #endif
 
-//                                                                       
-#ifdef CONFIG_TSPDRV
+// LGE_CHANGE_S [younglae.kim@lge.com] 2013-02-25, add immersion solution
+#if defined(CONFIG_TSPDRV) && !defined(CONFIG_MACH_LGE_L9II_COMMON)
     ret = mfd_add_devices(pmic->dev, 0, &vibrator_cell, 1, NULL, 0);
 	if (ret) {
 		pr_err("Failed to add vibrator ret=%d\n", ret);
 		goto bail;
 	}
 #endif
-//                                               
+// LGE_CHANGE_E [younglae.kim@lge.com] 2013-02-25
 
 	if (pdata->spk_pdata) {
 		spk_cell.platform_data = pdata->spk_pdata;
@@ -732,6 +734,8 @@ pm8038_add_subdevices(const struct pm8038_platform_data *pdata,
 	}
 
 	if (pdata->ccadc_pdata) {
+		pdata->ccadc_pdata->ccadc_cdata.batt_temp_channel
+						= CHANNEL_BATT_THERM;
 		ccadc_cell.platform_data = pdata->ccadc_pdata;
 		ccadc_cell.pdata_size =
 				sizeof(struct pm8xxx_ccadc_platform_data);
@@ -743,7 +747,7 @@ pm8038_add_subdevices(const struct pm8038_platform_data *pdata,
 			goto bail;
 		}
 	}
-/*                                                 */
+/* LGE_CHANGE: remove below codes due to QCT patch */
 #if 0 // CONFIG_PMIC8XXX_VIBRATOR
     if (pdata->vibrator_pdata) {
         vibrator_cell.platform_data = pdata->vibrator_pdata;

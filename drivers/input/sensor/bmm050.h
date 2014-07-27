@@ -117,7 +117,7 @@
 
 
 #define BMM050_RETURN_FUNCTION_TYPE        char
-#define BMM050_I2C_ADDRESS                 0x10
+#define BMM050_I2C_ADDRESS                 0x13
 
 /*General Info datas*/
 #define BMM050_SOFT_RESET7_ON              1
@@ -520,6 +520,7 @@ struct bmm050_mdata_s32 {
 	BMM050_S32 datay;
 	BMM050_S32 dataz;
 	BMM050_U16 resistance;
+	BMM050_U16 drdy;
 };
 struct bmm050_mdata_float {
 	float datax;

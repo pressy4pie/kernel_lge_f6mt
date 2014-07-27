@@ -378,19 +378,13 @@ int mmc_spi_set_crc(struct mmc_host *host, int use_crc)
  *	@timeout_ms: timeout (ms) for operation performed by register write,
  *                   timeout of zero implies maximum possible timeout
  *	@use_busy_signal: use the busy signal as response type
- *	@bkops_busy: set this to indicate that we are starting blocking bkops
+ *	@ignore_timeout: set this flag only for commands which can be HPIed
  *
  *	Modifies the EXT_CSD register for selected card.
  */
-/*            */
-#ifndef BKOPS_UPDATE
 int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		 unsigned int timeout_ms, bool use_busy_signal,
-		 bool bkops_busy)
-#else
-int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
-	       unsigned int timeout_ms, bool use_busy_signal)
-#endif
+		 bool ignore_timeout)
 {
 	int err;
 	struct mmc_command cmd = {0};
@@ -413,10 +407,8 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 
 
 	cmd.cmd_timeout_ms = timeout_ms;
-/*            */
-#ifndef BKOPS_UPDATE    
-	cmd.bkops_busy = bkops_busy;
-#endif
+	cmd.ignore_timeout = ignore_timeout;
+
 	err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
 	if (err)
 		return err;
@@ -425,7 +417,6 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 	if (!use_busy_signal)
 		return 0;
 
-	mmc_delay(1); /*     */
 	/* Must check status to be sure of no errors */
 	timeout = jiffies + msecs_to_jiffies(MMC_OPS_TIMEOUT_MS);
 	do {
@@ -459,23 +450,20 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(__mmc_switch);
-/*            */
-#ifndef BKOPS_UPDATE
+
 int mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		unsigned int timeout_ms)
 {
 	return __mmc_switch(card, set, index, value, timeout_ms, true, false);
 }
 EXPORT_SYMBOL_GPL(mmc_switch);
-#else
-int mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
+
+int mmc_switch_ignore_timeout(struct mmc_card *card, u8 set, u8 index, u8 value,
 		unsigned int timeout_ms)
 {
-	return __mmc_switch(card, set, index, value, timeout_ms, true);
+	return __mmc_switch(card, set, index, value, timeout_ms, true, true);
 }
-EXPORT_SYMBOL_GPL(mmc_switch);
-#endif
-
+EXPORT_SYMBOL(mmc_switch_ignore_timeout);
 
 int mmc_send_status(struct mmc_card *card, u32 *status)
 {

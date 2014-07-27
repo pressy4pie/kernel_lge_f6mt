@@ -109,26 +109,27 @@ static struct pm8xxx_gpio_init pm8038_gpios[] __initdata = {
 #if defined(CONFIG_MACH_LGE_FX3_VZW)  || defined(CONFIG_MACH_LGE_FX3Q_TMUS)
 	PM8038_GPIO_INPUT(2, PM_GPIO_PULL_UP_30),
 	PM8038_GPIO_INPUT(3, PM_GPIO_PULL_UP_30),
-#else /*                          */
+#else /* !CONFIG_MACH_LGE_FX3_VZW */
 #ifdef CONFIG_MACH_MSM8930_FX3
 	PM8038_GPIO_INPUT(1, PM_GPIO_PULL_UP_30),
 	PM8038_GPIO_INPUT(2, PM_GPIO_PULL_UP_30),
 	PM8038_GPIO_INPUT(3, PM_GPIO_PULL_UP_30),
-#if !(defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_F6_ORG ) || defined(CONFIG_MACH_LGE_F6_OPEN) || defined(CONFIG_MACH_LGE_F6_TMO)) || !defined(CONFIG_MACH_LGE_L9II_OPEN_EU)
+#if !(defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_F6_ORG ) || defined(CONFIG_MACH_LGE_F6_OPEN) \
+	    || defined(CONFIG_MACH_LGE_F6_TMO)) || !defined(CONFIG_MACH_LGE_L9II_COMMON)
 	PM8038_GPIO_INPUT(8, PM_GPIO_PULL_UP_30),
 #endif
 #endif
 
-#endif /*                         */
+#endif /* CONFIG_MACH_LGE_FX3_VZW */
 
-/*             
-                                     
-                                      
- */
+/* LGE_CHANGE S
+	* add the quick memo key for F6 TMUS
+	* 2013-01-31, choonghyun.jeon@lge.com
+	*/
 #if defined( CONFIG_MACH_LGE_F6_TMUS)|| defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_F6_ORG)|| defined(CONFIG_MACH_LGE_F6_OPEN) || defined(CONFIG_MACH_LGE_F6_TMO)
 	PM8038_GPIO_INPUT(5, PM_GPIO_PULL_UP_30),
 #else
-/*              */
+/* LGE_CHANGE E */
 	/* haptics gpio */
 	PM8038_GPIO_OUTPUT_FUNC(7, 0, PM_GPIO_FUNC_1),
 	/* MHL PWR EN */
@@ -202,8 +203,8 @@ void __init msm8930_pm8038_gpio_mpp_init(void)
 	}
 #endif
 
-/*                                                      
-                                  
+/* For all nc(not connected) gpios, set Input/Pull-dwon.
+ * 2013-03-29, junsin.park@lge.com
  */
 #ifdef CONFIG_MACH_MSM8930_FX3
 	for (i = 0; i < ARRAY_SIZE(msm8930_nc_gpios); i++) {
@@ -254,16 +255,16 @@ static struct pm8xxx_adc_amux pm8038_adc_channels_data[] = {
 	{"chg_temp", CHANNEL_CHG_TEMP, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 #ifdef CONFIG_LGE_PM_TEMP_SENSOR
-	/*                                               
-                                                           
-                                                      */
+	/* LGE_UPDATE_S [dongwon.choi@lge.com] 2013-03-29
+	 * amux_in temp senor can be used if pa_therm1 is not used
+	 * same channel ADC_MPP_1_AMUX4 of pa_therm1 is used */
 	{"pcb_therm", ADC_MPP_1_AMUX4, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 #else /* QCT original */
 	{"pa_therm1", ADC_MPP_1_AMUX4, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
-	/*              */
-#endif /*                           */
+	/* LGE_UPDATE_E */
+#endif /* CONFIG_LGE_PM_TEMP_SENSOR */
 	{"xo_therm", CHANNEL_MUXOFF, CHAN_PATH_SCALING1, AMUX_RSV0,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_XOTHERM},
 	{"pa_therm0", ADC_MPP_1_AMUX3, CHAN_PATH_SCALING1, AMUX_RSV1,
@@ -317,26 +318,34 @@ static int pm8921_therm_mitigation[] = {
 	325,
 };
 
-/*                                                                         */
+/* LGE_UPDATE_S, 4.35 High Cell Voltage, roy.park@lge.com, 2011/08/17 -->[ */
 #ifdef CONFIG_LGE_PM_435V_BATT
 #define MAX_VOLTAGE_MV		4350
 #else
 #define MAX_VOLTAGE_MV		4200
 #endif
+
 #if defined(CONFIG_MACH_LGE_FX3_SPCS) || defined(CONFIG_MACH_LGE_FX3_TMUS)
 #define CHG_TERM_MA		130
+
+#else 
+
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+#define CHG_TERM_MA		100
 #else
 #define CHG_TERM_MA		100
 #endif
 
+#endif
+
 static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 #ifdef CONFIG_LGE_PM_435V_BATT
-	.safety_time			= 480,
+	//.safety_time			= 480,
 	.update_time			= 60000,
 	.max_voltage			= MAX_VOLTAGE_MV,
 	.min_voltage			= 2700,
 #else
-	.safety_time		= 180,
+	//.safety_time		= 180,
 	.update_time		= 60000,
 	.max_voltage		= MAX_VOLTAGE_MV,
 	.min_voltage		= 3200,
@@ -346,8 +355,12 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 #endif /* QCT ORIGIN */
 	.alarm_low_mv		= 3400,
 	.alarm_high_mv		= 4280,
-#ifdef CONFIG_MACH_MSM8960_D1LV
+#if defined(CONFIG_MACH_MSM8960_D1LV)
 	.resume_voltage_delta	= 70,
+
+#elif defined(CONFIG_MACH_LGE_L9II_COMMON)
+	.resume_voltage_delta	= 70,
+	.resume_charge_percent	= 99,
 #else
 	.resume_voltage_delta	= 100,
 	.resume_charge_percent	= 99,
@@ -357,12 +370,12 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.cool_temp			= INT_MIN,	/* from 10, */
 	.warm_temp			= INT_MIN,	/* from 40, */
 	.cold_thr		= 1,
-	/*           
-                                    
-                                
- */
+	/* LGE_CHANGE
+	* add the xo_thermal mitigation way
+	* 2012-04-10, hiro.kwon@lge.com
+	*/
 	.thermal_mitigation_method = IUSB_NORMAL_METHOD,
-	/*                               */
+	/* 2012-04-10, hiro.kwon@lge.com */
 #else
 #ifdef CONFIG_LGE_PM_435V_BATT
 	.cool_temp			= 0,	/* from 10 */
@@ -389,14 +402,18 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.rconn_mohm		= 18,
 #endif
 /*
-                      
-                               
-                                        
-      
+#ifdef CONFIG_MACH_LGE
+	.batt_id_gpio		= BATT_ID_GPIO,
+	.batt_id_pu_gpio	= BATT_ID_PULLUP_GPIO,
+#endif
 */
 #ifdef CONFIG_LGE_PM_435V_BATT
 #ifdef CONFIG_LGE_PM_TRKLCHG_IN_KERNEL
-	.weak_voltage		= 3000,
+#ifdef CONFIG_MACH_LGE_FX3Q_TMUS
+	.weak_voltage       = 3000,
+#else
+	.weak_voltage		= 3200,
+#endif
 	.trkl_current		= 50,
 #else
 	.weak_voltage		= 2900,
@@ -414,7 +431,7 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 #ifdef CONFIG_LGE_PM_BOOST_IC
 	.boost_byp_sw_gpio = 56,
 	.boost_byp_thr = 3600,
-#endif /*                        */
+#endif /* CONFIG_LGE_PM_BOOST_IC */
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_F6_TMUS)
 	.stop_chg_upon_expiry = 1,
 #endif
@@ -422,21 +439,23 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 
 #if defined (CONFIG_MACH_LGE_F6_TMUS)|| defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_F6_ORG)|| defined(CONFIG_MACH_LGE_F6_OPEN) || defined(CONFIG_MACH_LGE_F6_TMO)
 #define PM8038_WLED_MAX_CURRENT		16
+#elif defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS)
+#define PM8038_WLED_MAX_CURRENT		20
 #else
 #define PM8038_WLED_MAX_CURRENT		19
 #endif
 #define PM8XXX_LED_PWM_PERIOD		1000
 #define PM8XXX_LED_PWM_DUTY_MS		20
-/*                                                         */
+/* LGE_CHANGE_S, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 #ifdef CONFIG_LGE_PM8038_KPJT
 #define PM8XXX_LED_PWM_PAUSE_LO		2000
 #define PM8038_RGB_LED_MAX_CURRENT	12
 #else
 #define PM8038_RGB_LED_MAX_CURRENT	6
 #endif
-/*                                                         */
+/* LGE_CHANGE_E, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 
-/*                                                         */
+/* LGE_CHANGE_S, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 #ifdef CONFIG_LGE_PM8038_KPJT
 static struct led_info pm8038_led_info[] = {
 	[0] = {
@@ -481,10 +500,11 @@ static struct led_info pm8038_led_info[] = {
 		.name			= "keyboard-backlight",
 	},
 };
-#else /*                          */
+#else /* !CONFIG_MACH_LGE_FX3_VZW */
 #if defined(CONFIG_MACH_LGE_FX3_SPCS) || defined (CONFIG_MACH_LGE_FX3_MPCS) || defined (CONFIG_MACH_LGE_FX3_TMUS) || defined(CONFIG_MACH_LGE_F6_TMUS) || \
 	defined(CONFIG_MACH_LGE_FX3_SPCSTRF) || defined(CONFIG_MACH_LGE_FX3_CRK) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US) || \
-	defined(CONFIG_MACH_LGE_L9II_OPEN_EU)|| defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_F6_ORG) || defined(CONFIG_MACH_LGE_F6_OPEN)|| defined(CONFIG_MACH_LGE_F6_TMO)
+	defined(CONFIG_MACH_LGE_L9II_COMMON)|| defined(CONFIG_MACH_LGE_F6_VDF) || \
+    defined(CONFIG_MACH_LGE_F6_ORG) || defined(CONFIG_MACH_LGE_F6_OPEN)|| defined(CONFIG_MACH_LGE_F6_TMO)
 static struct led_info pm8038_led_info[] = {
 	[0] = {
 		.name			= "wled",
@@ -533,11 +553,11 @@ static struct led_info pm8038_led_info[] = {
 };
 
 #endif
-#endif /*                         */
+#endif /* CONFIG_MACH_LGE_FX3_VZW */
 //=========================================================================
 
 #endif
-/*                                                         */
+/* LGE_CHANGE_E, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 
 static struct led_platform_data pm8038_led_core_pdata = {
 	.num_leds = ARRAY_SIZE(pm8038_led_info),
@@ -554,7 +574,7 @@ static struct wled_config_data wled_cfg = {
 	.num_strings = 2,
 };
 
-/*                                                         */
+/* LGE_CHANGE_S, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 #ifdef CONFIG_LGE_PM8038_KPJT
 /*  duty pcts array is...
  *  0......62         63      64    65    66       67     68     69    70       71      72     73    74       75   76   77    78   
@@ -619,7 +639,7 @@ static int pm8038_leds_pwm_duty_pcts4[79] = {
         0,63,30,0,
         3,3,3,2000
 };
-#else /*                          */
+#else /* !CONFIG_MACH_LGE_FX3_VZW */
 static int pm8038_leds_pwm_duty_pcts4[79] = {
     50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,
         0,63,30,0,
@@ -627,7 +647,7 @@ static int pm8038_leds_pwm_duty_pcts4[79] = {
         0,63,30,0,
         3,3,3,2000
 };
-#endif /*                         */
+#endif /* CONFIG_MACH_LGE_FX3_VZW */
 
 //#5 ID_CALENDAR_REMIND (GB)
 static int pm8038_leds_pwm_duty_pcts5[79] = {
@@ -746,17 +766,164 @@ static int pm8038_leds_pwm_duty_pcts14[79] = {
 
 //empty patterns
 static int pm8038_leds_pwm_duty_pcts15[79] = {
-		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,2000
+               0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,2000
 };
 
 static int pm8038_leds_pwm_duty_pcts16[79] = {
-		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,2000
+               0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,2000
 };
 
+#if !defined(CONFIG_MACH_LGE_F6_VDF)
 static int pm8038_leds_pwm_duty_pcts17[79] = {
-		0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0 ,0,0,0,0,0,0,0,0,0,0 ,0,0,0,0,0,0,0,0,0,0 ,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,2000
+               0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,2000
+};
+#else
+//#17 ID_MISSED_NOTI_PINK (RGB)
+static int pm8038_leds_pwm_duty_pcts17[79] = {
+    100,89,78,67,56,44,33,22,11,0,100,89,78,67,56,44,33,22,11,0,20,18,16,13,11,9,7,4,2,0,20,18,16,13,11,9,7,4,2,0,20,18,16,13,11,9,7,4,2,0,20,18,16,13,11,9,7,4,2,0,0,0,0,
+        0,20,36,3280,
+        20,20,36,3280,
+        40,20,36,3280,
+        19,19,19,2000
+};
+#endif
+
+#if defined(CONFIG_MACH_LGE_F6_VDF)
+//#18 ID_MISSED_NOTI_BLUE (RGB)
+static int pm8038_leds_pwm_duty_pcts18[79] = {
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,44,39,33,28,22,17,11,6,0,50,44,39,33,28,22,17,11,6,0,100,89,78,67,56,44,33,22,11,0,100,89,78,67,56,44,33,22,11,0,0,0,0,
+        0,20,36,3280,
+        20,20,36,3280,
+        40,20,36,3280,
+        19,19,19,2000
 };
 
+//#19 ID_MISSED_NOTI_ORANGE (RGB)
+static int pm8038_leds_pwm_duty_pcts19[79] = {
+    100,89,78,67,56,44,33,22,11,0,100,89,78,67,56,44,33,22,11,0,20,18,16,13,11,9,7,4,2,0,20,18,16,13,11,9,7,4,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,20,36,3280,
+        20,20,36,3280,
+        40,20,36,3280,
+        19,19,19,2000
+};
+
+//#20 ID_MISSED_NOTI_YELLOW (RGB)
+static int pm8038_leds_pwm_duty_pcts20[79] = {
+    100,89,78,67,56,44,33,22,11,0,100,89,78,67,56,44,33,22,11,0,60,53,47,40,33,27,20,13,7,0,60,53,47,40,33,27,20,13,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,20,36,3280,
+        20,20,36,3280,
+        40,20,36,3280,
+        19,19,19,2000
+};
+
+//#21 ID_INCALL_PINK (RGB)
+static int pm8038_leds_pwm_duty_pcts21[79] = {
+    0,14,29,43,57,71,86,100,92,83,75,67,58,50,42,33,25,17,8,0,0,3,6,9,11,14,17,20,18,17,15,13,12,10,8,7,5,3,2,0,0,3,6,9,11,14,17,20,18,17,15,13,12,10,8,7,5,3,2,0,0,0,0,
+        0,20,64,0,
+        20,20,64,0,
+        40,20,64,0,
+        3,3,3,2000
+};
+
+//#22 ID_INCALL_BLUE (RGB)
+static int pm8038_leds_pwm_duty_pcts22[79] = {
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,14,21,29,36,43,50,46,42,38,33,29,25,21,17,13,8,4,0,0,14,29,43,57,71,86,100,92,83,75,67,58,50,42,33,25,17,8,0,0,0,0,
+        0,20,64,0,
+        20,20,64,0,
+        40,20,64,0,
+        3,3,3,2000
+};
+
+//#23 ID_INCALL_ORANGE (RGB)
+static int pm8038_leds_pwm_duty_pcts23[79] = {
+    0,14,29,43,57,71,86,100,92,83,75,67,58,50,42,33,25,17,8,0,0,3,6,9,11,14,17,20,18,17,15,13,12,10,8,7,5,3,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,20,64,0,
+        20,20,64,0,
+        40,20,64,
+        0,3,3,3,2000
+};
+
+//#24 ID_INCALL_YELLOW (RGB)
+static int pm8038_leds_pwm_duty_pcts24[79] = {
+    0,14,29,43,57,71,86,100,92,83,75,67,58,50,42,33,25,17,8,0,0,9,17,26,34,43,51,60,55,50,45,40,35,30,25,20,15,10,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,20,64,0,
+        20,20,64,0,
+        40,20,64,0,
+        3,3,3,2000
+};
+
+//#25 ID_INCALL_TURQUIOSE (RGB)
+static int pm8038_leds_pwm_duty_pcts25[79] = {
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,14,29,43,57,71,86,100,92,83,75,67,58,50,42,33,25,17,8,0,0,7,14,21,27,34,41,48,44,40,36,32,28,24,20,16,12,8,4,0,0,0,0,
+        0,20,64,0,
+        20,20,64,0,
+        40,20,64,0,
+        3,3,3,2000
+};
+
+//#26 ID_INCALL_PURPLE (RGB)
+
+static int pm8038_leds_pwm_duty_pcts26[79] = {
+   0,10,20,30,40,50,60,70,64,58,53,47,41,35,29,23,18,12,6,0,0,1,3,4,6,7,9,10,9,8,8,7,6,5,4,3,3,1,1,0,0,14,29,43,57,71,86,100,92,83,75,67,58,50,42,33,25,17,8,0,0,0,0,
+        0,20,64,0,
+        20,20,64,0,
+        40,20,64,0,
+        3,3,3,2000
+};
+//#27 ID_INCALL_RED (R)
+static int pm8038_leds_pwm_duty_pcts27[79] = {
+    0,14,29,43,57,71,86,100,92,83,75,67,58,50,42,33,25,17,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,20,64,0,
+        20,20,64,0,
+        40,20,64,0,
+        3,3,3,2000
+};
+
+//#28 ID_INCALL_LIME (RGB)
+static int pm8038_leds_pwm_duty_pcts28[79] = {
+   0,8,17,26,34,43,52,60,55,50,45,40,35,30,25,20,15,10,5,0,0,14,29,43,57,71,86,100,92,83,75,67,58,50,42,33,25,17,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,20,64,0,
+        20,20,64,0,
+        40,20,64,0,
+        3,3,3,2000
+};
+
+//#29 ID_NOTI_TURQUIOSE (RGB)
+static int pm8038_leds_pwm_duty_pcts29[79] = {
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,100,87,78,67,56,44,33,22,11,0,100,87,78,67,56,44,33,22,11,0,48,42,37,32,27,21,16,11,5,0,48,42,37,32,27,21,16,11,5,0,0,0,0,
+        0,20,36,3280,
+        20,20,36,3280,
+        40,20,36,3280,
+        19,19,19,2000
+};
+
+//#30 ID_NOTI_PURPLE (RGB)
+static int pm8038_leds_pwm_duty_pcts30[79] = {
+    70,62,55,49,39,31,23,15,8,0,70,62,55,49,39,31,23,15,8,0,10,9,8,6,5,4,3,2,1,0,10,9,8,6,5,4,3,2,1,0,100,89,78,67,56,44,33,22,11,0,100,89,78,67,56,44,33,22,11,0,0,0,0,
+	0,20,36,3280,
+        20,20,36,3280,
+        40,20,36,3280,
+        19,19,19,2000
+};
+
+//#31 ID_NOTI_RED (RGB)
+static int pm8038_leds_pwm_duty_pcts31[79] = {
+    100,89,78,67,56,44,33,22,11,0,100,89,78,67,56,44,33,22,11,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,20,36,3280,
+        20,20,36,3280,
+        40,20,36,3280,
+        19,19,19,2000
+};
+
+//#32 ID_NOTI_LIME (RGB)
+static int pm8038_leds_pwm_duty_pcts32[79] = {
+    60,53,47,40,34,26,20,13,7,0,60,53,47,40,34,26,20,13,7,0,100,89,78,67,56,44,33,22,11,0,100,89,78,67,56,44,33,22,11,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,20,36,3280,
+        20,20,36,3280,
+        40,20,36,3280,
+        19,19,19,2000
+};
+#endif
 #else
 //=========================================================================
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3_SPCS) || defined(CONFIG_MACH_LGE_FX3_MPCS) || defined(CONFIG_MACH_LGE_FX3_TMUS) || defined(CONFIG_MACH_LGE_F6_TMUS) \
@@ -782,7 +949,7 @@ static int pm8038_led0_pwm_duty_pcts[56] = {
 #endif
 //=========================================================================
 #endif
-/*                                                         */
+/* LGE_CHANGE_E, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 
 
 
@@ -793,7 +960,7 @@ static int pm8038_led0_pwm_duty_pcts[56] = {
  * there are 63 usable LUT entries.
  */
 
-/*                                                         */
+/* LGE_CHANGE_S, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 #ifdef CONFIG_LGE_PM8038_KPJT
 static struct pm8xxx_pwm_duty_cycles pm8038_leds_pwm_duty_cycles = {
 	.duty_pcts0 = (int *)&pm8038_leds_pwm_duty_pcts0,
@@ -814,7 +981,23 @@ static struct pm8xxx_pwm_duty_cycles pm8038_leds_pwm_duty_cycles = {
 	.duty_pcts15 = (int *)&pm8038_leds_pwm_duty_pcts15,
 	.duty_pcts16 = (int *)&pm8038_leds_pwm_duty_pcts16,
 	.duty_pcts17 = (int *)&pm8038_leds_pwm_duty_pcts17,
-
+#if defined(CONFIG_MACH_LGE_F6_VDF)
+        .duty_pcts18 = (int *)&pm8038_leds_pwm_duty_pcts18,
+        .duty_pcts19 = (int *)&pm8038_leds_pwm_duty_pcts19,
+        .duty_pcts20 = (int *)&pm8038_leds_pwm_duty_pcts20,
+        .duty_pcts21 = (int *)&pm8038_leds_pwm_duty_pcts21,
+        .duty_pcts22 = (int *)&pm8038_leds_pwm_duty_pcts22,
+        .duty_pcts23 = (int *)&pm8038_leds_pwm_duty_pcts23,
+        .duty_pcts24 = (int *)&pm8038_leds_pwm_duty_pcts24,
+	.duty_pcts25 = (int *)&pm8038_leds_pwm_duty_pcts25,
+	.duty_pcts26 = (int *)&pm8038_leds_pwm_duty_pcts26,
+	.duty_pcts27 = (int *)&pm8038_leds_pwm_duty_pcts27,
+	.duty_pcts28 = (int *)&pm8038_leds_pwm_duty_pcts28,
+	.duty_pcts29 = (int *)&pm8038_leds_pwm_duty_pcts29,
+	.duty_pcts30 = (int *)&pm8038_leds_pwm_duty_pcts30,
+	.duty_pcts31 = (int *)&pm8038_leds_pwm_duty_pcts31,
+	.duty_pcts32 = (int *)&pm8038_leds_pwm_duty_pcts32,
+#endif
 	.num_duty_pcts = ARRAY_SIZE(pm8038_leds_pwm_duty_pcts0),
 	.duty_ms = PM8XXX_LED_PWM_DUTY_MS,
 	.start_idx = 1,
@@ -923,12 +1106,15 @@ static struct pm8xxx_led_config pm8038_led_configs[] = {
 //=========================================================================
 
 #endif
-/*                                                         */
+/* LGE_CHANGE_E, 2012-11-30, donghyuk79.park@lge.com, K-PJT*/
 
 static struct pm8xxx_led_platform_data pm8xxx_leds_pdata = {
 	.led_core = &pm8038_led_core_pdata,
 	.configs = pm8038_led_configs,
 	.num_configs = ARRAY_SIZE(pm8038_led_configs),
+#ifdef CONFIG_MACH_LGE_F6_VDF
+	.use_pwm = 1,
+#endif
 };
 
 static struct pm8xxx_ccadc_platform_data pm8xxx_ccadc_pdata = {
@@ -960,32 +1146,32 @@ static struct pm8xxx_spk_platform_data pm8xxx_spk_pdata = {
 
 static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.battery_type			= BATT_UNKNOWN,
-/*                                                  
-                                                
-                                                      
-                                                            
-                                                                                                           
+/* [LGE_CHANGE_S] 2013.04.26 daewon1004.kim@lge.com 
+                             hw design is wrong.
+                             ibat value is not normal.
+                             So, the issues fixed in the SW.
+                             Next power Engineer must recover from 33000 to 10000 value on the REV.b board.
 */
 #ifdef CONFIG_MACH_LGE_L9II_OPEN_EU_REV_A
 	.r_sense_uohm			= 33000,
 #else	
 	.r_sense_uohm			= 10000,
 #endif
-/*                                                  
-                                                
-                                                      
-                                                            
-                                                                                                           
+/* [LGE_CHANGE_E] 2013.04.26 daewon1004.kim@lge.com 
+                             hw design is wrong.
+                             ibat value is not normal.
+                             So, the issues fixed in the SW.
+                             Next power Engineer must recover from 33000 to 10000 value on the REV.b board.
 */
-#if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
+#if defined(CONFIG_MACH_LGE_FX3_VZW)
 	.v_cutoff			= 3300,
-#elif defined(CONFIG_LGE_PM_BOOST_IC)||defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_F6_ORG)||defined(CONFIG_MACH_LGE_F6_OPEN) || defined(CONFIG_MACH_LGE_F6_TMO)
+#elif defined(CONFIG_LGE_PM_BOOST_IC)
 	.v_cutoff			= 3000,
 #else
 	.v_cutoff			= 3200,
 #endif
 	.max_voltage_uv			= MAX_VOLTAGE_MV * 1000,
-#if defined(CONFIG_MACH_LGE_F6_TMUS)
+#if defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_FX3Q_TMUS)
 	.shutdown_soc_valid_limit	= 10,
 #else
 	.shutdown_soc_valid_limit	= 20,
@@ -995,14 +1181,26 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.rconn_mohm			= 18,
 	.normal_voltage_calc_ms		= 20000,
 	.low_voltage_calc_ms		= 1000,
+/*[START] add more variable as below  from JB MR2 */
+	.alarm_low_mv			= 3400,
+	.alarm_high_mv			= 4280,  /* QCT Original is 4000 */
+	.high_ocv_correction_limit_uv	= 50,
+	.low_ocv_correction_limit_uv	= 100,
+	.hold_soc_est			= 3,
+	.enable_fcc_learning		= 1,
+	.min_fcc_learning_soc		= 20,
+	.min_fcc_ocv_pc			= 30,
+	.min_fcc_learning_samples	= 5,
+/*[END] add more variable as below  from JB MR2 */
+
 };
 
 #ifdef CONFIG_PMIC8XXX_VIBRATOR
 static struct pm8xxx_vibrator_platform_data pm8xxx_vibrator_pdata = {
     .initial_vibrate_ms = 500,
-    /*                                          
-                                                                          
-                                        
+    /* change max timeout from 15 sec to 30 sec.
+     * Max vib time is 25 sec on the All Auto Test. (5 sec is just buffer)
+     * 2012-03-07, donggyun.kim@lge.com,
      */
     .max_timeout_ms = 30000,
     .min_timeout_ms = VIB_MIN_TIMEOUT_MS,
@@ -1052,7 +1250,7 @@ static struct direct_qcoin_platform_data pm8xxx_qcoin_pdata = {
 	.low_max = VIB_LOW_MAX,
 	.low_min = VIB_LOW_MIN,
 };
-#endif /*                                  */
+#endif /* CONFIG_LGE_DIRECT_QCOIN_VIBRATOR */
 
 static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
 	.irq_pdata		= &pm8xxx_irq_pdata,
@@ -1106,5 +1304,5 @@ void __init msm8930_init_pmic(void)
 		pm8xxx_qcoin_pdata.low_min = 31;
         //pm8921_chg_pdata.has_dc_supply = true;
 
-#endif /*                                  */
+#endif /* CONFIG_LGE_DIRECT_QCOIN_VIBRATOR */
 }

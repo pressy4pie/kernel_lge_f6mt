@@ -177,7 +177,7 @@ static ssize_t soc_codec_reg_show(struct snd_soc_codec *codec, char *buf,
 	return total;
 }
 
-//                                           
+//LGE_START, 2012-09-29, MYUNGWON.KIM@lge.com
 ssize_t codec_reg_store(struct device *dev, struct device_attribute *attr, const char *buf,size_t count)
 {
     int reg, data;
@@ -207,8 +207,9 @@ static ssize_t codec_reg_show(struct device *dev,
 	return soc_codec_reg_show(rtd->codec, buf, PAGE_SIZE, 0);
 }
 
+// static DEVICE_ATTR(codec_reg, 0444, codec_reg_show, NULL); => QCT Original Code
 static DEVICE_ATTR(codec_reg, 0644, codec_reg_show, codec_reg_store);
-//                                         
+//LGE_END, 2012-09-29, MYUNGWON.KIM@lge.com
 
 static ssize_t pmdown_time_show(struct device *dev,
 				struct device_attribute *attr, char *buf)

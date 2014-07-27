@@ -77,12 +77,12 @@
 #define MMC_EXT3_TYPE 0x83
 #define MMC_VFAT_TYPE 0xC
 
-//                                              
+// BEGIN: 0010090 sehyuny.kim@lge.com 2010-10-21
 // MOD 0010090: [FactoryReset] Enable Recovery mode FactoryReset
 #define MMC_RECOVERY_TYPE		0x60
 #define MMC_MISC_TYPE 0x77
 #define MMC_XCALBACKUP_TYPE 0x6E
-//                                            
+// END: 0010090 sehyuny.kim@lge.com 2010-10-21
 
 
 typedef struct MmcPartition MmcPartition;
@@ -177,7 +177,7 @@ int lge_erase_block(int bytes_pos, size_t erase_size)
 }
 EXPORT_SYMBOL(lge_erase_block);
 
-/*                                            */
+/* BEGIN: 0014570 jihoon.lee@lge.com 20110122 */
 /* MOD 0014570: [FACTORY RESET] change system call to filp function for handling the flag */
 int lge_write_block(unsigned int bytes_pos, unsigned char *buf, size_t size)
 {
@@ -222,11 +222,11 @@ write_fail:
 	return write_bytes;
 	
 }
-/*                                         */
+/* END: 0014570 jihoon.lee@lge.com 2011022 */
 
 EXPORT_SYMBOL(lge_write_block);
 
-/*                                            */
+/* BEGIN: 0014570 jihoon.lee@lge.com 20110122 */
 /* MOD 0014570: [FACTORY RESET] change system call to filp function for handling the flag */
 int lge_read_block(unsigned int bytes_pos, unsigned char *buf, size_t size)
 {
@@ -267,7 +267,7 @@ read_fail:
 	set_fs(old_fs); 
 	return read_bytes;
 }
-/*                                         */
+/* END: 0014570 jihoon.lee@lge.com 2011022 */
 EXPORT_SYMBOL(lge_read_block);
 
 const MmcPartition *lge_mmc_find_partition_by_name(const char *name)
@@ -354,7 +354,7 @@ static void lge_mmc_partition_name (MmcPartition *mbr, unsigned int type) {
 }
 
 //static int lge_mmc_read_mbr (MmcPartition *mbr) {
-/*                                            */
+/* BEGIN: 0014570 jihoon.lee@lge.com 20110122 */
 /* MOD 0014570: [FACTORY RESET] change system call to filp function for handling the flag */
 int lge_mmc_read_mbr (MmcPartition *mbr) {
 	//int fd;
@@ -513,7 +513,7 @@ ERROR2:
 		kfree(device_index);
     return ret;
 }
-/*                                         */
+/* END: 0014570 jihoon.lee@lge.com 2011022 */
 
 int lge_mmc_read_gpt (MmcPartition *mbr) {
 	//int fd;
@@ -684,7 +684,7 @@ mutex_lock(&emmc_dir_lock);  //kabjoo.choi
 
 EXPORT_SYMBOL(lge_mmc_scan_partitions);
 
-#ifdef CONFIG_MACH_LGE_120_BOARD //                                                                    
+#ifdef CONFIG_MACH_LGE_120_BOARD //[START]For preserving fake battery mode setting - Sujin.shin@lge.com
 static int write_status_power(const char *val)
 {
 	int h_file = 0;
@@ -794,7 +794,7 @@ int get_status_power(void)
 		
 }
 EXPORT_SYMBOL(get_status_power);
-//                                                                  
+//[END]For preserving fake battery mode setting - Sujin.shin@lge.com
 #endif
 //daheui.kim for kcal_S
 
@@ -819,7 +819,7 @@ int lge_erase_srd_block(int bytes_pos, size_t erase_size)
 }
 EXPORT_SYMBOL(lge_erase_srd_block);
 
-/*                                            */
+/* BEGIN: 0014570 jihoon.lee@lge.com 20110122 */
 /* MOD 0014570: [FACTORY RESET] change system call to filp function for handling the flag */
 int lge_write_srd_block(unsigned int bytes_pos, unsigned char *buf, size_t size)
 {
@@ -864,11 +864,11 @@ write_fail:
 	return write_bytes;
 	
 }
-/*                                         */
+/* END: 0014570 jihoon.lee@lge.com 2011022 */
 
 EXPORT_SYMBOL(lge_write_srd_block);
 
-/*                                            */
+/* BEGIN: 0014570 jihoon.lee@lge.com 20110122 */
 /* MOD 0014570: [FACTORY RESET] change system call to filp function for handling the flag */
 int lge_read_srd_block(unsigned int bytes_pos, unsigned char *buf, size_t size)
 {
@@ -909,7 +909,7 @@ read_fail:
 	set_fs(old_fs); 
 	return read_bytes;
 }
-/*                                         */
+/* END: 0014570 jihoon.lee@lge.com 2011022 */
 EXPORT_SYMBOL(lge_read_srd_block);
 
 
@@ -917,13 +917,13 @@ static int __init lge_emmc_direct_access_init(void)
 {
 	printk(KERN_INFO"%s: finished\n", __func__);
 
-/*                                            */
+/* BEGIN: 0013860 jihoon.lee@lge.com 20110111 */
 /* ADD 0013860: [FACTORY RESET] ERI file save */
 #ifdef CONFIG_LGE_ERI_DOWNLOAD
 	eri_dload_wq = create_singlethread_workqueue("eri_dload_wq");
 	INIT_WORK(&eri_dload_data.work, eri_dload_func);
 #endif
-/*                                          */
+/* END: 0013860 jihoon.lee@lge.com 20110111 */
 
 #ifdef CONFIG_LGE_DID_BACKUP
 	did_dload_wq = create_singlethread_workqueue("did_dload_wq");

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * Based on videobuf-dma-contig.c,
  * (c) 2008 Magnus Damm
@@ -56,7 +56,7 @@ static unsigned long msm_mem_allocate(struct videobuf2_contig_pmem *mem)
 		goto client_failed;
 	}
 	mem->ion_handle = ion_alloc(mem->client, mem->size, SZ_4K,
-		(0x1 << ION_CP_MM_HEAP_ID | 0x1 << ION_IOMMU_HEAP_ID));
+		(0x1 << ION_CP_MM_HEAP_ID | 0x1 << ION_IOMMU_HEAP_ID), 0);
 	if (IS_ERR((void *)mem->ion_handle)) {
 		pr_err("%s Could not allocate\n", __func__);
 		goto alloc_failed;
@@ -64,7 +64,7 @@ static unsigned long msm_mem_allocate(struct videobuf2_contig_pmem *mem)
 	rc = ion_map_iommu(mem->client, mem->ion_handle,
 			-1, 0, SZ_4K, 0,
 			(unsigned long *)&phyaddr,
-			(unsigned long *)&len, UNCACHED, 0);
+			(unsigned long *)&len, 0, 0);
 	if (rc < 0) {
 		pr_err("%s Could not get physical address\n", __func__);
 		goto phys_failed;
@@ -191,16 +191,18 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 		pr_err("%s ION import failed\n", __func__);
 		return PTR_ERR(mem->ion_handle);
 	}
-/*                                                                */
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+
+/* LGE_CHANGE_S, Fixed IOMMU fault , 2013.1.16, jungki.kim[Start] */
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 	//use delayed unmapping.. because iommu fault is occured...
 	rc = ion_map_iommu(client, mem->ion_handle, domain_num, 0,
-		SZ_4K, 0, (unsigned long *)&mem->phyaddr, &len, UNCACHED, ION_IOMMU_UNMAP_DELAYED);
+		SZ_4K, 0, (unsigned long *)&mem->phyaddr, &len, 0, ION_IOMMU_UNMAP_DELAYED);
 #else
 	rc = ion_map_iommu(client, mem->ion_handle, domain_num, 0,
-		SZ_4K, 0, (unsigned long *)&mem->phyaddr, &len, UNCACHED, 0);
+		SZ_4K, 0, (unsigned long *)&mem->phyaddr, &len, 0, 0);
 #endif
-/*                                                              */
+/* LGE_CHANGE_E, Fixed IOMMU fault , 2013.1.16, jungki.kim[End] */
+
 	if (rc < 0)
 		ion_free(client, mem->ion_handle);
 #elif CONFIG_ANDROID_PMEM
@@ -228,7 +230,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 }
 EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_user_get);
 
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem,
 				struct ion_client *client, int domain_num, int is_closing)
 #else
@@ -238,14 +240,18 @@ void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem,
 {
 	if (mem->is_userptr) {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	if (IS_ERR_OR_NULL(mem->ion_handle)) {
+		pr_err("%s ION import failed\n", __func__);
+		return;
+	}
 		ion_unmap_iommu(client, mem->ion_handle,
 				domain_num, 0);
-/*                                                               */
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+/* LGE_CHANGE_S, Fixed IOMMU fault, 2013.1.16, jungki.kim[Start] */
+#if defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
 		if (is_closing != 1)
 #endif
 		ion_free(client, mem->ion_handle);
-/*                                                             */
+/* LGE_CHANGE_E, Fixed IOMMU fault, 2013.1.16, jungki.kim[End] */
 #elif CONFIG_ANDROID_PMEM
 		put_pmem_file(mem->file);
 #endif
@@ -318,8 +324,8 @@ static int msm_vb2_mem_ops_mmap(void *buf_priv, struct vm_area_struct *vma)
 	vma->vm_private_data = mem;
 
 	D("mmap %p: %08lx-%08lx (%lx) pgoff %08lx\n",
-		map, vma->vm_start, vma->vm_end,
-		(long int)mem->bsize, vma->vm_pgoff);
+		vma, vma->vm_start, vma->vm_end,
+		(long int)mem->size, vma->vm_pgoff);
 	videobuf2_vm_open(vma);
 	return 0;
 error:
@@ -360,12 +366,12 @@ unsigned long videobuf2_to_pmem_contig(struct vb2_buffer *vb,
 {
 	struct videobuf2_contig_pmem *mem;
 	mem = vb2_plane_cookie(vb, plane_no);
-//                                                      
+//Start LGE_BSP_CAMERA : Fixed WBT - jonghwan.ko@lge.com
 		if(mem == NULL){
 			pr_err("%s:mem is NULL \n",__func__);
 			return 0;
 		}
-//                                                     
+//End  LGE_BSP_CAMERA : Fixed WBT - jonghwan.ko@lge.com
 	BUG_ON(!mem);
 	MAGIC_CHECK(mem->magic, MAGIC_PMEM);
 	return mem->mapped_phyaddr;

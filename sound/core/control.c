@@ -888,7 +888,7 @@ static int snd_ctl_elem_write(struct snd_card *card, struct snd_ctl_file *file,
 			result = -EPERM;
 		} else {
 			snd_ctl_build_ioff(&control->id, kctl, index_offset);
-//                                   
+//LGE_START, MYUNGWON.KIM, Log Enable
 #if 1
 			printk(KERN_ERR "**** %s():name = %s = %ld \n",
 					__func__, control->id.name,control->value.integer.value[0]);

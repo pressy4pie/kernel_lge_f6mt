@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/include/mach/board.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -208,8 +208,8 @@ struct msm_camera_i2c_conf {
 	enum msm_camera_i2c_mux_mode i2c_mux_mode;
 };
 
-/*            */
-#if !(defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3_TMUS) || defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US) || defined(CONFIG_MACH_LGE_L9II_OPEN_EU)|| defined(CONFIG_F6_CAM8M) || defined(CONFIG_MACH_LGE_FX3Q_TMUS))
+/* LGE_CHANGE */
+#if !(defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3_TMUS) || defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US) || defined(CONFIG_MACH_LGE_L9II_COMMON)|| defined(CONFIG_F6_CAM8M) || defined(CONFIG_MACH_LGE_FX3Q_TMUS))
 enum msm_camera_vreg_name_t {
 	CAM_VDIG,
 	CAM_VANA,
@@ -389,10 +389,10 @@ struct msm_panel_common_pdata {
 	bool bl_lock;
 	spinlock_t bl_spinlock;
 
-//                                                       
+//LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
 //#if defined(CONFIG_MACH_MSM8930_FX3)
 #if defined(CONFIG_MACH_MSM8930_FX3) && !defined(CONFIG_BACKLIGHT_LM3639)
-//                                                       
+//LGE_CHANGE_E [koh.euije@lge.com] Backlight for L9II REV
 	char enable_wled_bl_ctrl;
 #else
 	int (*backlight_level)(int level, int max, int min);
@@ -405,12 +405,15 @@ struct msm_panel_common_pdata {
 	int (*vga_switch)(int select_vga);
 	int *gpio_num;
 	u32 mdp_max_clk;
+	u32 mdp_max_bw;
+	u32 mdp_bw_ab_factor;
+	u32 mdp_bw_ib_factor;
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *mdp_bus_scale_table;
 #endif
 	int mdp_rev;
 
-//                                                       
+//LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
 /*
 #if defined(CONFIG_FB_MSM_MIPI_DSI_HITACHI) ||\
 	defined(CONFIG_FB_MSM_MIPI_DSI_HIMAX) ||\
@@ -430,7 +433,7 @@ struct msm_panel_common_pdata {
 	defined(CONFIG_FB_MSM_MIPI_R61529_VIDEO_HVGA_PT_PANEL) ||\
 	defined(CONFIG_FB_MSM_MIPI_R61529_CMD_HVGA_PT_PANEL)||\
 	defined(CONFIG_FB_MSM_MIPI_DSI_TX13D107VM)	
-//                                                       
+//LGE_CHANGE_E [koh.euije@lge.com] Backlight for L9II REV
 	void *power_on_set;
 	void *power_off_set;
 	ssize_t power_on_set_size;
@@ -445,10 +448,10 @@ struct msm_panel_common_pdata {
 	u32 splash_screen_size;
 	char mdp_iommu_split_domain;
 #ifdef CONFIG_LGE_LCD_TUNING
-	/*           
-                                        
-                                    
-  */
+	/* LGE_CHANGE
+	 * To get init code used for LCD driver
+	 * 2011-11-09, baryun.hwang@lge.com
+	 */
 	int (*read_regset)(unsigned long);
 	int (*write_regset)(unsigned long);
 	int (*read_porch)(unsigned long);
@@ -548,6 +551,7 @@ struct msm_hdmi_platform_data {
 	int (*gpio_config)(int on);
 	int (*init_irq)(void);
 	bool (*check_hdcp_hw_support)(void);
+	bool (*source)(void);
 	bool is_mhl_enabled;
 };
 
@@ -595,12 +599,14 @@ struct msm_vidc_platform_data {
 	int disable_fullhd;
 	u32 cp_enabled;
 	u32 secure_wb_heap;
+	u32 enable_sec_metadata;
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *vidc_bus_client_pdata;
 #endif
 	int cont_mode_dpb_count;
 	int disable_turbo;
 	unsigned long fw_addr;
+	int vote_high_bw; /* LGE_CHANGE, QCT SR#01173613 higher_bus.patch, prevent FHD rec fail, 2013-07-08, yoongeun.kwon@lge.com */
 };
 
 struct vcap_platform_data {

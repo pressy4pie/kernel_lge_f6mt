@@ -11,7 +11,7 @@
  *
  * Copyright (C) 2010 LGE, Inc.
  * Author: Kim Eun Hye <ehgrace.kim@lge.com>
- *
+ *  
  * Copyright (C) 2011 LGE, Inc.
  * Author: Yoon Gi Souk <gisouk.yoon@lge.com>
  *
@@ -57,12 +57,12 @@
 #undef  LGE_HSD_ERROR_PRINT
 #define LGE_HSD_ERROR_PRINT
 
-/*                       
-                                
-                                    
+/* CONFIG_LGE_AUDIO start
+ * modifiy the case of exception
+ * 2012-03-22, donggyun.kim@lge.com,
  */
 #define CONFIG_LGE_AUDIO_FSA8008_MODIFY
-/*                      */
+/* CONFIG_LGE_AUDIO end */
 
 #ifdef CONFIG_LGE_AUDIO_FSA8008_MODIFY
 #define FSA8008_KEY_EN_DELAY_MS	(600 /* milli */ * HZ / 1000) /* convert milli to jiffies */
@@ -70,7 +70,8 @@
 /* Total key press threshold time : FSA8008_KEY_PRESS_TH_CNT X  FSA8008_KEY_PRESS_DLY_MS = 120 ms */
 #define FSA8008_KEY_PRESS_TH_CNT 3
 #define FSA8008_KEY_PRESS_DLY_MS (40 /* milli */ * HZ / 1000) /* convert milli to jiffies */
-#define FSA8008_DETECT_DELAY_MS	(20 /* milli */ * HZ / 1000) /* convert milli to jiffies */
+// LGE_UPDATE, kiwon.kwon@lge.com , increasing detaction delay(20->40) to avoid unexpected signals
+#define FSA8008_DETECT_DELAY_MS	(40 /* milli */ * HZ / 1000) /* convert milli to jiffies */
 #endif
 
 /* TODO */
@@ -95,7 +96,7 @@ static struct workqueue_struct *local_fsa8008_workqueue;
 
 static struct wake_lock ear_hook_wake_lock;
 
-/*                                                                                     */
+/* 2012-11-24, woohyun.seok@lge.com, workaround code to issue to be not remove earjack */
 #define HEADSET_REMOVE_ERROR
 #ifdef HEADSET_REMOVE_ERROR
 static unsigned int insert_state_check = 0;
@@ -292,7 +293,7 @@ static void insert_headset(struct work_struct *work)
 		insert_state_check = 1;
 #endif
 //		mutex_lock(&hi->mutex_lock);
-//                                           
+//		switch_set_state(&hi->sdev, LGE_HEADSET);
 //		mutex_unlock(&hi->mutex_lock);
 	}
 
@@ -335,7 +336,7 @@ static void insert_headset(struct work_struct *work)
 		mutex_unlock(&hi->mutex_lock);
 
 		input_report_switch(hi->input, SW_HEADPHONE_INSERT, 1);
-		input_sync(hi->input); //                                                                                
+		input_sync(hi->input); // 2012-07-01, donggyun.kim@lge.com - to prevent a lost uevent of earjack inserted
 		input_report_switch(hi->input, SW_MICROPHONE_INSERT, 1);
 		input_sync(hi->input);
 	}
@@ -451,7 +452,7 @@ static irqreturn_t button_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-#else /*                                 */
+#else /* CONFIG_LGE_AUDIO_FSA8008_MODIFY */
 
 static void button_pressed(struct work_struct *work)
 {
@@ -612,6 +613,8 @@ static void detect_work(struct work_struct *work)
 	local_irq_restore(irq_flags);
 #endif
 
+	printk(KERN_INFO " dev=0x%x\n",(unsigned int)hi);
+
 	state = gpio_get_value_cansleep(hi->gpio_detect);
 
 	if (state == 1) {
@@ -657,7 +660,7 @@ static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 
 #ifdef CONFIG_FSA8008_USE_LOCAL_WORK_QUEUE
 
-#if 1 //                               
+#if 1 //def CONFIG_MACH_LGE_I_BOARD_DCM
 	queue_delayed_work(local_fsa8008_workqueue, &(hi->work), HZ/2 /* 500ms */);
 #else
 	queue_delayed_work(local_fsa8008_workqueue, &(hi->work), 0);
@@ -665,7 +668,7 @@ static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 
 #else
 
-#if 1 //                               
+#if 1 //def CONFIG_MACH_LGE_I_BOARD_DCM
 	schedule_delayed_work(&(hi->work), HZ/2 /* 500ms */);
 #else
 	schedule_delayed_work(&(hi->work), 0);
@@ -706,7 +709,7 @@ static irqreturn_t button_irq_handler(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
-#endif /*                                 */
+#endif /* CONFIG_LGE_AUDIO_FSA8008_MODIFY */
 
 static int lge_hsd_probe(struct platform_device *pdev)
 {
@@ -815,10 +818,10 @@ static int lge_hsd_probe(struct platform_device *pdev)
 		goto error_05;
 	}
 
-//                                                    
+//LGE_START, MYUNGWON.KIM, When Sleep IRQ Doesn't work
 	ret = request_threaded_irq(hi->irq_detect, NULL, gpio_irq_handler,
 					IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING|IRQF_NO_SUSPEND, pdev->name, hi);
-//                     
+//LGE_END, MYUNGWON.KIM
 
 	if (ret) {
 		HSD_ERR("failed to request button irq");
@@ -842,10 +845,10 @@ static int lge_hsd_probe(struct platform_device *pdev)
 		goto error_06;
 	}
 
-//                                                    
+//LGE_START, MYUNGWON.KIM, When Sleep IRQ Doesn't work
 	ret = request_threaded_irq(hi->irq_key, NULL, button_irq_handler,
 					IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING|IRQF_NO_SUSPEND, pdev->name, hi);
-//                     
+//LGE_END, MYUNGWON.KIM
 
 	if (ret) {
 		HSD_ERR("failed to request button irq");
@@ -994,7 +997,7 @@ static int __init lge_hsd_init(void)
 	if(!local_fsa8008_workqueue)
 		return -ENOMEM;
 #endif
-//                                                                         
+//LGE_START, MYUNGWON.KIM, Lock Init setting is Faster than Driver Register
 	wake_lock_init(&ear_hook_wake_lock, WAKE_LOCK_SUSPEND, "ear_hook");
 
 	ret = platform_driver_register(&lge_hsd_driver);
@@ -1003,7 +1006,7 @@ static int __init lge_hsd_init(void)
 	}
 
 //	wake_lock_init(&ear_hook_wake_lock, WAKE_LOCK_SUSPEND, "ear_hook");
-//                     
+//LGE_END, MYUNGWON.KIM
 
 	return ret;
 }

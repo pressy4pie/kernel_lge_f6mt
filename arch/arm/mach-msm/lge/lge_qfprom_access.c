@@ -11,18 +11,26 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <linux/kernel.h>
+/*=======================================================================================
+
+                   		 WARNING !!
+
+ If you modify this file, it may give rise to serious Factory mass-production problem,
+ Sure please contact us security team. [lg-security@lge.com]
+
+=======================================================================================*/
 #include <linux/module.h>
+#include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
 #include <linux/io.h>
-#include <linux/slab.h>
-#include <linux/random.h>
 #include <asm/setup.h>
 #include <mach/board_lge.h>
 #include <mach/scm.h>
+#include <linux/slab.h>
+#include <linux/random.h>
 
 #define LGE_QFPROM_INTERFACE_NAME "lge-msm8930-qfprom"
 /* service ID inside tzbsp */
@@ -56,16 +64,7 @@
 #define QFPROM_OVERRIDE_REG             0x7060C0
 #define QFPROM_CHECK_HW_KEY             0x123456
 
-/* for bootloader unlock */
-#define QFPROM_SERIAL_NUMBER	0x7000B8
-#define DEVICE_UNLOCK_FLAG_ADDRESS 	0x700438
-#define BOOTLOADER_UNLOCK_DISABLED	10000
-#define BOOTLOADER_UNLOCK_ALLOWED	10100
-#define BOOTLOADER_UNLOCK_DONE		10111
-#define BOOTLOADER_UNLOCK_LIMITED	11000  
-#define BOOTLOADER_UNLOCK_RESET		11100 
-#define BOOTLOADER_UNLOCK_BIT_FULL	22222
-#define MAX_BIT_NUM	30
+
 /* secondary hw key status flag */
 #define SEC_HW_KEY_BLOWN  0x00000001
 #define PRIM_HW_KEY_BLOWN 0x00000002
@@ -78,10 +77,10 @@
 
 /* command buffer to write */
 struct qfprom_write_cmd_buffer {
-	u32 qfprom_addr;	/* qfprom address */
+	u32 qfprom_addr; 	/* qfprom address */
 	u32 buf;		/* data to write qfprom */
-	u32 qfprom_clk;		/* qfprom clock */
-	u32 qfprom_status;	/* qfprom status */
+	u32 qfprom_clk; 	/* qfprom clock */
+	u32 qfprom_status; 	/* qfprom status */
 };
 /* command buffer to read */
 struct qfprom_read_cmd_buffer {
@@ -97,11 +96,16 @@ struct qfprom_blow_data {
 	u32 msb_data;
 };
 
+struct qfprom_blow_mask {
+	u32 lsb;
+	u32 msb;
+};
+
 static u32 fusing_flag=0;
-static u32 qfprom_address = 0;
-static u32 qfprom_lsb_value = 0;
-static u32 qfprom_msb_value = 0;
-static u32 enable = 0;
+static u32 qfprom_address=0;
+static u32 qfprom_lsb_value=0;
+static u32 qfprom_msb_value=0;
+static u32 enable=0;
 
 u32 qfprom_secondary_hwkey_status(void);
 int qfprom_blow_secondary_hwkey_region(void);
@@ -109,6 +113,7 @@ int qfuse_write_single_row(u32 fuse_addr, u32 fuse_lsb, u32 fuse_msb);
 int qfuse_read_single_row(u32 fuse_addr, u32 addr_type, u32 * r_buf);
 
 static struct qfprom_blow_data blow_data[] = {
+	/* Don't change array order !!!!!!!!!!!!!!*/
 	/* addr                        LSB         MSB */
 	{ QFPROM_OEM_CONFIG,         0x00000031, 0x00000000}, /* OEM ID        */
 	{ QFPROM_SECURE_BOOT_ENABLE, 0x00000020, 0x00000000}, /* SECURE ENABLE */
@@ -120,64 +125,69 @@ static struct qfprom_blow_data blow_data[] = {
 //	{QFPROM_SPARE_REGION_25, 0x013302A1, 0x0132DD1B}	/* Test Code */
 };
 
+static const struct qfprom_blow_mask blow_mask[] = {
+	{ 0x000000FF, 0x00000000 },
+	{ 0x0000003F, 0x00000000 },
+	{ 0xFFF00000, 0x000000FF },
+	{ 0x00000000, 0x00000000 },
+	{ 0x0C000000, 0x00000000 },
+	{ 0xFC300000, 0x00000000 },
+};
+
 /* this api handle diag command(fusing check command) from ATD 
  * if fusing value 0 ==> is not fused
- * if fusing value 1 ==> fused (secure boot enable, jtag disable,
- * oem config, hw secondary key, RW permission)
+ * if fusing value 1 ==> fused (secure boot enable, jtag disable, oem config, hw secondary key, RW permission)
  */
-static ssize_t qfusing_show(struct device *dev, struct device_attribute *attr,
-			    char *buf)
+static ssize_t qfusing_show(struct device* dev, struct device_attribute* attr, char* buf)
 {
-	int fusing = 0;
-	int i, ret;
-	u32 key_status = 0;
-	u32 *p_buf = NULL;
+	int fusing=0;
+	int i,ret;
+	u32 key_status=0;
+	u32* p_buf=NULL;
 
 	if(fusing_flag==0) {
-	key_status = qfprom_secondary_hwkey_status();
-	if ((key_status & SEC_HW_KEY_BLOWN) != SEC_HW_KEY_BLOWN) {
-			printk("%s: hw key is not blown\n",__func__);
-		goto err_mem;
-	} else {
+		key_status = qfprom_secondary_hwkey_status();
+		if((key_status&SEC_HW_KEY_BLOWN)!=SEC_HW_KEY_BLOWN) {
+			printk("%s: hw key is not blown : %d\n",__func__, key_status);
+			goto err_mem;
+		} else {
 			msleep(10);
 			printk("%s:secondary HW key check complete!!!!!\n",__func__);
-		p_buf = kmalloc(sizeof(u32) * 2, GFP_KERNEL);
-		if (!p_buf) {
-			printk("%s: memory alloc fail\n", __func__);
-			goto err_mem;
-		}
-		for (i = 0; i < ARRAY_SIZE(blow_data); i++) {
-			if (blow_data[i].qfprom_addr == QFPROM_CHECK_HW_KEY)
-				continue;
+			p_buf = kmalloc(sizeof(u32)*2, GFP_KERNEL);
+			if(!p_buf) {
+				printk("%s: memory alloc fail\n",__func__);
+				goto err_mem;
+			}
+			for(i=0;i<ARRAY_SIZE(blow_data);i++) {
+				if(blow_data[i].qfprom_addr==QFPROM_CHECK_HW_KEY) 
+					continue;
+			
+			        memset(p_buf, 0x00, sizeof(u32) * 2);
+			        msleep(10);
+				ret = qfuse_read_single_row(blow_data[i].qfprom_addr,0,p_buf);
+				printk("%s: addr = 0x%x LSB = 0x%x MSB = 0x%x\n",__func__, blow_data[i].qfprom_addr, p_buf[0], p_buf[1]);
 
-			memset(p_buf, 0x00, sizeof(u32) * 2);
-			msleep(10);
-			ret =
-			    qfuse_read_single_row(blow_data[i].qfprom_addr, 0,
-						  p_buf);
-			printk("%s: addr = 0x%x LSB = 0x%x MSB = 0x%x\n",
-			       __func__, blow_data[i].qfprom_addr, p_buf[0],
-			       p_buf[1]);
-			if (ret != 0) {
-				printk("%s: qfprom read fail error=%d\n", __func__,ret);
-				goto err;
-			} else {
-					if(((p_buf[0]&blow_data[i].lsb_data)==blow_data[i].lsb_data) &&
-						((p_buf[1]&blow_data[i].msb_data)==blow_data[i].msb_data)) {
-						printk("%s: 0x%x chekc complete\n",__func__,blow_data[i].qfprom_addr);
-						continue;
-					}
-				else {
-					printk
-					    ("%s: fusing value is not match\n",
-					     __func__);
+				if(ret!=0) {
+					printk("%s: qfprom 0x%x read fail error=%d\n",__func__,blow_data[i].qfprom_addr,ret);
 					goto err;
 				}
+				else {
+					if(	((p_buf[0]&blow_mask[i].lsb)==blow_data[i].lsb_data) &&
+						((p_buf[1]&blow_mask[i].msb)==blow_data[i].msb_data)) {
+						printk("%s: 0x%x check complete\n",__func__,blow_data[i].qfprom_addr);
+						printk("%s: qfprom 0x%x : lsb(0x%x), msb(0x%x)\n",__func__, blow_data[i].qfprom_addr, p_buf[0], p_buf[1]);
+						continue;
+					}
+					else {
+						printk("%s: fusing value is not match\n",__func__);
+						printk("%s: qfprom 0x%x : lsb(0x%x), msb(0x%x)\n",__func__, blow_data[i].qfprom_addr, p_buf[0], p_buf[1]);
+						goto err;
+					}
 					msleep(10);
+				}
 			}
+			fusing=1;
 		}
-		fusing = 1;
-	}
 	} 
 	else {
 		if(fusing_flag==FUSING_COMPLETED_STATE)
@@ -186,23 +196,22 @@ static ssize_t qfusing_show(struct device *dev, struct device_attribute *attr,
 err:
 	kfree(p_buf);
 err_mem:
-	return sprintf(buf, "%x\n", fusing);
+	return sprintf(buf,"%x\n",fusing);
 }
 
 /* this api handle diag command(fusing command) from ATD 
- * this api fuse secure boot, jtag disable, oem config,
- * secondary hw key, R/W permission
+ * this api fuse secure boot, jtag disable, oem config, secondary hw key, R/W permission
  * this api check secondary hw key status before fusing R/W permission
  */
-static ssize_t qfusing_store(struct device *dev, struct device_attribute *attr,
-			     const char *buf, size_t count)
+static ssize_t qfusing_store(struct device* dev, struct device_attribute* attr,
+				const char* buf, size_t count)
 {
 	int ret;
 	int i=0;
 	u32* p_buf=NULL;
-
-	if (!sysfs_streq(buf, "fusing")) {
-		printk("%s:argument fault\n", __func__);
+	
+	if(!sysfs_streq(buf, "fusing")){
+		printk("%s:argument fault\n",__func__);
 		ret=-EINVAL;
 		goto err;
 	}
@@ -225,16 +234,15 @@ static ssize_t qfusing_store(struct device *dev, struct device_attribute *attr,
 			 * The reason to not check hw key status reg is to check 7 hw key block to be written
 			 */
 			ret = qfprom_blow_secondary_hwkey_region();
-			if (ret < 0) {
-				printk("%s: hw key region blow error\n",
-				       __func__);
+			if(ret<0){
+				printk("%s: hw key region blow error\n",__func__);
 					goto err_fuse;
 			}
 			fusing_flag |= (0x1<<i);
 			printk("%s: HW secondary key region is blown successfully\n",__func__);
 			continue;
 		}
-
+		memset(p_buf, 0x00, sizeof(u32)*2);	
 		msleep(10);
 		ret = qfuse_read_single_row(blow_data[i].qfprom_addr,0,p_buf);
 		if(ret!=0) {
@@ -243,8 +251,8 @@ static ssize_t qfusing_store(struct device *dev, struct device_attribute *attr,
 		}
 		printk("%s:read addr 0x%x, lsb 0x%x, msb 0x%x\n",__func__,blow_data[i].qfprom_addr,p_buf[0],p_buf[1]);
 		/* Don't rewrite if value to read is same value to write */
-		if(((p_buf[0]&blow_data[i].lsb_data)==blow_data[i].lsb_data) &&
-			((p_buf[1]&blow_data[i].msb_data)==blow_data[i].msb_data)) {
+		if(	((p_buf[0]&blow_mask[i].lsb)==blow_data[i].lsb_data) &&
+			((p_buf[1]&blow_mask[i].msb)==blow_data[i].msb_data)) {
 			printk("%s: 0x%x was blown already\n",__func__,blow_data[i].qfprom_addr);
 		}
 		else {
@@ -264,9 +272,9 @@ static ssize_t qfusing_store(struct device *dev, struct device_attribute *attr,
 					ret = -EINVAL;
 					goto err_fuse;
 				}
-				if(((p_buf[0]&blow_data[i].lsb_data)==blow_data[i].lsb_data) &&
-					((p_buf[1]&blow_data[i].msb_data)==blow_data[i].msb_data)) {
-					printk("%s:write double check successfully",__func__);
+				if(	((p_buf[0]&blow_mask[i].lsb)==blow_data[i].lsb_data) &&
+					((p_buf[1]&blow_mask[i].msb)==blow_data[i].msb_data)) {
+					printk("%s:write double check successfully\n",__func__);
 				} else {
 					printk("%s:qfprom write successful but error when double check\n",__func__);
 					ret = -EINVAL;
@@ -287,499 +295,164 @@ err_fuse:
 	kfree(p_buf);
 err:
 	return ret;
-}
+}				
 
 static DEVICE_ATTR(qfusing, S_IWUSR | S_IRUGO, qfusing_show, qfusing_store);
 
-/* this api handle diag command(fusing check command) from ATD 
- * if unlock value 0 ==> is locked
- * if unlock value 1 ==> unlocked 
- */
-static ssize_t device_id_show(struct device* dev, struct device_attribute* attr, char* buf)
+static ssize_t qfprom_addr_show(struct device* dev, struct device_attribute* attr, char* buf)
 {
-	int ret;
-	u32 p_buf[2]={0,};
-
-	ret = qfuse_read_single_row(QFPROM_SERIAL_NUMBER, 0, p_buf);
-	if(ret==0)
-	{ 		
-		printk("%s:read device unlock addr , lsb 0x%08x, msb 0x%08x\n",__func__,p_buf[0],p_buf[1]); 
-	}
-	else if(ret<0)
-	{
-		printk("%s: scm call fail\n",__func__);
-		return -1;
-	}
-	
-	return sprintf(buf,"%x\n",p_buf[0]);
+	return sprintf(buf,"%x\n",qfprom_address);
 }
-
-static DEVICE_ATTR(deviceid, S_IWUSR | S_IRUGO, device_id_show, NULL);
-
-static ssize_t device_unlock_show(struct device* dev, struct device_attribute* attr, char* buf)
-{
-	int lock_status=0;
-	int ret,i;
-	u32* p_buf=NULL;
-
-	p_buf = kmalloc(sizeof(u32)*2, GFP_KERNEL);
-	if( !p_buf ){
-		printk("%s : buffer memory alloc fail\n",__func__);
-		ret = -ENOMEM;
-		goto err_mem;
-	}
-	memset(p_buf,0x0,sizeof(p_buf));
-	ret = qfuse_read_single_row(DEVICE_UNLOCK_FLAG_ADDRESS, 0, p_buf);
-	
-	if(ret==0){ 		
-		printk("%s:read device unlock addr , lsb 0x%x, msb 0x%x\n",__func__,p_buf[0],p_buf[1]);
-		for(i = 0;i <= MAX_BIT_NUM;i=i+2)
-		{
-			if((p_buf[0] >> i) == 0x00000000 || (p_buf[0] >> i) == 0x00000001 || (p_buf[0] >> i) == 0x00000002)
-			{
-				printk("%s: p_buf[0] >> %d = %d\n",__func__,i,p_buf[0]>>i);
-				break;
-			}	 	
-		}
-		
-		if(i > MAX_BIT_NUM)
-		{
-			lock_status = BOOTLOADER_UNLOCK_BIT_FULL;
-			goto err;
-		}
-			
-		switch(p_buf[0] >> i)
-		{
-			
-			case 0x00000000:
-				lock_status = BOOTLOADER_UNLOCK_DISABLED;
-				break;
-			case 0x00000001: 
-				if((p_buf[1] >> i) == 0x00000000)
-					lock_status = BOOTLOADER_UNLOCK_ALLOWED;
-				else if((p_buf[1] >> i) == 0x00000003)	
-					lock_status = BOOTLOADER_UNLOCK_DONE;
-				break;
-    	case 0x00000002:
-				lock_status = BOOTLOADER_UNLOCK_LIMITED;
-				break;      
-			default:
-				lock_status = BOOTLOADER_UNLOCK_LIMITED;
-				break;
-		}
-		
-		printk("%s: after switch lock_status = %d\n",__func__,lock_status);
-		
-	}
-	else if(ret<0)
-	{
-		printk("%s: scm call fail\n",__func__);
-	}
-			
-err:
-	kfree(p_buf);
-err_mem:
-	return sprintf(buf,"%d\n",lock_status);
-
-
-}
-
-static ssize_t device_unlock_store(struct device* dev, struct device_attribute* attr,
+static ssize_t qfprom_addr_store(struct device* dev, struct device_attribute* attr,
 				const char* buf, size_t count)
 {
-	u32* p_buf=NULL;
-	u32 unlock_buf[2]={0,};
-	u32 lsb_value=0,msb_value=0;
-	int ret=0,i;
 	unsigned long val;
-
-	if(strict_strtoul(buf,10,&val)<0)
-		return -EINVAL; 
-		
-	p_buf = kmalloc(sizeof(u32)*2, GFP_KERNEL);
-	if( !p_buf ){
-		printk("%s : buffer memory alloc fail\n",__func__);
-		ret = -ENOMEM;
-		goto err_mem;
-	}
-	memset(p_buf,0x0,sizeof(p_buf));
-	switch(val)
-	{
-		case BOOTLOADER_UNLOCK_LIMITED:
-				lsb_value= 0x00000002;
-				msb_value= 0x00000000;
-				break;
-		case BOOTLOADER_UNLOCK_RESET:
-				lsb_value= 0x00000003;
-				msb_value= 0x00000000;
-				break;
-		case BOOTLOADER_UNLOCK_ALLOWED: 
-				lsb_value= 0x00000001;
-				msb_value= 0x00000000;
-				break;
-		case BOOTLOADER_UNLOCK_DONE:
-				lsb_value= 0x00000000;
-				msb_value= 0x00000003;
-				break;	
-	}
-		
-	printk("%s: after switch val = %ld\n",__func__,val);
-				
-	ret = qfuse_read_single_row(DEVICE_UNLOCK_FLAG_ADDRESS, 0, p_buf);
-
-	if(ret!=0) {
-		printk("%s: unlock read fail, ret=%d\n",__func__,ret);
-		goto err_unlock;
-	}
-
-	for(i = 0;i <= MAX_BIT_NUM;i=i+2)
-	{
-		if((p_buf[0] >> i) == 0x00000000)
-		{
-			printk("%s: p_buf[0] >> %d = 0x%x\n",__func__,i,p_buf[0]>>i);
-			break;
-		}
-		else if((p_buf[0] >> i) == 0x00000001)
-		{
-			printk("%s: p_buf[0] >> %d = 0x%x\n",__func__,i,p_buf[0]>>i);
-			break;
-		}
-			 	
-	}  
-		
-	if(i > MAX_BIT_NUM)
-	{
-		printk("%s: there is no more bit to write\n",__func__);
-		goto err_unlock;	
-	}
-	else if(i == MAX_BIT_NUM && (p_buf[0] >> i) != 0x00000000)
-	{
-		printk("%s: there is no more bit to write\n",__func__);
-		goto err_unlock;	
-	}
-	else if((p_buf[0] >> i) == 0x00000000 || (p_buf[0] >> i) == 0x00000001)
-	{	
-		unlock_buf[0] = p_buf[0] | (lsb_value << i);
-		unlock_buf[1] = p_buf[1] | (msb_value << i);	
-			
-		ret = qfuse_write_single_row(DEVICE_UNLOCK_FLAG_ADDRESS,unlock_buf[0],unlock_buf[1]);
-		if(ret!=0){
-			printk("%s: unlock addr write error!!!\n",__func__);
-			ret = -EINVAL;
-			goto err_unlock;
-		}
-	}
-			
-	
-err_unlock:
-	kfree(p_buf);
-err_mem:
-	return ret;
-
-}
-
-static DEVICE_ATTR(unlock, S_IWUSR | S_IRUGO, device_unlock_show, device_unlock_store);
-
-static ssize_t device_unlock_reset_show(struct device* dev, struct device_attribute* attr, char* buf)
-{
-	int ret;
-	u32 lock_status=0;
-	u32* p_buf=NULL;
-	
-	p_buf = kmalloc(sizeof(u32)*2, GFP_KERNEL);
-	if( !p_buf ){
-		printk("%s : buffer memory alloc fail\n",__func__);
-		ret = -ENOMEM;
-		goto err_mem;
-	}
-	memset(p_buf,0x0,sizeof(p_buf));
-	ret = qfuse_read_single_row(DEVICE_UNLOCK_FLAG_ADDRESS, 0, p_buf);
-	
-	if(ret==0){ 		
-		printk("%s:read device unlock addr , lsb 0x%x, msb 0x%x\n",__func__,p_buf[0],p_buf[1]);
-		lock_status = p_buf[0];
-	}
-	else if(ret<0)
-	{
-		printk("%s: scm call fail\n",__func__);
-		goto err;
-	}
-			
-err:
-	if(p_buf != NULL )
-	{
-		kfree(p_buf);
-	}
-err_mem:
-	return sprintf(buf,"%x\n", lock_status);
-
-
-}
-
-static ssize_t device_unlock_reset_store(struct device* dev, struct device_attribute* attr,
-				const char* buf, size_t count)
-{
-	u32* p_buf=NULL;
-	u32 unlock_buf[2]={0,};
-	int ret=0,i=0;
-	unsigned long val=0;
-
-	if(strict_strtoul(buf,10,&val)<0)
-	{
-		return -EINVAL; 
-	}
-		
-	p_buf = kmalloc(sizeof(u32)*2, GFP_KERNEL);
-	if( !p_buf )
-	{
-		printk("%s : buffer memory alloc fail\n",__func__);
-		ret = -ENOMEM;
-		goto err_mem;
-	}
-	memset(p_buf, 0x00, sizeof(p_buf));
-
-	printk("%s: input val = %ld\n",__func__,val);
-
-	if(val != BOOTLOADER_UNLOCK_RESET)
-	{
-		ret = -EINVAL;
-		goto err_unlock;
-	}
-
-	ret = qfuse_read_single_row(DEVICE_UNLOCK_FLAG_ADDRESS, 0, p_buf);
-
-	if(ret!=0) 
-	{
-		printk("%s: unlock read fail, ret=%d\n",__func__,ret);
-		goto err_unlock;
-	}
-	
-	for(i = 0;i <= MAX_BIT_NUM;i=i+2)
-	{
-		if((p_buf[0] >> i) == 0x00000000)
-		{
-			printk("%s: [avail flag not set]p_buf[0] >> %d = 0x%x\n",__func__,i,p_buf[0]>>i);
-			break;
-		}
-		else if((p_buf[0] >> i) == 0x00000001 || (p_buf[0] >> i) == 0x00000002)
-		{
-			printk("%s: [avail flag set]p_buf[0] >> %d = 0x%x\n",__func__,i,p_buf[0]>>i);
-			break;
-		}	 	
-	}  
-		
-	if(i > MAX_BIT_NUM)
-	{
-		printk("%s: [%d] there is no more bit to write\n",__func__,i);
-		goto err_unlock;	
-	}
-	else if((p_buf[0] >> i) == 0x00000001 || (p_buf[0] >> i) == 0x00000002)
-	{	
-		unlock_buf[0] = p_buf[0] | (0x00000003 << i);
-		unlock_buf[1] = 0x00000000;	
-
-		printk("%s:[%d] reset_vaule= 0x%08x\n",__func__,i,unlock_buf[0] );
-		ret = qfuse_write_single_row(DEVICE_UNLOCK_FLAG_ADDRESS,unlock_buf[0],unlock_buf[1]);
-		if(ret!=0)
-		{
-			printk("%s: unlock addr write error!!!\n",__func__);
-			ret = -EINVAL;
-			goto err_unlock;
-		}
-	}
-			
-err_unlock:
-	if(p_buf != NULL )
-	{
-		kfree(p_buf);
-	}
-err_mem:
-	return ret;
-
-}
-static DEVICE_ATTR(unlock_extra, S_IWUSR | S_IRUGO, device_unlock_reset_show, device_unlock_reset_store);
-
-static ssize_t qfprom_addr_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%x\n", qfprom_address);
-}
-
-static ssize_t qfprom_addr_store(struct device *dev,
-				 struct device_attribute *attr, const char *buf,
-				 size_t count)
-{
-	unsigned long val;
-	if (strict_strtoul(buf, 16, &val) < 0)
+	if(strict_strtoul(buf,16,&val)<0)
 		return -EINVAL;
 	qfprom_address = val;
 	return count;
 }
+static DEVICE_ATTR(addr, S_IWUSR | S_IRUGO, qfprom_addr_show, qfprom_addr_store);
 
-static DEVICE_ATTR(addr, S_IWUSR | S_IRUGO, qfprom_addr_show,
-		   qfprom_addr_store);
-
-static ssize_t qfprom_lsb_show(struct device *dev,
-			       struct device_attribute *attr, char *buf)
+static ssize_t qfprom_lsb_show(struct device* dev, struct device_attribute* attr, char* buf)
 {
-	return sprintf(buf, "%x\n", qfprom_lsb_value);
+	return sprintf(buf,"%x\n",qfprom_lsb_value);
 }
-
-static ssize_t qfprom_lsb_store(struct device *dev,
-				struct device_attribute *attr, const char *buf,
-				size_t count)
+static ssize_t qfprom_lsb_store(struct device* dev, struct device_attribute* attr,
+				const char* buf, size_t count)
 {
 	unsigned long val;
-	if (strict_strtoul(buf, 16, &val) < 0)
+	if(strict_strtoul(buf,16,&val)<0)
 		return -EINVAL;
-	qfprom_lsb_value = val;
+	qfprom_lsb_value=val;
 	return count;
 }
-
 static DEVICE_ATTR(lsb, S_IWUSR | S_IRUGO, qfprom_lsb_show, qfprom_lsb_store);
 
-static ssize_t qfprom_msb_show(struct device *dev,
-			       struct device_attribute *attr, char *buf)
+static ssize_t qfprom_msb_show(struct device* dev, struct device_attribute* attr, char* buf)
 {
-	return sprintf(buf, "%x\n", qfprom_msb_value);
+	return sprintf(buf,"%x\n",qfprom_msb_value);
 }
-
-static ssize_t qfprom_msb_store(struct device *dev,
-				struct device_attribute *attr, const char *buf,
-				size_t count)
+static ssize_t qfprom_msb_store(struct device* dev, struct device_attribute* attr,
+				const char* buf, size_t count)
 {
 	unsigned long val;
-	if (strict_strtoul(buf, 16, &val) < 0)
+	if(strict_strtoul(buf,16,&val)<0)
 		return -EINVAL;
-	qfprom_msb_value = val;
+	qfprom_msb_value=val;
 	return count;
 }
-
 static DEVICE_ATTR(msb, S_IWUSR | S_IRUGO, qfprom_msb_show, qfprom_msb_store);
 
-static ssize_t qfprom_enable_show(struct device *dev,
-				  struct device_attribute *attr, char *buf)
+static ssize_t qfprom_enable_show(struct device* dev, struct device_attribute* attr, char* buf)
 {
-	return sprintf(buf, "%x\n", enable);
+	return sprintf(buf,"%x\n",enable);
 }
-
-static ssize_t qfprom_enable_store(struct device *dev,
-				   struct device_attribute *attr,
-				   const char *buf, size_t count)
+static ssize_t qfprom_enable_store(struct device* dev, struct device_attribute* attr,
+				const char* buf, size_t count)
 {
 	unsigned long val;
-	if (strict_strtoul(buf, 16, &val) < 0)
+	if(strict_strtoul(buf,16,&val)<0)
 		return -EINVAL;
-	enable = val;
+	enable=val;
 	return count;
 }
+static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO, qfprom_enable_show, qfprom_enable_store);
 
-static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO, qfprom_enable_show,
-		   qfprom_enable_store);
-
-static ssize_t qfprom_write_store(struct device *dev,
-				  struct device_attribute *attr,
-				  const char *buf, size_t count)
+static ssize_t qfprom_write_store(struct device* dev, struct device_attribute* attr,
+				const char* buf, size_t count)
 {
-	int ret = 0;
-	if (!enable) {
-		printk("%s: qfprom write is not enabled\n", __func__);
+	int ret=0;
+	if(!enable){
+		printk("%s: qfprom write is not enabled\n",__func__);
 		return -EINVAL;
 	}
-	if (!qfprom_address) {
-		printk("%s: qfprom address is NULL\n", __func__);
+	if(!qfprom_address){
+		printk("%s: qfprom address is NULL\n",__func__);
 		return -EINVAL;
 	}
-	ret = qfuse_write_single_row(qfprom_address, qfprom_lsb_value,
-				   qfprom_msb_value);
-	qfprom_address = 0;
-	if (ret == 0)
+	ret = qfuse_write_single_row(qfprom_address, qfprom_lsb_value, qfprom_msb_value);
+	qfprom_address=0;
+	if(ret==0)
 		return count;
-	else if (ret < 0)
+	else if(ret<0)
 		printk("%s: scm call fail error = %d\n", __func__, ret);
-	else
+	else 
 		printk("%s: qfprom write status error = %d\n", __func__, ret);
-
+	
 	return -EINVAL;
 }
-
 static DEVICE_ATTR(write, S_IWUSR | S_IRUGO, NULL, qfprom_write_store);
 
-static ssize_t qfprom_read_store(struct device *dev,
-				 struct device_attribute *attr, const char *buf,
-				 size_t count)
+static ssize_t qfprom_read_store(struct device* dev, struct device_attribute* attr,
+				const char* buf, size_t count)
 {
-	u32 *p_buf = NULL;
-	int ret = 0;
+	u32* p_buf=NULL;
+	int ret=0;
 
-	if (!qfprom_address) {
-		printk("%s: qfprom address is NULL\n", __func__);
+	if(!qfprom_address){
+		printk("%s: qfprom address is NULL\n",__func__);
 		return -EINVAL;
 	}
 
-	p_buf = kmalloc(sizeof(u32) * 2, GFP_KERNEL);
-	if (!p_buf) {
-		printk("%s : buffer memory alloc fail\n", __func__);
-		ret = -ENOMEM;
+	p_buf = kmalloc(sizeof(u32)*2, GFP_KERNEL);
+	if( !p_buf ){
+		printk("%s : buffer memory alloc fail\n",__func__);
+		return -ENOMEM; /* LGE_CHANGE: fixed WBT_TD2170541466 */
 	}
 	memset(p_buf, 0, sizeof(u32) * 2);
 	ret = qfuse_read_single_row(qfprom_address, 0, p_buf);
-	qfprom_address = 0;
-	if (ret == 0) {
-		qfprom_lsb_value = p_buf[0];
-		qfprom_msb_value = p_buf[1];
+	qfprom_address=0;
+	if(ret==0){
+		qfprom_lsb_value=p_buf[0];
+		qfprom_msb_value=p_buf[1];
 		kfree(p_buf);
 		return count;
-	} else if (ret < 0)
+	}
+	else if(ret<0)
 		printk("%s: scm call fail error = %d\n", __func__, ret);
-	else
+	else 
 		printk("%s: qfprom write status error = %d\n", __func__, ret);
-
+	
 	kfree(p_buf);
 
 	return -EINVAL;
 }
-
 static DEVICE_ATTR(read, S_IWUSR | S_IRUGO, NULL, qfprom_read_store);
 
-static ssize_t qfprom_override_show(struct device *dev,
-				    struct device_attribute *attr, char *buf)
+static ssize_t qfprom_override_show(struct device* dev, struct device_attribute* attr, char* buf)
 {
 	int val;
-	void __iomem *r;
+	void __iomem* r;
 
-	r = ioremap(QFPROM_OVERRIDE_REG, 0x4);
-	val = (uint32_t) readl(r);
+	r=ioremap(QFPROM_OVERRIDE_REG,0x4);
+	val=(uint32_t)readl(r);
 	iounmap(r);
-	return snprintf(buf, PAGE_SIZE, "%x\n", val);
+	return snprintf(buf,PAGE_SIZE,"%x\n",val);
 }
-
-static ssize_t qfprom_override_store(struct device *dev,
-				     struct device_attribute *attr,
-				     const char *buf, size_t count)
+static ssize_t qfprom_override_store(struct device* dev, struct device_attribute* attr,
+				const char* buf, size_t count)
 {
 	int ret;
 	u32 on;
 
-	if (!sysfs_streq(buf, "enable")) {
-		printk("%s:argument fault\n", __func__);
+	if(!sysfs_streq(buf, "enable")){
+		printk("%s:argument fault\n",__func__);
 		return -EINVAL;
 	}
 
-	on = 1;
-	ret = scm_call(QFPROM_SVC_ID, QFPROM_OVERRIDE_CMD, &on,
-			sizeof(on), NULL, 0);
-	if (ret < 0) {
-		printk("%s: scm call error\n", __func__);
+	on=1;
+	ret = scm_call(QFPROM_SVC_ID,QFPROM_OVERRIDE_CMD,&on,sizeof(on),NULL,0);
+	if(ret<0) {
+		printk("%s: scm call error\n",__func__);
 		return -EINVAL;
 	}
 	return count;
 }
+static DEVICE_ATTR(override, S_IWUSR | S_IRUGO, qfprom_override_show, qfprom_override_store);
 
-static DEVICE_ATTR(override, S_IWUSR | S_IRUGO, qfprom_override_show,
-		   qfprom_override_store);
 
-static struct attribute *qfprom_attributes[] = {
+static struct attribute* qfprom_attributes[] = {
 	&dev_attr_qfusing.attr,
 	&dev_attr_addr.attr,
 	&dev_attr_lsb.attr,
@@ -788,12 +461,8 @@ static struct attribute *qfprom_attributes[] = {
 	&dev_attr_write.attr,
 	&dev_attr_read.attr,
 	&dev_attr_override.attr,
-	&dev_attr_unlock.attr,
-	&dev_attr_unlock_extra.attr,
-	&dev_attr_deviceid.attr,
 	NULL
 };
-
 static const struct attribute_group qfprom_attribute_group = {
 	.attrs = qfprom_attributes,
 };
@@ -803,11 +472,11 @@ static const struct attribute_group qfprom_attribute_group = {
  */
 u32 qfprom_secondary_hwkey_status(void)
 {
-	void __iomem *key_status_addr;
-	u32 hw_key_status;
-
-	key_status_addr = ioremap(QFPROM_HW_KEY_STATUS, sizeof(u32));
-	hw_key_status = (u32) readl(key_status_addr);
+	void __iomem* key_status_addr;
+	u32	hw_key_status;
+	
+	key_status_addr = ioremap(QFPROM_HW_KEY_STATUS,sizeof(u32));
+	hw_key_status=(u32)readl(key_status_addr);
 	iounmap(key_status_addr);
 	printk("%s: hw_key_status = 0x%x\n", __func__, hw_key_status);
 	return hw_key_status;
@@ -821,28 +490,27 @@ u32 qfprom_secondary_hwkey_status(void)
 int qfprom_create_random(u32 *value)
 {
 	int ret;
-	u32 rand = 0;
+	u32 rand=0;
 	struct prng_data {
 		u32 r;
 		u32 s;
 	} pdata;
-	u8 *p_buf = NULL;
-
-	p_buf = kmalloc(sizeof(u8) * 4, GFP_KERNEL);
-	if (!p_buf) {
-		printk("%s: memory alloc fail\n", __func__);
+	u8* p_buf=NULL;
+	
+	p_buf=kmalloc(sizeof(u8)*4, GFP_KERNEL);
+	if(!p_buf) {
+		printk("%s: memory alloc fail\n",__func__);
 		ret = -EINVAL;
 		goto err;
 	}
 	memset(p_buf , 0 , sizeof(u8) * 4 );
-
-	pdata.r = virt_to_phys((void *)p_buf);
-	pdata.s = 4;
-
-	ret = scm_call(QFPROM_SVC_ID, QFPROM_PRNG_CMD, &pdata, sizeof(pdata),
-		     NULL, 0);
-	if (ret < 0) {
-		printk("%s: scm call error for creating random\n", __func__);
+	
+	pdata.r=virt_to_phys((void*)p_buf);
+	pdata.s=4;
+	
+	ret = scm_call(QFPROM_SVC_ID ,QFPROM_PRNG_CMD, &pdata, sizeof(pdata), NULL, 0);
+	if(ret<0){
+		printk("%s: scm call error for creating random\n",__func__);
 		goto err;
 	}
 	rand =
@@ -879,16 +547,16 @@ int qfprom_blow_secondary_hwkey_region(void)
 	key_status = qfprom_secondary_hwkey_status();
 
 	if ((key_status & SEC_HW_KEY_BLOWN) == SEC_HW_KEY_BLOWN) {
-			printk("%s: Already Blown\n",__func__);
-			ret = 0;
+		printk("%s: Already Blown\n",__func__);
+		ret = 0;
 		goto err;
 	}
-
 
 	addr = QFPROM_SECONDARY_HW_KEY;
 	for(i=0;i<7;i++){
 		/* we can read hw secondary key region because before read permission is set */
 		/*
+		memset(p_buf, 0, sizeof(u32)*2);
 		ret = qfuse_read_single_row(addr, 0, p_buf);
 		if(ret!=0){
 			printk("%s: qfuse addr %x read fail, ret=%d\n",__func__,addr,ret);
@@ -945,6 +613,7 @@ int qfprom_blow_secondary_hwkey_region(void)
 			printk("hw secondary key write successful\n");
 			msleep(10);
 			/*
+			memset(p_buf, 0, sizeof(u32)*2);
 			ret = qfuse_read_single_row(addr,0,p_buf);
 			if(ret!=0){
 				printk("%s:read fail when double check routine, ret=%d\n",__func__,ret);
@@ -975,19 +644,19 @@ err:
  */
 int qfuse_write_single_row(u32 fuse_addr, u32 fuse_lsb, u32 fuse_msb)
 {
-
+	
 	struct qfprom_write_cmd_buffer request;
-	u32 *p_buf = NULL;
-	u32 *p_status = NULL;
-	u32 scm_ret = 0;
-	int ret = 0;
+	u32*	p_buf = NULL;
+	u32*	p_status = NULL;
+	u32	scm_ret=0;
+	int	ret=0;
 	u32 tzbsp_boot_milestone_status = TZBSP_MILESTONE_TRUE;
 
-	p_buf = kmalloc(sizeof(u32) * 2, GFP_KERNEL);
+	p_buf = kmalloc(sizeof(u32)*2, GFP_KERNEL);
 	p_status = kmalloc(sizeof(u32), GFP_KERNEL);
-
-	if (!p_buf) {
-		printk("%s : buffer memory alloc fail\n", __func__);
+	
+	if( !p_buf ){
+		printk("%s : buffer memory alloc fail\n",__func__);
 		ret = -ENOMEM;
 		goto error_p_status;
 	}
@@ -997,15 +666,14 @@ int qfuse_write_single_row(u32 fuse_addr, u32 fuse_lsb, u32 fuse_msb)
 		goto error_p_status;
 	}
 
-
 	memset(p_buf, 0, sizeof(u32)*2);
 	memset(p_status, 0, sizeof(u32));
 
-	p_buf[0] = fuse_lsb;
-	p_buf[1] = fuse_msb;
+	p_buf[0]=fuse_lsb;
+	p_buf[1]=fuse_msb;
 	request.qfprom_addr = fuse_addr;
-	request.buf = virt_to_phys((void *)p_buf);
-	request.qfprom_status = virt_to_phys((void *)p_status);
+	request.buf = virt_to_phys((void*)p_buf);
+	request.qfprom_status = virt_to_phys((void*)p_status);
 	request.qfprom_clk = QFPROM_CLOCK;
 
 	tzbsp_boot_milestone_status = TZBSP_MILESTONE_FALSE;
@@ -1025,12 +693,12 @@ int qfuse_write_single_row(u32 fuse_addr, u32 fuse_lsb, u32 fuse_msb)
 	}
 	
 	msleep(10);
-	ret = scm_call(QFPROM_SVC_ID, QFPROM_WRITE_CMD, &request,
-			sizeof(request), &scm_ret, sizeof(scm_ret));
-	if (ret < 0) {
+	
+	ret = scm_call(QFPROM_SVC_ID,QFPROM_WRITE_CMD,&request,sizeof(request), &scm_ret, sizeof(scm_ret));
+	if(ret<0) {
 		goto error_p_status;
 	}
-	ret = *((u32 *) phys_to_virt(request.qfprom_status));
+	ret = *((u32*)phys_to_virt(request.qfprom_status));
 	printk("%s: qfprom_status = 0x%x\n", __func__, ret);
 
 
@@ -1063,12 +731,12 @@ error_p_status:
  * if return value > 0, status error to read qfprom
  * This API can use in range 0x700XXX
  */
-int qfuse_read_single_row(u32 fuse_addr, u32 addr_type, u32 * r_buf)
+int qfuse_read_single_row(u32 fuse_addr, u32 addr_type, u32* r_buf)
 {
 	struct qfprom_read_cmd_buffer request;
-	u32 *p_status = NULL;
-	u32 scm_ret = 0;
-	int ret = 0;
+	u32*	p_status = NULL;
+	u32	scm_ret=0;
+	int	ret=0;
 	u32 tzbsp_boot_milestone_status = TZBSP_MILESTONE_TRUE;
 
 	p_status = kmalloc(sizeof(u32), GFP_KERNEL);
@@ -1101,11 +769,10 @@ int qfuse_read_single_row(u32 fuse_addr, u32 addr_type, u32 * r_buf)
 	}
 	
 	msleep(10);
-	ret = scm_call(QFPROM_SVC_ID, QFPROM_READ_CMD, &request,
-			sizeof(request), &scm_ret, sizeof(scm_ret));
-
-	if (ret < 0) {
-		printk("%s: scm call fail\n", __func__);
+	
+	ret = scm_call(QFPROM_SVC_ID,QFPROM_READ_CMD,&request,sizeof(request), &scm_ret, sizeof(scm_ret));
+	if(ret<0) {
+		printk("%s: scm call fail\n",__func__);
 		goto error_p_status;
 	}
 	ret = *((u32 *) phys_to_virt(request.qfprom_status));
@@ -1138,17 +805,17 @@ static int __devexit lge_qfprom_interface_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int __init lge_qfprom_probe(struct platform_device *pdev)
+static int __init lge_qfprom_probe(struct platform_device* pdev)
 {
 	int err;
 	err = sysfs_create_group(&pdev->dev.kobj, &qfprom_attribute_group);
-	if (err < 0)
-		printk("%s: cant create attribute file\n", __func__);
+	if(err<0)
+		printk("%s: cant create attribute file\n",__func__); 
 	return err;
 }
 
 static struct platform_driver lge_qfprom_driver __refdata = {
-	.probe = lge_qfprom_probe,
+	.probe  = lge_qfprom_probe,
 	.remove = __devexit_p(lge_qfprom_interface_remove),
 	.driver = {
 		.name = LGE_QFPROM_INTERFACE_NAME,

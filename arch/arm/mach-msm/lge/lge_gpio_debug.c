@@ -22,7 +22,7 @@
 #include <linux/io.h>
 #ifdef CONFIG_LGE_PM8941
 #include <linux/spmi.h>
-#endif /*                   */
+#endif /* CONFIG_LGE_PM8941 */
 #include <mach/msm_iomap.h>
 #include <mach/gpiomux.h>
 
@@ -60,7 +60,7 @@ static int n_pmic_mpp = 0x8;
 static char *mpp_mode[] = {"D_IN", "D_OUT", "D_IN/OUT",
 	"Bidirection", "A_IN", "A_OUT", "Current Sink", "Reserved"};
 static char *mpp_pull[] = {"0.6kohm", "10 kohm", "30 kohm", "Open"};
-#endif /*                   */
+#endif /* CONFIG_LGE_PM8941 */
 
 static DEFINE_SPINLOCK(gpios_lock);
 static struct dentry *debugfs_base;
@@ -76,7 +76,7 @@ void gpio_debug_print(void)
 #ifdef CONFIG_LGE_PM8941
 	unsigned char d[6];
 	struct spmi_controller *ctrl = spmi_busnum_to_ctrl(0);
-#endif /*                   */
+#endif /* CONFIG_LGE_PM8941 */
 
 	if (likely(!debug_suspend))
 		return;
@@ -139,7 +139,7 @@ void gpio_debug_print(void)
 
 		pr_cont("\n");
 	}
-#endif /*                   */
+#endif /* CONFIG_LGE_PM8941 */
 	spin_unlock_irqrestore(&gpios_lock, flags);
 
 	return;

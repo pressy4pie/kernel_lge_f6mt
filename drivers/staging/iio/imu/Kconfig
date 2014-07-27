@@ -17,4 +17,3 @@ config ADIS16400
 	  (adis16400 series also have magnetometers).
 
 endmenu
-

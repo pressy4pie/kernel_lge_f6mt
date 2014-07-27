@@ -59,7 +59,7 @@
 #define TS_READ_REGS_LEN			100
 #define TS_READ_VERSION_INFO_LEN		6
 
-#define MELFAS_MAX_TOUCH			5  /* ts->pdata->num_of_finger */
+#define MELFAS_MAX_TOUCH			7  /* ts->pdata->num_of_finger */
 #define MELFAS_MAX_BTN				4
 #define MELFAS_PACKET_SIZE			6
 
@@ -87,6 +87,10 @@ extern int MELFAS_binary_fw_ver_2;
 #define FW_VERSION_ADDR 	2
 #define TS_MAKER_ID         68
 
+#if defined(CONFIG_MACH_LGE_F6_TMUS)
+#define ISIS_L2
+#endif
+
 #define get_time_interval(a, b) a >= b ? a-b : 1000000+a-b
 struct timeval t_debug[2];
 
@@ -112,14 +116,14 @@ static int is_noise_flag;
 #define TOUCH_RESET_DELAY 100
 static int touch_reset_cnt = 0;
 
-/*                                                                               */
+/*LGE_CHANGE_S : 2013-05-16 mystery184.kim@lge.com ghost finger pattern detection*/
 #define TOUCH_GHOST_DETECTION
 #ifdef TOUCH_GHOST_DETECTION
 static int ghost_touch_cnt = 0;
 static int ghost_x = 1000;
 static int ghost_y = 2000;
 #endif
-/*                                                                               */
+/*LGE_CHANGE_E : 2013-05-16 mystery184.kim@lge.com ghost finger pattern detection*/
 
 /***************************************************************************
  * Debug Definitions
@@ -154,6 +158,20 @@ module_param_named(
 			MELFAS_TS_DPRINTK(MELFAS_TS_DEBUG_TOUCH_EVENT_ONETIME, KERN_INFO, \
 			"[TOUCH] %s   %d : x=%d y=%d p=%d \n", \
 			temp, i, g_Mtouch_info[i].posX, g_Mtouch_info[i].posY, g_Mtouch_info[i].pressure); \
+			if (!strcmp (temp, "Press")) \
+				tmp_flag[i] = 0;\
+		} \
+	} while (0)
+
+#define MELFAS_TS_PRIVATE_PRINT_TOUCH_EVENT(temp) \
+	do { \
+		MELFAS_TS_DPRINTK(MELFAS_TS_DEBUG_TOUCH_EVENT, KERN_INFO, \
+			"[TOUCH] %s   %d : x=### y=### p=%d \n", \
+			temp, i, g_Mtouch_info[i].pressure); \
+		if (tmp_flag[i] == 1) { \
+			MELFAS_TS_DPRINTK(MELFAS_TS_DEBUG_TOUCH_EVENT_ONETIME, KERN_INFO, \
+			"[TOUCH] %s   %d : x=### y=### p=%d \n", \
+			temp, i, g_Mtouch_info[i].pressure); \
 			if (!strcmp (temp, "Press")) \
 				tmp_flag[i] = 0;\
 		} \
@@ -238,23 +256,23 @@ static void mms_set_noise_mode(struct melfas_ts_data *ts);
 static void monitor_ghost_finger(struct work_struct *work);
 #endif
 
-/*                                                
-                                                         
+/* [LGE_CHANGE_S] 20130205 mystery184.kim@lge.com 
+  * mms134s f/w upgrade initialize porting : i2c function
   */
 int touch_i2c_read(unsigned char *buf, unsigned char reg, int len);
 int touch_i2c_write(unsigned char * buf, unsigned char reg, int len);
 int touch_i2c_read_nlength(unsigned char *buf, int len);
 int melfas_mms134_fw_upgrade(const char* fw_path);
-/*                                                         */
+/* [LGE_CHANGE_E]  mms134s f/w upgrade initialize porting  */
 
 #ifdef DEBUG_TOUCH_IRQ
 static void melfas_ts_restore_irq(struct work_struct *work);
 int touch_irq_cnt = 0;
 int touch_before_irq_cnt = 100;
 int is_request_irq = 0;
-static struct melfas_ts_data mms134_ts_data;
 #endif
 
+static struct melfas_ts_data mms134_ts_data;
 static struct muti_touch_info g_Mtouch_info[MELFAS_MAX_TOUCH];
 static struct btn_info g_btn_info[MELFAS_MAX_BTN];
 
@@ -273,8 +291,8 @@ static int check_abs_time(void)
 	else
 		return 0;
 }
-/*                                                
-                                                                                         
+/* [LGE_CHANGE_S] 20130205 mystery184.kim@lge.com 
+  * mms134s f/w upgrade initialize porting : add driver i2c function for f/w upgrade file
   */
 int melfas_touch_i2c_read(unsigned char* buf, unsigned char reg, int len){
 	int ret;
@@ -407,7 +425,7 @@ static void read_dummy_interrupt(void)
 }
 
 
-/*                                                                                                        */
+/* [LGE_CHANGE_E]  mms134s f/w upgrade initialize porting : add driver i2c function for f/w upgrade file  */
 #define to_delayed_work(_work)  container_of(_work, struct delayed_work, work)
 
 //static void melfas_ts_event_handler(struct melfas_ts_data *ts)
@@ -574,7 +592,7 @@ static void melfas_ts_event_handler(struct work_struct *work)
 				g_Mtouch_info[touchID].strength = strength;
 				g_Mtouch_info[touchID].pressure = strength;
 				g_Mtouch_info[touchID].btn_touch = touchState;
-/*                                                                               */
+/*LGE_CHANGE_S : 2013-05-16 mystery184.kim@lge.com ghost finger pattern detection*/
 #if defined(TOUCH_GHOST_DETECTION)
 				if(touchState == 0){
 					if(ghost_touch_cnt == 0)
@@ -591,7 +609,7 @@ static void melfas_ts_event_handler(struct work_struct *work)
 					}
 				}
 #endif
-/*                                                                               */
+/*LGE_CHANGE_E : 2013-05-16 mystery184.kim@lge.com ghost finger pattern detection*/
 
 				if (btn_prestate && touch_prestate == 0) {
 					input_report_key(ts->input_dev, pre_keycode, 0xff);
@@ -628,17 +646,27 @@ static void melfas_ts_event_handler(struct work_struct *work)
 							pre_keycode = ts->pdata->button[keyID-1];
 							
 							input_report_key(ts->input_dev, ts->pdata->button[keyID-1], PRESS_KEY);
-							
+#ifdef ISIS_L2
+							if(ts->pdata->button[keyID-1] == KEY_BACK) printk(KERN_ERR "[Touch] ## key pressed \n");
+							else if(ts->pdata->button[keyID-1] == KEY_MENU) printk(KERN_ERR "[Touch] ## key pressed \n");
+							else printk(KERN_ERR "[Touch] ## key pressed \n");
+#else
 							if(ts->pdata->button[keyID-1] == KEY_BACK) printk(KERN_ERR "[Touch] BACK key pressed \n");
 							else if(ts->pdata->button[keyID-1] == KEY_MENU) printk(KERN_ERR "[Touch] MENU key pressed \n");
 							else printk(KERN_ERR "[Touch] %d key pressed \n", pre_keycode);
+#endif
 						} else {
 							
 							input_report_key(ts->input_dev, ts->pdata->button[keyID-1], RELEASE_KEY);
-							
+#ifdef ISIS_L2
+							if(ts->pdata->button[keyID-1] == KEY_BACK) printk(KERN_ERR "[Touch] ## key released \n");
+							else if(ts->pdata->button[keyID-1] == KEY_MENU) printk(KERN_ERR "[Touch] ## key released \n");
+							else printk(KERN_ERR "[Touch] ## key released \n");
+#else
 							if(ts->pdata->button[keyID-1] == KEY_BACK) printk(KERN_ERR "[Touch] BACK key released \n");
 							else if(ts->pdata->button[keyID-1] == KEY_MENU) printk(KERN_ERR "[Touch] MENU key released \n");
 							else printk(KERN_ERR "[Touch] %d key released \n", pre_keycode);
+#endif
 						}
 						btn_prestate = touchState;
 					}
@@ -667,7 +695,11 @@ static void melfas_ts_event_handler(struct work_struct *work)
 			if (g_Mtouch_info[i].btn_touch == 0) {
 				g_Mtouch_info[i].btn_touch = -1;
 				tmp_flag[i] = 1;
+#ifdef ISIS_L2
+				MELFAS_TS_PRIVATE_PRINT_TOUCH_EVENT("Release");
+#else
 				MELFAS_TS_DEBUG_PRINT_TOUCH_EVENT("Release");
+#endif
 				continue;
 			}
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_X, g_Mtouch_info[i].posX);
@@ -676,7 +708,11 @@ static void melfas_ts_event_handler(struct work_struct *work)
 			input_report_abs(ts->input_dev, ABS_MT_PRESSURE, g_Mtouch_info[i].strength);
 			input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID, i);
 			input_mt_sync(ts->input_dev);
+#ifdef ISIS_L2
+			MELFAS_TS_PRIVATE_PRINT_TOUCH_EVENT("Press");
+#else
 			MELFAS_TS_DEBUG_PRINT_TOUCH_EVENT("Press");
+#endif
 			touch_prestate = 1;
 			pressed_count++;
 		}
@@ -1556,9 +1592,9 @@ static int melfas_ts_probe(struct i2c_client *client, const struct i2c_device_id
 		ret = -ENODEV;
 		goto err_check_functionality_failed;
 	}
-#ifdef DEBUG_TOUCH_IRQ
+
 	ts = &mms134_ts_data;
-#else
+#if 0
 	ts = kmalloc(sizeof(struct melfas_ts_data), GFP_KERNEL);
 	if (ts == NULL) {
 		MELFAS_TS_DPRINTK(MELFAS_TS_DEBUG_PROBE, KERN_ERR, "[TOUCH] failed to create a state of melfas-ts\n");
@@ -1615,9 +1651,9 @@ static int melfas_ts_probe(struct i2c_client *client, const struct i2c_device_id
 			}
 		}
 	} 
-	/*                                                
-                                                                                      
-   */
+	/* [LGE_CHANGE_S] 20130205 mystery184.kim@lge.com 
+	  * mms134s f/w upgrade initialize porting : modify mms134s f/w info register address
+	  */
 	
 	buf[0] = TS_READ_HW_VER_ADDR;
 	ret = i2c_master_send(ts->client, &buf[0], 1);
@@ -1647,16 +1683,16 @@ static int melfas_ts_probe(struct i2c_client *client, const struct i2c_device_id
 		printk(KERN_INFO "[Touch D] Image's Firmware Revision :: 0x%02x\n\n", MELFAS_binary_fw_ver);
 	else
 		printk(KERN_INFO "[Touch D] Melfas binary is null!! \n");
-	/*                                                                                                   */
+	/* [LGE_CHANGE_E] mms134s f/w upgrade initialize porting : modify mms134s f/w info register address  */
 
 	ts->version = buf[FW_VERSION_ADDR];
 	
 	MELFAS_TS_DPRINTK(MELFAS_TS_DEBUG_PROBE, KERN_INFO,
 		"[TOUCH] i2c_master_send() [%d], Add[%d]\n", ret, ts->client->addr);
 
-	/*                                                
-                                                                         
-   */
+	/* [LGE_CHANGE_S] 20130205 mystery184.kim@lge.com 
+	  * mms134s f/w upgrade initialize porting : porting mms134s f/w upgrade
+	  */
 	if(MELFAS_binary != NULL){
 		printk(KERN_INFO "[Touch D] Board f/w version : 0x%02x, image f/w version 0x%02x \n", ts->version, MELFAS_binary_fw_ver);
 	//	printk(KERN_INFO "[Touch D] Board f/w version : 0x%02x, image f/w version 0x%02x \n", ts->version, MELFAS_binary[19464]);
@@ -1711,7 +1747,7 @@ static int melfas_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	else{
 		printk(KERN_INFO "[Touch D] Melfas binary is null!! \n");
 	}
-	/*                                                                                                   */
+	/* [LGE_CHANGE_E] mms134s f/w upgrade initialize porting : modify mms134s f/w info register address  */
 
 	ts->version = buf[FW_VERSION_ADDR];
 
@@ -1729,9 +1765,9 @@ static int melfas_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	for (i = 0; i < ts->pdata->num_of_button; i++)
 		ts->input_dev->keybit[BIT_WORD(ts->pdata->button[i])] |= BIT_MASK(ts->pdata->button[i]);
 
-	/*                                                
-                                                  
-   */
+	/* [LGE_CHANGE_S] 20130417 mystery184.kim@lge.com 
+	  * F6 need to double resolution for fw version 6
+	  */
 	if(ts != NULL){
 		//if(ts->version < 80 && ts->version >= 6)
 		if(ts->version >= 6)
@@ -1742,7 +1778,7 @@ static int melfas_ts_probe(struct i2c_client *client, const struct i2c_device_id
 
 		printk(KERN_DEBUG "[Touch] Set Touch resolution %d X %d , f/w version : %d \n",ts->pdata->x_max * m,ts->pdata->y_max * m,ts->version);
 	}
-	/*                                                               */
+	/* [LGE_CHANGE_E] F6 need to double resolution for fw version 6  */
 
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0,  ts->pdata->x_max * m, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0,  ts->pdata->y_max * m, 0, 0);
@@ -1831,7 +1867,7 @@ err_input_register_device_failed:
 	input_free_device(ts->input_dev);
 err_input_dev_alloc_failed:
 	printk(KERN_ERR "melfas-ts: err_input_dev_alloc failed\n");
-#ifndef DEBUG_TOUCH_IRQ
+#if 0
 err_alloc_data_failed:
 	printk(KERN_ERR "melfas-ts: err_alloc_data failed_\n");
 #endif
@@ -1899,18 +1935,18 @@ static void release_all_keys(struct melfas_ts_data *ts)
 	input_sync(ts->input_dev);
 }
 
-/*                                                                               */
+/*LGE_CHANGE_S : 2013-05-16 mystery184.kim@lge.com ghost finger pattern detection*/
 #ifdef TOUCH_GHOST_DETECTION
 
 static void monitor_ghost_finger(struct work_struct *work)
 {
 	struct melfas_ts_data *ts = &mms134_ts_data;
-	unsigned long flags;
+	//unsigned long flags;
 
 	if (ghost_touch_cnt >= 8){
 		printk("[Touch] ghost finger pattern DETECTED! : %d \n", ghost_touch_cnt);
 
-		local_irq_save(flags);
+		//local_irq_save(flags);
 
 		release_all_fingers(ts);
 		release_all_keys(ts);		
@@ -1921,7 +1957,9 @@ static void monitor_ghost_finger(struct work_struct *work)
 		ts->pdata->power_enable(1, true);
 		msleep(100); 
 
-		local_irq_restore(flags);
+		release_all_fingers(ts);
+		
+		//local_irq_restore(flags);
 	}
 	
 
@@ -1935,7 +1973,7 @@ static void monitor_ghost_finger(struct work_struct *work)
 
 }
 #endif
-/*                                                                               */
+/*LGE_CHANGE_E : 2013-05-16 mystery184.kim@lge.com ghost finger pattern detection*/
 
 
 static void melfas_ts_sw_reset(struct melfas_ts_data *ts)
@@ -2039,11 +2077,11 @@ static void melfas_ts_suspend_func(struct melfas_ts_data *ts)
 	printk(KERN_INFO "[TOUCH] Touch suspend : 0xB0 write! \n");
 #endif
 	ret = cancel_work_sync(&ts->work);
-/*                                                                               */
+/*LGE_CHANGE_S : 2013-05-16 mystery184.kim@lge.com ghost finger pattern detection*/
 #ifdef TOUCH_GHOST_DETECTION
 	cancel_delayed_work_sync(&ts->ghost_monitor_work);
 #endif
-/*                                                                                */
+/*LGE_CHANGE_E : 2013-05-166 mystery184.kim@lge.com ghost finger pattern detection*/
 
 #ifdef DEBUG_TOUCH_IRQ
 	cancel_delayed_work_sync(&ts->irq_restore_work); 
@@ -2075,13 +2113,13 @@ static void melfas_ts_resume_func(struct melfas_ts_data *ts)
 
 	enable_irq(ts->client->irq);
 
-/*                                                                               */
+/*LGE_CHANGE_S : 2013-05-16 mystery184.kim@lge.com ghost finger pattern detection*/
 #ifdef TOUCH_GHOST_DETECTION	
 	ghost_touch_cnt = 0;
 	//schedule_delayed_work(&ts->ghost_monitor_work, msecs_to_jiffies(HZ * 10));
 	queue_delayed_work(touch_wq, &ts->ghost_monitor_work, msecs_to_jiffies(HZ * 10));
 #endif
-/*                                                                                */
+/*LGE_CHANGE_E : 2013-05-166 mystery184.kim@lge.com ghost finger pattern detection*/
 
 #ifdef DEBUG_TOUCH_IRQ
 	//schedule_delayed_work(&ts->irq_restore_work, msecs_to_jiffies(HZ * 12)); // 1.2 sec

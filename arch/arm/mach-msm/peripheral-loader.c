@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -389,9 +389,9 @@ void *pil_get(const char *name)
 	}
 	pil->count++;
 	pil_set_state(pil, PIL_ONLINE);
-/*            */
+/* LGE_CHANGE */
 #ifdef CONFIG_MACH_LGE
-	//                                                   
+	//LGE_CNAHGES : Add log for debugging watchdog reset.
 	//ALRAN
 	//pr_err("ALRAN: %s, count %d, pid %d, %s\n", __func__, pil->count, current->pid, current->comm);
 #endif
@@ -439,9 +439,9 @@ void pil_put(void *peripheral_handle)
 			pil->desc->name, __func__))
 		goto err_out;
 
-/*            */
+/* LGE_CHANGE */
 #if CONFIG_MACH_LGE
-	//                                                                       
+	//LGE_CHANES : Workaround code for pereventing watchdog reset.(QCT Patch)
 	if (!--pil->count){
 		if (!!strncmp("modem", pil->desc->name, 5)) //ALRAN : LG FX3 - allow pil_put only for not modem*
 			pil_shutdown(pil);

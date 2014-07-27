@@ -423,7 +423,7 @@ static struct mmc_platform_data msm8930_sdc4_data = {
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc4_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc4_sup_clk_rates),
-	//                                                                                 
+	//moon-wifi@lge.com by kwisuk.kwon 20120813 : pclk_src_dfab field is deleted on JB.
 #ifdef CONFIG_BCMDHD_MODULE
 	.nonremovable	= 0,
 #else
@@ -604,7 +604,7 @@ int bcm_wifi_set_power(int enable)
 		}
 
 		// WLAN chip down 
-		//                                                              
+		//moon@lge.com by kwisuk.kwon 20121214, remove a delay from BRCM
 		//mdelay(10);  //to save booting time
 		printk(KERN_ERR "%s: wifi power successed to pull down\n",__func__);
 	}
@@ -1035,12 +1035,12 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
         {"AW", "KR", 24}, //Aruba
         {"AZ", "BR", 0}, //Azerbaijan
         {"BA", "GB", 0}, //Bosnia and Herzegovina
-        {"BB", "RU", 1}, //Barbados
+        {"BB", "BS", 0}, //Barbados
         {"BD", "CN", 0}, //Bangladesh
         {"BE", "GB", 0}, //Belgium
         {"BF", "CN", 0}, //Burkina Faso
         {"BG", "GB", 0}, //Bulgaria
-        {"BH", "RU", 1}, //Bahrain
+        {"BH", "BS", 0}, //Bahrain
         {"BI", "IL", 10}, //Burundi
         {"BJ", "IL", 10}, //Benin
 #if defined(CARRIER_TMO)
@@ -1048,10 +1048,10 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
 #else
         {"BM", "US", 100}, //Bermuda
 #endif
-        {"BN", "RU", 1}, //Brunei
+        {"BN", "BS", 0}, //Brunei
         {"BO", "IL", 10}, //Bolivia
         {"BR", "BR", 0}, //Brazil
-        {"BS", "RU", 1}, //Bahamas
+        {"BS", "BS", 0}, //Bahamas
         {"BT", "IL", 10}, //Bhntan
         {"BW", "GB", 0}, //Botswana
         {"BY", "GB", 0}, //Belarus
@@ -1067,7 +1067,7 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
         {"CH", "GB", 0}, //Switzerland
         {"CI", "IL", 10}, //Cote d'lvoire
         {"CK", "BR", 0}, //Cook Island
-        {"CL", "RU", 1}, //Chile
+        {"CL", "BS", 0}, //Chile
         {"CM", "IL", 10}, //Cameroon
         {"CN", "CN", 0}, //China
         {"CO", "BR", 0}, //Columbia
@@ -1085,7 +1085,7 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
         {"DZ", "KW", 1}, //Algeria
         {"EC", "BR", 0}, //Ecuador
         {"EE", "GB", 0}, //Estonia
-        {"EG", "RU", 1}, //Egypt
+        {"EG", "BS", 0}, //Egypt
         {"ER", "IL", 10}, //Eritrea
         {"ES", "GB", 0}, //Spain
         {"ET", "GB", 0}, //Ethiopia
@@ -1110,24 +1110,24 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
         {"GP", "GB", 0}, //Guadeloupe
         {"GQ", "IL", 10}, //Equatorial Guinea
         {"GR", "GB", 0}, //Greece
-        {"GT", "RU", 1}, //Guatemala
+        {"GT", "BS", 0}, //Guatemala
 #if defined(CARRIER_TMO)
         {"GU", "XW", 0}, //Guam
 #else
         {"GU", "US", 100}, //Guam
 #endif
         {"GW", "IL", 10}, //Guinea-Bissau
-        {"GY", "QA", 0}, //Guyana
+        {"GY", "ID", 1}, //Guyana
         {"HK", "BR", 0}, //Hong Kong
         {"HN", "CN", 0}, //Honduras
         {"HR", "GB", 0}, //Croatia
-        {"HT", "RU", 1}, //Haiti
+        {"HT", "BS", 0}, //Haiti
         {"HU", "GB", 0}, //Hungary
-        {"ID", "QA", 0}, //Indonesia
+        {"ID", "ID", 1}, //Indonesia
         {"IE", "GB", 0}, //Ireland
         {"IL", "IL", 10}, //Israel
         {"IM", "GB", 0}, //Isle of Man
-        {"IN", "RU", 1}, //India
+        {"IN", "BS", 0}, //India
         {"IQ", "IL", 10}, //Iraq
         {"IR", "IL", 10}, //Iran
         {"IS", "GB", 0}, //Iceland
@@ -1203,10 +1203,10 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
         {"MS", "GB", 0}, //Montserrat (UK)
         {"MT", "GB", 0}, //Malta
         {"MU", "GB", 0}, //Mauritius
-        {"MV", "RU", 1}, //Maldives
+        {"MV", "BS", 0}, //Maldives
         {"MW", "CN", 0}, //Malawi
-        {"MX", "RU", 1}, //Mexico
-        {"MY", "RU", 1}, //Malaysia
+        {"MX", "BS", 0}, //Mexico
+        {"MY", "BS", 0}, //Malaysia
         {"MZ", "BR", 0}, //Mozambique
         {"NA", "BR", 0}, //Namibia
         {"NC", "IL", 10}, //New Caledonia
@@ -1216,12 +1216,12 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
         {"NI", "BR", 0}, //Nicaragua
         {"NL", "GB", 0}, //Netherlands
         {"NO", "GB", 0}, //Norway
-        {"NP", "SA", 0}, //Nepal
+        {"NP", "NP", 0}, //Nepal
         {"NR", "IL", 10}, //Nauru
         {"NU", "BR", 0}, //Niue
         {"NZ", "BR", 0}, //New Zealand
         {"OM", "GB", 0}, //Oman
-        {"PA", "RU", 1}, //Panama
+        {"PA", "BS", 0}, //Panama
         {"PE", "BR", 0}, //Peru
         {"PF", "GB", 0}, //French Polynesia (France)
         {"PG", "XY", 3}, //Papua New Guinea
@@ -1244,9 +1244,9 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
         {"RKS", "IL", 10}, //Kosvo (Added on window's list)
         {"RO", "GB", 0}, //Romania
         {"RS", "GB", 0}, //Serbia
-        {"RU", "RU", 10}, //Russia
+        {"RU", "BS", 0}, //Russia
         {"RW", "CN", 0}, //Rwanda
-        {"SA", "SA", 0}, //Saudi Arabia
+        {"SA", "NP", 0}, //Saudi Arabia
         {"SB", "IL", 10}, //Solomon Islands
         {"SC", "IL", 10}, //Seychelles
         {"SD", "GB", 0}, //Sudan
@@ -1262,7 +1262,7 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
         {"SR", "IL", 10}, //Suriname
         {"SS", "GB", 0}, //South_Sudan
         {"ST", "IL", 10}, //Sao Tome and Principe
-        {"SV", "RU", 1}, //El Salvador
+        {"SV", "BS", 0}, //El Salvador
         {"SY", "BR", 0}, //Syria
         {"SZ", "IL", 10}, //Swaziland
         {"TC", "GB", 0}, //Turks and Caicos Islands (UK)
@@ -1280,7 +1280,7 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
         {"TV", "IL", 10}, //Tuvalu
         {"TW", "TW", 2}, //Taiwan
         {"TZ", "CN", 0}, //Tanzania
-        {"UA", "RU", 1}, //Ukraine
+        {"UA", "BS", 0}, //Ukraine
         {"UG", "BR", 0}, //Ugnada
 #if defined(CARRIER_TMO)
 //        {"US", "XW", 0}, //US TMUS
@@ -1292,7 +1292,7 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
         {"UZ", "IL", 10}, //Uzbekistan
         {"VA", "GB", 0}, //Vatican (Holy See)
         {"VC", "BR", 0}, //Saint Vincent and the Grenadines
-        {"VE", "RU", 1}, //Venezuela
+        {"VE", "BS", 0}, //Venezuela
         {"VG", "GB", 0}, //British Virgin Islands
 #if defined(CARRIER_TMO)
         {"VI", "XW", 0}, //US Virgin Islands
@@ -1301,11 +1301,11 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
 #endif
         {"VN", "BR", 0}, //Vietnam
         {"VU", "IL", 10}, //Vanuatu
-        {"WS", "SA", 0}, //Samoa
+        {"WS", "NP", 0}, //Samoa
         {"YE", "IL", 10}, //Yemen
         {"YT", "GB", 0}, //Mayotte (France)
         {"ZA", "GB", 0}, //South Africa
-        {"ZM", "RU", 1}, //Zambia
+        {"ZM", "BS", 0}, //Zambia
         {"ZW", "BR", 0}, //Zimbabwe
 };
 #endif
@@ -1346,7 +1346,11 @@ static struct resource wifi_resource[] = {
 		.name = "bcmdhd_wlan_irq",
 		.start = MSM_GPIO_TO_INT(WLAN_HOSTWAKE),
 		.end   = MSM_GPIO_TO_INT(WLAN_HOSTWAKE),
-		.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
+#ifdef CONFIG_BCMDHD_HW_OOB
+		.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE, //for HW_OOB
+#else 
+		.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE | IORESOURCE_IRQ_SHAREABLE,  //for SW_OOB
+#endif
 	},
 };
 

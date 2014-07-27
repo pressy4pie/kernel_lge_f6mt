@@ -128,7 +128,7 @@ signed char _g_z_sign = -1;
 #define DEF_ACCL_Z_BIAS_LSB_THRESH_SELF (DEF_ACCL_Z_BIAS_THRESH_SELF*DEF_SELFTEST_ACCL_SENS)
 
 #define DEF_ACCL_RMS_THRESH           (5 * DEF_SELFTEST_ACCL_SENS)
-#define DEF_ACCL_CAL_FILE	"/data/acc_cal.bin"
+#define DEF_ACCL_CAL_FILE	"/sns/cal/acc_cal.bin"
 #endif //FEATURE_IKR_SELF_TEST
 
 static struct test_setup_t test_setup = {

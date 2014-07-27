@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, LGE Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -130,12 +130,12 @@ static struct chg_cable_info_table pm8921_acc_cable_type_data[]={
 
 
 #if 0
-/*                                                                 */
+/* 2011-11-15 taew00k.kang@lge.com 1Seg GSBI10 SPI porting [Start] */
 #if defined(CONFIG_LGE_BROADCAST_1SEG) || defined(CONFIG_LGE_BROADCAST_TDMB)
 #define MSM_GSBI10_PHYS		0x1A200000
 #define MSM_GSBI10_QUP_PHYS	(MSM_GSBI10_PHYS + 0x80000)
 #endif
-/*                                                               */ 
+/* 2011-11-15 taew00k.kang@lge.com 1Seg GSBI10 SPI porting [End] */ 
 #endif
 
 /* for board revision */
@@ -179,21 +179,6 @@ bool lge_get_board_usembhc(void)
 	return true;
 }
 
-//                                                                                        
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU_REV_A)
-static int usb_id_onoff = 0;
-static int __init chk_usb_id_onoff(char *str)
-{
-    s32 value = simple_strtol(str, NULL, 10);
-    usb_id_onoff = value;
-    printk("%s : %s(%d)\n", __func__, usb_id_onoff ? "ON" : "OFF", usb_id_onoff);
-
-    return 1;
-}
-__setup("usb_id_onoff=", chk_usb_id_onoff);
-#endif
-//                                                                                        
-
 #ifdef CONFIG_LGE_PM_TRKLCHG_IN_KERNEL
 static int is_battery_low = 0;
 static int __init chk_is_battery_low(char *str)
@@ -212,9 +197,9 @@ int is_battery_low_in_lk(void)
 }
 #endif
 
-/*           
-                            
-                                     
+/* LGE_CHANGE
+ * Implement cable detection
+ * 2011-11-09, kidong0420.kim@lge.com
  */
  #ifdef CONFIG_LGE_PM
 #define CABLE_ADC_COUNT 5
@@ -300,15 +285,6 @@ int lge_pm_get_cable_info(struct chg_cable_info *cable_info)
 	info->ta_ma = table->ta_ma;
 	info->usb_ma = table->usb_ma;
 	#endif
-//                                                                                        
-#if defined(CONFIG_MACH_LGE_L9II_OPEN_EU_REV_A)
-	if(!usb_id_onoff)
-	{
-		info->cable_type = CABLE_NONE;
-		pr_info("\n[PM] %s : USB_ID Detect Off Cable Type Change : %s\n", __func__, type_str[info->cable_type]);
-	}
-#endif
-//                                                                                        
 
 	pr_info("\n\n[PM]Cable detected: %d(%s)(%d, %d, %d)\n\n",
 			acc_read_value, type_str[info->cable_type],
@@ -345,7 +321,7 @@ void lge_pm_read_cable_info(void)
 	lge_pm_get_cable_info(&lge_cable_info);
 }
 #endif
-/*                                        */
+/* END: kidong0420.kim@lge.com 2011-11-09 */
 
 #ifdef CONFIG_LGE_KCAL
 int g_kcal_r = 255;
@@ -355,13 +331,13 @@ static int __init display_kcal_setup(char *kcal)
 {
 	char vaild_k = 0;
 	sscanf(kcal, "%d|%d|%d|%c", &g_kcal_r, &g_kcal_g, &g_kcal_b, &vaild_k );
-	printk(KERN_INFO "kcal is %d|%d|%d|%c\n",
-					g_kcal_r, g_kcal_g, g_kcal_b, vaild_k);
+	printk("%s: kcal is %d|%d|%d|%c\n",
+			__func__, g_kcal_r, g_kcal_g, g_kcal_b, vaild_k);
 
 	if(vaild_k != 'K') {
-		printk(KERN_INFO "kcal not calibrated yet : %d\n", vaild_k);
+		printk("%s: kcal not calibrated yet : %d\n", __func__, vaild_k);
 		g_kcal_r = g_kcal_g = g_kcal_b = 255;
-		printk(KERN_INFO "set to default : %d\n", g_kcal_r);
+		printk("%s: set to default : %d\n", __func__, g_kcal_r);
 	}
 	return 1;
 }
@@ -406,9 +382,9 @@ static int __init battery_information_setup(char *batt_info)
 		lge_battery_info = BATT_DS2704_C;
 	else if(!strcmp(batt_info, "isl6296_c"))
 		lge_battery_info = BATT_ISL6296_C;
-/*                                         
-                                            
-                                  
+/* L0, Apply Battery ID Checker after Rev.D
+*  Force to return valide value before Rev.D
+*  2012-03-19, junsin.park@lge.com
 */
 #ifdef CONFIG_MACH_MSM8960_L0
 	else if(lge_get_board_revno() < HW_REV_D) {
@@ -426,7 +402,7 @@ static int __init battery_information_setup(char *batt_info)
 __setup("lge.batt_info=", battery_information_setup);
 #endif
 
-/*                            */
+/* LGE_UPDATE_S for MINIOS2.0 */
 /* get boot mode information from cmdline.
  * If any boot mode is not specified,
  * boot mode is normal type.
@@ -444,11 +420,11 @@ int __init lge_boot_mode_init(char *s)
 		lge_boot_mode = LGE_BOOT_MODE_FACTORY2;
 	else if (!strcmp(s, "pifboot"))
 		lge_boot_mode = LGE_BOOT_MODE_PIFBOOT;
-	/*                            */
+	/* LGE_UPDATE_S for MINIOS2.0 */
 	else if (!strcmp(s, "miniOS"))
 		lge_boot_mode = LGE_BOOT_MODE_MINIOS;
 	printk("ANDROID BOOT MODE : %d %s\n", lge_boot_mode, s);
-	/*                            */
+	/* LGE_UPDATE_E for MINIOS2.0 */
 
 	return 1;
 }
@@ -458,7 +434,7 @@ enum lge_boot_mode_type lge_get_boot_mode(void)
 {
 	return lge_boot_mode;
 }
-/*                            */
+/* LGE_UPDATE_E for MINIOS2.0 */
 
 #if 0 // CONFIG_MACH_MSM8930_LGPS9
 
@@ -509,7 +485,7 @@ int lge_get_lcd_maker_id(void)
 	return maker_id;
 }
 
-/*                                                                 */
+/* 2011-11-15 taew00k.kang@lge.com 1Seg GSBI10 SPI porting [Start] */
 #if defined(CONFIG_LGE_BROADCAST_1SEG) || defined(CONFIG_LGE_BROADCAST_TDMB)
 static struct resource resources_qup_spi_gsbi10[] = {
 	{
@@ -562,8 +538,8 @@ struct platform_device msm8960_device_qup_spi_gsbi10 = {
 	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi10),
 	.resource	= resources_qup_spi_gsbi10,
 };
-#endif /*                      */
-/*                                                               */
+#endif /* CONFIG_LGE_BROADCAST */
+/* 2011-11-15 taew00k.kang@lge.com 1Seg GSBI10 SPI porting [End] */
 #endif // temporary
 
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
@@ -594,7 +570,7 @@ void __init lge_add_ramconsole_devices(void)
 }
 #endif
 
-#ifdef CONFIG_LGE_HANDLE_PANIC
+#ifdef CONFIG_LGE_CRASH_HANDLER
 static struct resource crash_log_resource[] = {
 	{
 		.name = "crash_log",

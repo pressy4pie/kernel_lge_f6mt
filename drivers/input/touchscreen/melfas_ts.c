@@ -1271,12 +1271,12 @@ static int melfas_ts_probe(struct i2c_client *client, const struct i2c_device_id
 
 		ts->version = buf[FW_VERSION_ADDR];
 	}
-	/*           
-                                    
-                                                    
-                                          
-                   
-  */
+	/* LGE_CHANGE
+	 * 2012-06-09, sangyeol.ryu@lge.com
+	 * use double resoultion for touch drag performance
+	 * in case of over 0x05(touch sw version)
+	 * only L2S(LS860)
+	 */
 	if (ts->version >= 0x05) {
 		m = 2;
 	}

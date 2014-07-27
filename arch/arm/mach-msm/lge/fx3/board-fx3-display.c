@@ -107,11 +107,11 @@ static u32 porch_value[6] = {64, 144, 4, 7, 8, 1};
 #define HITACHI_R69324A_GAMMA
 #endif
 
-//                                                 
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II EVB
 #if defined(CONFIG_FB_MSM_MIPI_HITACHI_R69328A_VIDEO_HD_PT) 
 #define HITACHI_R69328_GAMMA
 #endif
-//                                                 
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II EVB
 
 
 static struct resource msm_fb_resources[] = {
@@ -200,48 +200,30 @@ static int get_lcd_initial_table ( int lcd_id );
 extern unsigned int system_rev;
 #endif
 
-//                                                 
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II EVB
 #if defined(CONFIG_LCD_BIAS_TPS65132)
 extern void tps65132_lcd_bias_enable(int onoff);
 #endif
-//                                                 
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II EVB
 
-//                                                 
-/*
-#if defined(CONFIG_FB_MSM_MIPI_HITACHI_R69324A_VIDEO_WVGA_PT) || \
-	defined(CONFIG_FB_MSM_MIPI_HIMAX_H8379A_VIDEO_WVGA_PT) || \
-	defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
-*/
-//                                                 
-/*
-#if defined(CONFIG_FB_MSM_MIPI_HITACHI_R69324A_VIDEO_WVGA_PT) || \
-	defined(CONFIG_FB_MSM_MIPI_HIMAX_H8379A_VIDEO_WVGA_PT) || \
-	defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT) || \
-	defined(CONFIG_FB_MSM_MIPI_HITACHI_R69328A_VIDEO_HD_PT) 
-*/	
 #if defined(CONFIG_FB_MSM_MIPI_HITACHI_R69324A_VIDEO_WVGA_PT) || \
 	defined(CONFIG_FB_MSM_MIPI_HIMAX_H8379A_VIDEO_WVGA_PT) || \
 	defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT) || \
 	defined(CONFIG_FB_MSM_MIPI_HITACHI_R69328A_VIDEO_HD_PT) ||\
 	defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT) 
-//                                                 
-//                                                 
 
 static int mipi_dsi_panel_power(int on)
 {
-//                                                                                        
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 	static struct regulator *reg_l2, *reg_l23;
 #else
 	static struct regulator *reg_l8, *reg_l2, *reg_l23;
 #endif
-//                                               
 	int rc;
 
 	printk("%s: state : %d\n", __func__, on);
 
 	if (!dsi_power_on) {
-
 #if	defined(CONFIG_FB_MSM_MIPI_DSI_HIMAX)
 		gpio_tlmm_config(GPIO_CFG(89, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE); 
 		rc = gpio_request(89, "lcd_maker_id");
@@ -250,9 +232,8 @@ static int mipi_dsi_panel_power(int on)
 			return -ENODEV;
 		}
 #endif
-//                                                                                        
-#if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
-#else
+
+#if !defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 		reg_l8 = regulator_get(&msm_mipi_dsi1_device.dev,
 				"dsi_vdc");
 		if (IS_ERR(reg_l8)) {
@@ -261,7 +242,7 @@ static int mipi_dsi_panel_power(int on)
 			return -ENODEV;
 		}
 #endif
-//                                               
+
 		reg_l23 = regulator_get(&msm_mipi_dsi1_device.dev,
 				"8038_l23");
 		if (IS_ERR(reg_l23)) {
@@ -277,9 +258,7 @@ static int mipi_dsi_panel_power(int on)
 				PTR_ERR(reg_l2));
 			return -ENODEV;
 		}
-//                                                                                        
-#if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
-#else		
+#if !defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 #if defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
 		rc = regulator_set_voltage(reg_l8, 3000000, 3000000);
 #else
@@ -290,7 +269,6 @@ static int mipi_dsi_panel_power(int on)
 			return -EINVAL;
 		}
 #endif
-//                                               
 
 		rc = regulator_set_voltage(reg_l2, 1200000, 1200000);
 		if (rc) {
@@ -311,32 +289,15 @@ static int mipi_dsi_panel_power(int on)
 			pr_err("request gpio 58 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
-#if defined (CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
-/*		if (system_rev > HW_REV_A) */
-		{
-			gpio_tlmm_config(GPIO_CFG(53, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE); 
+#if defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
+		gpio_tlmm_config(GPIO_CFG(53, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 
-			rc = gpio_request(53, "lcd_ldo_en");
-			if (rc) {
-				pr_err("request gpio 53 failed, rc=%d\n", rc);
-				return -ENODEV;
-			}
-		}
-#endif
-
-//                                                 
-#if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
-#if !defined(CONFIG_LCD_BIAS_TPS65132)
-		gpio_tlmm_config(GPIO_CFG(56, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-
-		rc = gpio_request(56, "dsv_en");
+		rc = gpio_request(53, "lcd_ldo_en");
 		if (rc) {
-			pr_err("request gpio 56 failed, rc=%d\n", rc);
+			pr_err("request gpio 53 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
 #endif
-#endif
-//                                                 
 
 		dsi_power_on = true;
 	}
@@ -347,28 +308,19 @@ static int mipi_dsi_panel_power(int on)
 		printk(KERN_INFO "lcd_maker_id = %d\n", lcd_maker_id);
 		get_lcd_initial_table( lcd_maker_id );
 #endif		
-#if defined (CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)	
-/*		printk("%s: system_rev : %d - OK\n", __func__, system_rev);
-		if (system_rev == HW_REV_A)
-		{
-			printk("%s: HW_REV_A : %d - OK\n", __func__, system_rev);
-			gpio_direction_output(43, 1);
-		} */
-/*		if (system_rev > HW_REV_A) */
-		{
-			gpio_direction_output(53, 1);
-		}
-#endif		
-//                                                                                                   
-#if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
-#else
+
+#if defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
+		gpio_direction_output(53, 1);
+#endif
+
+#if !defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 		rc = regulator_set_optimum_mode(reg_l8, 100000);
 		if (rc < 0) {
 			pr_err("set_optimum_mode l8 failed, rc=%d\n", rc);
 			return -EINVAL;
 		}
 #endif
-//                                              
+
 		rc = regulator_set_optimum_mode(reg_l23, 100000);
 		if (rc < 0) {
 			pr_err("set_optimum_mode l23 failed, rc=%d\n", rc);
@@ -385,69 +337,55 @@ static int mipi_dsi_panel_power(int on)
 			pr_err("enable l23 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
-#if defined (CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)	
-//		mdelay(5);
-#else
+
+#if !defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
 		mdelay(5);
 #endif
-//                                                                                                   
-#if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
-#else
+
+#if !defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 		rc = regulator_enable(reg_l8);
 		if (rc) {
 			pr_err("enable l8 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
 #endif
-//                                              
-#if defined (CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)	
-		//mdelay(5);
-#else
+
+#if !defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
 		mdelay(5);
 #endif
-
 
 		rc = regulator_enable(reg_l2);
 		if (rc) {
 			pr_err("enable l2 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
-#if defined (CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)	
-		//mdelay(5);
-#else
+
+#if !defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
 		mdelay(5);
 #endif
 
-//                                                 
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
-#if defined(CONFIG_LCD_BIAS_TPS65132)
 		tps65132_lcd_bias_enable(1);
-#else
-		gpio_direction_output(56, 1);
+		mdelay(1);
 #endif
-		mdelay(1); //                                                  
-#endif
-//                                                 
 
-#if !defined(CONFIG_FB_MSM_MIPI_DSI_HIMAX) || defined(CONFIG_MACH_LGE_FX3_VZW)
+#if !defined(CONFIG_FB_MSM_MIPI_DSI_HIMAX) || defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS)
 		mipi_dsi_phy_ctrl(0);
 #endif
 
 #ifndef CONFIG_FB_MSM_MIPI_DSI_HIMAX
-#if defined (CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)	
+#if defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
 		mdelay(2);
 		gpio_direction_output(58, 1);
 		mdelay(10);
-//                                                 
 #elif defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
-		mdelay(50); //                                                 
+		mdelay(50); //LGE_CHANGE [koh.euije@lge.com]2013.05.20 41 -> 50
 		gpio_direction_output(58, 1);
 		mdelay(1);
 		gpio_direction_output(58, 0);
 		mdelay(1);                
 		gpio_direction_output(58, 1);
-		mdelay(150); //                                                   
-//                                                 
+		mdelay(150); //LGE_CHANGE [koh.euije@lge.com]2013.05.20 120 -> 150
 #else
 		gpio_direction_output(58, 1);
 		mdelay(2);
@@ -459,40 +397,21 @@ static int mipi_dsi_panel_power(int on)
 #endif
 	} else {
 		gpio_direction_output(58, 0);
-#if defined (CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)	
-/*		printk("%s: system_rev : %d - OK\n", __func__, system_rev);
-		if (system_rev == HW_REV_A)
-		{
-			printk("%s: HW_REV_A : %d - OK\n", __func__, system_rev);
-			gpio_direction_output(43, 0);
-		} */
-
-/*		if (system_rev > HW_REV_A) */
-		{
-			gpio_direction_output(53, 0);
-		}
+#if defined (CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
+		gpio_direction_output(53, 0);
 #endif		
 
-//                                                 
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
-#if defined(CONFIG_LCD_BIAS_TPS65132)
 		tps65132_lcd_bias_enable(0);
-#else
-		gpio_direction_output(56, 0);
 #endif
-#endif
-//                                                 
 
-//                                                                                                   
-#if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
-#else
+#if !defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 		rc = regulator_disable(reg_l8);
 		if (rc) {
 			pr_err("disable reg_l8 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
 #endif
-//                                              
 		rc = regulator_disable(reg_l23);
 		if (rc) {
 			pr_err("disable reg_l23 failed, rc=%d\n", rc);
@@ -503,16 +422,13 @@ static int mipi_dsi_panel_power(int on)
 			pr_err("enable l2 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
-//                                                                                                   
-#if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
-#else
+#if !defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 		rc = regulator_set_optimum_mode(reg_l8, 100);
 		if (rc < 0) {
 			pr_err("set_optimum_mode l8 failed, rc=%d\n", rc);
 			return -EINVAL;
 		}
 #endif
-//                                              
 		rc = regulator_set_optimum_mode(reg_l23, 100);
 		if (rc < 0) {
 			pr_err("set_optimum_mode l23 failed, rc=%d\n", rc);
@@ -538,13 +454,13 @@ static int mipi_dsi_panel_power(int on)
 #define DISP_3D_2D_MODE 1
 static int mipi_dsi_cdp_panel_power(int on)
 {
-//                                                                                        
+// LGE_CHANHE_S [hoseong.han@lge.com] 2013-04-04, LCD don't use reg_l8, touch uses 8038_l8
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 	static struct regulator *reg_l23, *reg_l2;
 #else
 	static struct regulator *reg_l8, *reg_l23, *reg_l2;
 #endif
-//                                              
+// LGE_CHANHE_E [hoseong.han@lge.com] 2013-04-04
 	/* Control backlight GPIO (24) directly when using PM8917 */
 	int gpio24 = PM8917_GPIO_PM_TO_SYS(24);
 	int rc;
@@ -553,7 +469,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 
 	if (!dsi_power_on) {
 
-//                                                                                                   
+// LGE_CHANHE_S [hoseong.han@lge.com] 2013-04-04, L9II Rev.A, LCD don't use reg_l8, touch use 8038_l8
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 #else
 		reg_l8 = regulator_get(&msm_mipi_dsi1_device.dev,
@@ -564,7 +480,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 			return -ENODEV;
 		}
 #endif
-//                                              
+// LGE_CHANHE_E [hoseong.han@lge.com] 2013-04-04
 		reg_l23 = regulator_get(&msm_mipi_dsi1_device.dev,
 				"dsi_vddio");
 		if (IS_ERR(reg_l23)) {
@@ -579,7 +495,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 				PTR_ERR(reg_l2));
 			return -ENODEV;
 		}
-//                                                                                                   
+// LGE_CHANHE_S [hoseong.han@lge.com] 2013-04-04, L9II Rev.A, LCD don't use reg_l8, touch use 8038_l8
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 #else
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
@@ -592,7 +508,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 			return -EINVAL;
 		}
 #endif
-//                                              
+// LGE_CHANHE_E [hoseong.han@lge.com] 2013-04-04
 		rc = regulator_set_voltage(reg_l23, 1800000, 1800000);
 		if (rc) {
 			pr_err("set_voltage l23 failed, rc=%d\n", rc);
@@ -634,7 +550,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 		dsi_power_on = true;
 	}
 	if (on) {
-//                                                                                                   
+// LGE_CHANHE_S [hoseong.han@lge.com] 2013-04-04, L9II Rev.A, LCD don't use reg_l8, touch use 8038_l8
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 #else
 		rc = regulator_set_optimum_mode(reg_l8, 100000);
@@ -643,7 +559,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 			return -EINVAL;
 		}
 #endif
-//                                              
+// LGE_CHANHE_E [hoseong.han@lge.com] 2013-04-04
 		rc = regulator_set_optimum_mode(reg_l23, 100000);
 		if (rc < 0) {
 			pr_err("set_optimum_mode l23 failed, rc=%d\n", rc);
@@ -654,7 +570,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 			pr_err("set_optimum_mode l2 failed, rc=%d\n", rc);
 			return -EINVAL;
 		}
-//                                                                                                   
+// LGE_CHANHE_S [hoseong.han@lge.com] 2013-04-04, L9II Rev.A, LCD don't use reg_l8, touch use 8038_l8
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 #else
 		rc = regulator_enable(reg_l8);
@@ -663,7 +579,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 			return -ENODEV;
 		}
 #endif
-//                                              
+// LGE_CHANHE_E [hoseong.han@lge.com] 2013-04-04
 		rc = regulator_enable(reg_l23);
 		if (rc) {
 			pr_err("enable l8 failed, rc=%d\n", rc);
@@ -693,7 +609,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 			pr_err("disable reg_l2 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
-//                                                                                                   
+// LGE_CHANHE_S [hoseong.lge@lge.com] 2013-04-04, L9II Rev.A, LCD don't use reg_l8, touch use 8038_l8
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 #else
 		rc = regulator_disable(reg_l8);
@@ -702,13 +618,13 @@ static int mipi_dsi_cdp_panel_power(int on)
 			return -ENODEV;
 		}
 #endif
-//                                              
+// LGE_CHANHE_E [hoseong.han@lge.com] 2013-04-04
 		rc = regulator_disable(reg_l23);
 		if (rc) {
 			pr_err("disable reg_l23 failed, rc=%d\n", rc);
 			return -ENODEV;
 		}
-//                                                                                                   
+// LGE_CHANHE_S [hoseong.lge@lge.com] 2013-04-04, L9II Rev.A, LCD don't use reg_l8, touch use 8038_l8
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 #else
 		rc = regulator_set_optimum_mode(reg_l8, 100);
@@ -717,7 +633,7 @@ static int mipi_dsi_cdp_panel_power(int on)
 			return -EINVAL;
 		}
 #endif
-//                                              
+// LGE_CHANHE_E [hoseong.han@lge.com] 2013-04-04
 		rc = regulator_set_optimum_mode(reg_l23, 100);
 		if (rc < 0) {
 			pr_err("set_optimum_mode l23 failed, rc=%d\n", rc);
@@ -802,7 +718,11 @@ static struct msm_bus_vectors mdp_ui_vectors[] = {
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab = 216000000 * 2,
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+		.ib = 334080000 * 2,
+#else
 		.ib = 270000000 * 2,
+#endif
 	},
 };
 
@@ -812,7 +732,11 @@ static struct msm_bus_vectors mdp_vga_vectors[] = {
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab = 216000000 * 2,
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+		.ib = 334080000 * 2,
+#else
 		.ib = 270000000 * 2,
+#endif
 	},
 };
 
@@ -822,7 +746,11 @@ static struct msm_bus_vectors mdp_720p_vectors[] = {
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab = 230400000 * 2,
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+		.ib = 535000000 * 2,
+#else
 		.ib = 288000000 * 2,
+#endif
 	},
 };
 
@@ -832,7 +760,11 @@ static struct msm_bus_vectors mdp_1080p_vectors[] = {
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab = 334080000 * 2,
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+		.ib = 535000000 * 2,
+#else
 		.ib = 417600000 * 2,
+#endif
 	},
 };
 
@@ -907,6 +839,13 @@ static struct notifier_block msm_fb_event_notifier = {
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = MDP_VSYNC_GPIO,
 	.mdp_max_clk = 200000000,
+// LGE_CHANGE_S [younglae.kim@lge.com], add to fix underrun
+#if defined(CONFIG_MACH_LGE_L9II_COMMON)
+	.mdp_max_bw = 2000000000,
+	.mdp_bw_ab_factor = 200,
+	.mdp_bw_ib_factor = 225,
+#endif
+// LGE_CHANGE_E [younglae.kim@lge.com]
 #ifdef CONFIG_MSM_BUS_SCALING
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
@@ -917,7 +856,7 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mem_hid = MEMTYPE_EBI1,
 #endif
 
-#if defined(CONFIG_FB_MSM_MIPI_DSI_HIMAX) && !defined(CONFIG_MACH_LGE_FX3_VZW)
+#if defined(CONFIG_FB_MSM_MIPI_DSI_HIMAX) && !defined(CONFIG_MACH_LGE_FX3_VZW) && !defined(CONFIG_MACH_LGE_FX3Q_TMUS)
 	.cont_splash_enabled = 0x1,
 #else
 	.cont_splash_enabled = 0x0,
@@ -1005,15 +944,15 @@ static char gamma_setting_c[23] = {
 };
 #endif
 
-//                                                       
+//LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
 #if defined (CONFIG_BACKLIGHT_LM3639)
 extern void lm3639_lcd_backlight_set_level(int level);
 #endif
-//                                                       
+//LGE_CHANGE_E [koh.euije@lge.com] Backlight for L9II REV
 
-//                                                 
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II REV
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT) 
-//                                                       
+//LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
 #if defined (CONFIG_BACKLIGHT_LM3639)
 static int mipi_tx13d107vm_backlight_level(int level, int max, int min)
 {
@@ -1021,7 +960,7 @@ static int mipi_tx13d107vm_backlight_level(int level, int max, int min)
 	return 0;
 }
 #endif
-//                                                       
+//LGE_CHANGE_E [koh.euije@lge.com] Backlight for L9II REV
 
 
 //State[1] h->z Power On   START
@@ -1206,10 +1145,10 @@ static char maucctr_p2_dis[6] = {
         0xF0,0x55,0xAA,0x52,
         0x00,0x00
 };
-//                                          
+//LGE_CHANGE_E [koh.euije@lge.com]2013.05.13
 
 #endif
-//                                                 
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II REV
 
 
 #if defined(CONFIG_FB_MSM_MIPI_HITACHI_R69324A_VIDEO_WVGA_PT)
@@ -1253,7 +1192,7 @@ static char gamma_setting_c[23] = {
 #endif
 #endif
 
-//                                                 
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II EVB
 #if defined(CONFIG_FB_MSM_MIPI_HITACHI_R69328A_VIDEO_HD_PT) 
 /* HITACHI HD panel */
 static char set_address_mode[2] = {0x36, 0x00};
@@ -1268,7 +1207,7 @@ static char macp_off[2] = {0xB0, 0x04};
 static char macp_on[2] = {0xB0, 0x03};
 
 #if defined (HITACHI_R69328_GAMMA)
-//                                                                                      
+//LGE_CHANGE_S [koh.euije@lge.com] 2013.02.26 getting value of X3... cmd + 28 parameters
 static char gamma_setting_a[29] = {
 	0xC8, 0x00, 0x1A, 0x20,
 	0x28, 0x25, 0x24, 0x26,
@@ -1299,10 +1238,10 @@ static char gamma_setting_c[29] = {
 	0x11, 0x18, 0x1E, 0x1C, 
 	0x00
 };
-//                                                                                      
+//LGE_CHANGE_E [koh.euije@lge.com] 2013.02.26 getting value of X3... cmd + 28 parameters
 #endif
 #endif //CONFIG_FB_MSM_MIPI_HITACHI_R69328A_VIDEO_HD_PT
-//                                                 
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II EVB
 
 #if defined(CONFIG_FB_MSM_MIPI_HIMAX_H8379A_VIDEO_WVGA_PT)
 static char set_extc[4] = {0xB9, 0xFF, 0x83, 0x79};
@@ -1364,13 +1303,20 @@ static char tovis_set_disp[14] = {
 	0x00, 0xFF, 0x09, 0x04, 0x19, 0x20
 };
 static char tovis_set_cyc[32] = {
+#if defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_F6_VDF)
 	0xB4, 0x00, 0x0C, 0x00, 0x30, 0x10, 0x06, 0x00, 
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x48, 
 	0x07, 0x23, 0x3C, 0x40, 0x08, 0x30, 0x30, 0x04,
 	0x00, 0x40, 0x08, 0x28, 0x08, 0x30, 0x30, 0x04
+#else
+	0xB4, 0x00, 0x12, 0x00, 0x30, 0x10, 0x06, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x48,
+	0x07, 0x23, 0x3C, 0x3E, 0x08, 0x30, 0x30, 0x04,
+	0x00, 0x40, 0x08, 0x28, 0x08, 0x30, 0x30, 0x04
+#endif
 };
 static char tovis_set_panel[2] = {0xCC, 0x0C};
-/*                                                            */
+/* F3Q force FLIP_MODE for INVERSE PANEL - hoseok.kim@lge.com */
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
 static char tovis_set_address_mode[2] = {0x36, 0x02}; // Flip only Horizontal
 #endif
@@ -1424,7 +1370,7 @@ static struct dsi_cmd_desc hitachi_power_on_set[] = {
 		gamma_setting_c},
 #endif
 
-//                                                 
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II EVB
 #if defined (HITACHI_R69328_GAMMA) //koh.euije
 	/* Gamma setting */
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(gamma_setting_a),
@@ -1434,7 +1380,7 @@ static struct dsi_cmd_desc hitachi_power_on_set[] = {
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(gamma_setting_c),
 		gamma_setting_c},
 #endif
-//                                                 
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II EVB
 
 	/* Manufacturer command protect on */
 	{DTYPE_GEN_WRITE2, 1, 0, 0, 0, sizeof(macp_on), macp_on},
@@ -1494,7 +1440,7 @@ static struct dsi_cmd_desc tovis_power_on_set[] = {
 		tovis_set_cyc},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(tovis_set_panel),
 		tovis_set_panel},
-/*                                                            */
+/* F3Q force FLIP_MODE for INVERSE PANEL - hoseok.kim@lge.com */
 #if defined(CONFIG_MACH_LGE_FX3_VZW) || defined(CONFIG_MACH_LGE_FX3Q_TMUS) 
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 10, sizeof(tovis_set_address_mode),
 		tovis_set_address_mode},
@@ -1554,7 +1500,7 @@ static struct dsi_cmd_desc tx11d108vm_power_off_set[] = {
 #endif
 
 #if defined(CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
-//                                                 
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II REV
 static struct dsi_cmd_desc tx13d107vm_power_on_set[] = {
 //State[1] h->z Power On   START
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(power_on_01_00), power_on_01_00},
@@ -1602,10 +1548,14 @@ static struct dsi_cmd_desc tx13d107vm_power_on_set[] = {
 
 static struct dsi_cmd_desc tx13d107vm_power_off_set[] = {
 //        {DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_off), display_off},
-        {DTYPE_DCS_WRITE, 1, 0, 0, 120, sizeof(enter_sleep), enter_sleep}
+#if defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_F6_VDF)
+		{DTYPE_DCS_WRITE, 1, 0, 0, 120, sizeof(enter_sleep), enter_sleep}
+#else
+        {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(enter_sleep), enter_sleep}
+#endif
 }; 
 #endif
-//                                                 
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II REV
 
 #define FPGA_3D_GPIO_CONFIG_ADDR	0xB5
 #ifdef CONFIG_LGE_LCD_TUNING
@@ -1621,9 +1571,9 @@ static int tuning_read_regset(unsigned long tmp)
 {
 	struct tuning_buff *rbuf = (struct tuning_buff *)tmp;
 	int i;
-	int size;
+	int size = 0; //HMOON TEMP
 
-#if defined ( CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT ) 
+#if defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
 	size = ARRAY_SIZE(tx11d108vm_power_on_set);
 #elif defined(CONFIG_FB_MSM_MIPI_HIMAX_H8379A_VIDEO_WVGA_PT)
 	if(lcd_maker_id) {
@@ -1636,7 +1586,7 @@ static int tuning_read_regset(unsigned long tmp)
 	printk(KERN_INFO "read_file\n");
 
 	for (i = 0; i < size; i++) {
-#if defined ( CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT )
+#if defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
 		if (copy_to_user(rbuf->buf[i], tx11d108vm_power_on_set[i].payload,
 					tx11d108vm_power_on_set[i].dlen)) {
 			printk(KERN_ERR "read_file : error of copy_to_user_buff\n");
@@ -1683,7 +1633,7 @@ static int tuning_write_regset(unsigned long tmp)
 
 	memset(set_buff[i], 0x00, TUNING_REGSIZE);
 	memcpy(set_buff[i], buff, wbuf->size);
-#if defined ( CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT ) 
+#if defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
 	tx11d108vm_power_on_set[i].payload = set_buff[i];
 	tx11d108vm_power_on_set[i].dlen = wbuf->size;
 #elif defined(CONFIG_FB_MSM_MIPI_HIMAX_H8379A_VIDEO_WVGA_PT)
@@ -1769,7 +1719,7 @@ static struct msm_panel_common_pdata mipi_tx11d108vm_pdata = {
 
 	.enable_wled_bl_ctrl = 0x1,
 
-#if defined (CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
+#if defined(CONFIG_FB_MSM_MIPI_TX11D108VM_R69324A_VIDEO_QHD_PT)
 	.power_on_set = tx11d108vm_power_on_set,
 	.power_off_set = tx11d108vm_power_off_set,
 	.power_on_set_size = ARRAY_SIZE(tx11d108vm_power_on_set),
@@ -1790,17 +1740,17 @@ static struct platform_device mipi_dsi_tx11d108vm_panel_device = {
 };
 #endif
 
-//                                                 
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II REV
 #ifdef CONFIG_FB_MSM_MIPI_DSI_TX13D107VM
 static struct msm_panel_common_pdata mipi_tx13d107vm_pdata = {
 
-//                                                       
+//LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
 #if !defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_BACKLIGHT_LM3639)
 	.backlight_level = mipi_tx13d107vm_backlight_level,
 #else
 	.enable_wled_bl_ctrl = 0x1,
 #endif
-//                                                       
+//LGE_CHANGE_E [koh.euije@lge.com] Backlight for L9II REV
 
 #if defined (CONFIG_FB_MSM_MIPI_TX13D107VM_NT35521_VIDEO_HD_PT)
 	.power_on_set = tx13d107vm_power_on_set,
@@ -1809,13 +1759,13 @@ static struct msm_panel_common_pdata mipi_tx13d107vm_pdata = {
 	.power_off_set_size = ARRAY_SIZE(tx13d107vm_power_off_set),
 #endif
 
-//                                                       
+//LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
 #if !defined(CONFIG_MACH_MSM8930_FX3) || defined(CONFIG_BACKLIGHT_LM3639)
-//                                                                  
+//LGE_CHANGE_S [koh.euije@lge.com] 2013.04.12 Backlight for L9II REV
 	.max_backlight_level = 0xFF, //0x7F -> 0xFF
-//                                                                   
+//LGE_CHANGE_E [koh.euije@lge.com] 2013.04.12 Backlight for L9II REV	
 #endif
-//                                                       
+//LGE_CHANGE_E [koh.euije@lge.com] Backlight for L9II REV
 };
 
 static struct platform_device mipi_dsi_tx13d107vm_panel_device = {
@@ -1826,7 +1776,7 @@ static struct platform_device mipi_dsi_tx13d107vm_panel_device = {
 	}
 };
 #endif
-//                                                 
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II REV
 
 #ifdef CONFIG_FB_MSM_MIPI_DSI_HITACHI
 static struct msm_panel_common_pdata mipi_hitachi_pdata = {
@@ -1835,7 +1785,7 @@ static struct msm_panel_common_pdata mipi_hitachi_pdata = {
 #else
 	.enable_wled_bl_ctrl = 0x1,
 #endif
-//                                                 
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II EVB
 /*
 #if (defined (CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT) \
 	|| defined (CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_WVGA_PT) \
@@ -1845,7 +1795,7 @@ static struct msm_panel_common_pdata mipi_hitachi_pdata = {
 	|| defined (CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_WVGA_PT) \
 	|| defined (CONFIG_FB_MSM_MIPI_HITACHI_R69324A_VIDEO_WVGA_PT) \
 	|| defined (CONFIG_FB_MSM_MIPI_HITACHI_R69328A_VIDEO_HD_PT))
-//                                                  
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II EVB	
 	.power_on_set = hitachi_power_on_set,
 	.power_off_set = hitachi_power_off_set,
 	.power_on_set_size = ARRAY_SIZE(hitachi_power_on_set),
@@ -2329,7 +2279,7 @@ void __init msm8930_allocate_fb_region(void)
 }
 
 #ifdef CONFIG_I2C
-//                                                 
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II REV
 #if defined (CONFIG_LCD_BIAS_TPS65132)
 #define TPS65132_ADDRESS 0x3E
 
@@ -2346,17 +2296,10 @@ static struct i2c_registry i2c_lcd_bias_device __initdata = {
 		ARRAY_SIZE(msm_i2c_lcd_bias_info),
 };
 #endif
-//                                                 
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II REV
 
-//                                                       
 #if defined (CONFIG_BACKLIGHT_LM3639)
-//                                                                
-#ifdef CONFIG_MACH_LGE_L9II_OPEN_EU_REV_A
-#define LCD_BL_PM_EN    3
-#else
 #define LCD_BL_PM_EN    2
-#endif
-//                                                                
 #define LM3639_BACKLIGHT_ADDRESS 0x39
 
 struct backlight_platform_data {
@@ -2375,9 +2318,9 @@ static struct backlight_platform_data lm3639_data = {
         .gpio = LCD_BL_PM_EN,
         .max_current = 0x07,
         .min_brightness = 0x01,
-//                                                                       
+//LGE_CHANGE_S [koh.euije@lge.com] 2013.04.12 change max b/l 0x7F -> 0xFF
         .max_brightness = 0xFF,
-//                                                                       
+//LGE_CHANGE_S [koh.euije@lge.com] 2013.04.12 change max b/l 0x7F -> 0xFF
         .default_brightness = 0x73,
         .factory_brightness = 0x2B,
 };
@@ -2396,7 +2339,7 @@ static struct i2c_registry i2c_backlight_device __initdata = {
 		ARRAY_SIZE(msm_i2c_backlight_info),
 };
 #endif
-//                                                       
+//LGE_CHANGE_E [koh.euije@lge.com] Backlight for L9II REV
 
 static int __init panel_gpiomux_init(void)
 {
@@ -2452,11 +2395,11 @@ static struct platform_device *d1l_panel_devices[] __initdata = {
 	&mipi_dsi_lgd_panel_device,
 #elif defined(CONFIG_FB_MSM_MIPI_DSI_TX11D108VM)
 	&mipi_dsi_tx11d108vm_panel_device,
-//                                                 
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II REV
 #elif defined(CONFIG_FB_MSM_MIPI_DSI_TX13D107VM)
 	&mipi_dsi_tx13d107vm_panel_device,
 #endif
-//                                                 
+//LGE_CHANGE_E [koh.euije@lge.com] LCD for L9II REV
 #ifdef CONFIG_LGE_KCAL
 	&kcal_platrom_device,
 #endif
@@ -2474,16 +2417,16 @@ void __init lge_add_lcd_devices(void)
 
 	platform_add_devices(d1l_panel_devices, ARRAY_SIZE(d1l_panel_devices));
 
-//                                                 
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II REV
 #if defined (CONFIG_LCD_BIAS_TPS65132)
 	lge_add_msm_i2c_device(&i2c_lcd_bias_device);
 #endif
-//                                                 
-//                                                       
+//LGE_CHANGE_S [koh.euije@lge.com] LCD for L9II REV
+//LGE_CHANGE_S [koh.euije@lge.com] Backlight for L9II REV
 #if defined (CONFIG_BACKLIGHT_LM3639)
 	lge_add_msm_i2c_device(&i2c_backlight_device);
 #endif
-//                                                       
+//LGE_CHANGE_E [koh.euije@lge.com] Backlight for L9II REV
 
 	msm_fb_add_devices();
 	platform_device_register(&msm_fb_device);

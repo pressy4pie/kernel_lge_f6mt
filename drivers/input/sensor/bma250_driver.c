@@ -248,7 +248,7 @@
 #define BMA250_COMP_TARGET_OFFSET_Z__MSK        0x60
 #define BMA250_COMP_TARGET_OFFSET_Z__REG        BMA250_OFFSET_PARAMS_REG
 
-//                                                          
+// LGE_CHANGE_S [younglae.kim@lge.com] , add for calibration
 #define BMA250_EN_SOFT_RESET__POS         		0
 #define BMA250_EN_SOFT_RESET__LEN         		8
 #define BMA250_EN_SOFT_RESET__MSK         		0xFF
@@ -257,14 +257,16 @@
 
 #define BMA250_OFFSET_TARGET_X					0
 #define BMA250_OFFSET_TARGET_Y					0
-#if defined(CONFIG_MACH_LGE_FX3_TMUS) || defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US) || defined(CONFIG_MACH_LGE_L9II_OPEN_EU) || defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_F6_ORG) || defined(CONFIG_MACH_LGE_F6_OPEN) || defined(CONFIG_MACH_LGE_F6_TMO)
+#if defined(CONFIG_MACH_LGE_FX3_TMUS) || defined(CONFIG_MACH_LGE_F6_TMUS) || defined(CONFIG_MACH_LGE_FX3_WCDMA_TRF_US) \
+	|| defined(CONFIG_MACH_LGE_L9II_COMMON) || defined(CONFIG_MACH_LGE_F6_VDF) || defined(CONFIG_MACH_LGE_F6_ORG) \
+    || defined(CONFIG_MACH_LGE_F6_OPEN) || defined(CONFIG_MACH_LGE_F6_TMO)
 #define BMA250_OFFSET_TARGET_Z					1
 #else
 #define BMA250_OFFSET_TARGET_Z					2
 #endif
 
 #define BMA250_SHAKING_DETECT_THRESHOLD			(20)
-//                                    
+// LGE_CHANGE_E [younglae.kim@lge.com]
 
 static const u8 bma250_valid_range[] = {
 	BMA250_RANGE_2G,
@@ -308,9 +310,9 @@ struct bma250_data {
 
 	atomic_t selftest_result;
 
-//                                                          
+// LGE_CHANGE_S [younglae.kim@lge.com] , add for calibration
 	atomic_t calibration_result;
-//                                    
+// LGE_CHANGE_E [younglae.kim@lge.com]
 };
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -509,7 +511,7 @@ static int bma250_get_bandwidth(struct i2c_client *client, unsigned char *BW)
 	return comres;
 }
 
-//                                                          
+// LGE_CHANGE_S [younglae.kim@lge.com] , add for calibration
 static int bma250_soft_reset(struct i2c_client *client)
 {
 	int comres = 0;
@@ -519,7 +521,7 @@ static int bma250_soft_reset(struct i2c_client *client)
 
 	return comres;
 }
-//                                    
+// LGE_CHANGE_E [younglae.kim@lge.com]
 
 static int bma250_read_accel_xyz(struct i2c_client *client,
 		struct bma250acc *acc)
@@ -933,7 +935,7 @@ static ssize_t bma250_selftest_store(struct device *dev,
 	struct i2c_client *client = to_i2c_client(dev);
 	struct bma250_data *bma250 = i2c_get_clientdata(client);
 
-    //                                               
+    // LGE_CHANGE_S [younglae.kim@lge.com] 2012-11-07
     static bool first = true;
     unsigned char power_mode, range1, range2;
     printk(KERN_INFO "================================================\n");
@@ -946,11 +948,11 @@ static ssize_t bma250_selftest_store(struct device *dev,
             return -EINVAL;
         printk(KERN_INFO "mode change : %d -> %d\n", power_mode, BMA250_MODE_NORMAL);
     }
-    //                                               
+    // LGE_CHANGE_E [younglae.kim@lge.com] 2012-11-07
 
     /*
-                                                                       
-                                                                                 
+     * LGE_ADD [younglae.kim@lge.com] 2012-11-29, workaround for miniOS
+     * selftest is failed at the first time, so perform softreset before selftest
      */
     if (first) {
         if (bma250_soft_reset(bma250->bma250_client) < 0)
@@ -1025,7 +1027,7 @@ static ssize_t bma250_selftest_store(struct device *dev,
 
 	printk(KERN_INFO "self test finished\n");
 
-    //                                               
+    // LGE_CHANGE_S [younglae.kim@lge.com] 2012-11-07
     if (bma250_soft_reset(bma250->bma250_client) < 0)
         return -EINVAL;
 	printk(KERN_INFO "soft reset finished\n");
@@ -1043,7 +1045,7 @@ static ssize_t bma250_selftest_store(struct device *dev,
         printk(KERN_INFO "restore mode to %d\n", power_mode);
     }
     printk(KERN_INFO "================================================\n");
-    //                                               
+    // LGE_CHANGE_E [younglae.kim@lge.com] 2012-11-07
 
 	return count;
 }
@@ -1586,7 +1588,7 @@ static ssize_t bma250_offset_filt_z_store(struct device *dev,
 	return count;
 }
 
-//                                                          
+// LGE_CHANGE_S [younglae.kim@lge.com] , add for calibration
 static ssize_t bma250_softreset_store(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
@@ -1724,7 +1726,7 @@ static DEVICE_ATTR(softreset, S_IWUSR|S_IWGRP,
 
 static DEVICE_ATTR(calibration, S_IRUGO|S_IWUSR|S_IWGRP,
 		bma250_calibration_show, bma250_calibration_store);
-//                                    
+// LGE_CHANGE_E [younglae.kim@lge.com]
 
 
 static DEVICE_ATTR(range, S_IRUGO|S_IWUSR|S_IWGRP,
@@ -1785,10 +1787,10 @@ static struct attribute *bma250_attributes[] = {
 	&dev_attr_offset_filt_x.attr,
 	&dev_attr_offset_filt_y.attr,
 	&dev_attr_offset_filt_z.attr,
-	//                                                          
+	// LGE_CHANGE_S [younglae.kim@lge.com] , add for calibration
 	&dev_attr_softreset.attr,
 	&dev_attr_calibration.attr,
-	//                                    
+	// LGE_CHANGE_E [younglae.kim@lge.com]
 	NULL
 };
 

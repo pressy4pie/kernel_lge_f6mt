@@ -19,17 +19,18 @@
 //#include "mms134_tmus_R01_V10.c"
 //#include "mms134_tmus_R01_V11.c"
 #include "mms134_tmus_R01_V12.c"
+//#include "mms134_tmus_R01_V13.c"
 #endif
 
 #define MFS_HEADER_		5
 #define MFS_DATA_		20480
 
-/*                                                
-                                                                                      
+/* [LGE_CHANGE_S] 20130205 mystery184.kim@lge.com 
+  * mms134s f/w upgrade initialize porting : change DATA_SIZE default 1024 -> 256byte 
   */
 //#define DATA_SIZE 1024
 #define DATA_SIZE 256
-/*                                                                                                  */
+/* [LGE_CHANGE_E]  mms134 f/w upgrade initialize porting : change DATA_SIZE default 1024 -> 256byte */
 #define RET_READING_HEXFILE_FAILED                0x21
 #define RET_FILE_ACCESS_FAILED                    0x22
 #define RET_MELLOC_FAILED                                 0x23
@@ -66,8 +67,8 @@ static int firmware_write(const unsigned char *_pBinary_Data);
 static int firmware_verify(const unsigned char *_pBinary_Data);
 static int mass_erase(void);
 
-/*                                                
-                                                                                
+/* [LGE_CHANGE_S] 20130205 mystery184.kim@lge.com 
+  * mms134s f/w upgrade initialize porting : add i2c function pointer interface 
   */
 int (*ts_i2c_read)(unsigned char *buf, unsigned char reg, int len);
 int (*ts_i2c_write)(unsigned char *buf, unsigned char reg, int len);
@@ -91,7 +92,7 @@ void assign_fp_write_func(int (*touch_i2c_write_func) (unsigned char *buf, unsig
 	ts_i2c_write = touch_i2c_write_func;
 }
 
-/*                                                                                             */
+/* [LGE_CHANGE_E]  mms134 f/w upgrade initialize porting : add i2c function pointer interface  */
 
 
 eMFSRet_t MFS_ISC_update(const char* fw_path)
@@ -237,14 +238,14 @@ int firmware_write(const unsigned char *_pBinary_Data)
 		if (!MFS_I2C_write(fw_write_buffer, MFS_HEADER_ + DATA_SIZE))
 			return MRET_I2C_ERROR;
 		
-		/*                                                
-                                                                  
-    */
+		/* [LGE_CHANGE_S] 20130205 mystery184.kim@lge.com 
+		  * mms134s f/w upgrade initialize porting : modify kbyte count 
+		  */
 		if(k % 4 == 3){ 
 			kbyte++;
 			MFS_debug_msg("%dKB ", kbyte, 0, 0);
 		}
-		/*                                                                             */
+		/* [LGE_CHANGE_E] mms134s f/w upgrade initialize porting : modify kbyte count  */
 
 		MFS_ms_delay(5);
 		k++;
@@ -298,14 +299,14 @@ int firmware_verify(const unsigned char *_pBinary_Data)
 						i);
 			}
 #endif
-		/*                                                
-                                                                 
-    */
+		/* [LGE_CHANGE_S] 20130205 mystery184.kim@lge.com 
+		  * mms134s f/w upgrade initialize porting : modify kbyte count
+		  */
 		if(k % 4 == 3){ 
 			kbyte++;
 			MFS_debug_msg("%dKB ", kbyte, 0, 0);
 		}
-		/*                                                                             */
+		/* [LGE_CHANGE_E] mms134s f/w upgrade initialize porting : modify kbyte count  */
 		k++;
 		start_addr = DATA_SIZE * k / CLENGTH;
 

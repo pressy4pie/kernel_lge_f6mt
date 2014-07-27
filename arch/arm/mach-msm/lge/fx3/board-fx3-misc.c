@@ -32,40 +32,12 @@
 
 #define GPIO_IRRC_PWM               37
 
-/*
-static struct gpiomux_setting irrc_suspend_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting irrc_active_cfg_gpio37 = {
-	.func = GPIOMUX_FUNC_5,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct msm_gpiomux_config gpio37_irrc_configs[] = {
-	{
-		.gpio = GPIO_IRRC_PWM,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &irrc_active_cfg_gpio37,
-			[GPIOMUX_SUSPENDED] = &irrc_suspend_cfg,
-		},
-	},
-};
-*/
-
 static int irrc_init(void)
 {
 	int rc;
 
-	/* GPIO function setting */
-//	msm_gpiomux_install(gpio37_irrc_configs,
-//			ARRAY_SIZE(gpio37_irrc_configs));
-
 	/* gpio init */
-	printk("[suker][IRRC][%s] \n", __func__);
+	printk("[IRRC][%s] \n", __func__);
 	rc = gpio_request(GPIO_IRRC_PWM, "irrc_pwm");
 	gpio_direction_output(GPIO_IRRC_PWM, 1);
 	if (unlikely(rc < 0))
@@ -89,7 +61,7 @@ static struct platform_device android_irrc_device = {
 
 void __init lge_add_misc_devices(void)
 {
-	printk("[suker][IRRC][%s] \n", __func__);
+	printk("[IRRC][%s] \n", __func__);
 
 	platform_device_register(&android_irrc_device);
 }
